@@ -125,6 +125,28 @@
     cursor: grabbing !important;
   }
 
+  /* Emoji souffle, colle au coin bas-droit de l'image (accueil) */
+  .figure-accueil {
+    position: relative;
+  }
+  .bouton-vent {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    font-size: 30px;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transform-origin: center;
+    transition: transform 0.15s ease;
+  }
+
   .zone-interactive-conteneur {
     position: relative;
     display: inline-block;
@@ -337,6 +359,55 @@
     60% { margin: -2px 2px 0 -2px; }
     80% { margin: 3px -2px 0 3px; }
   }
+
+  /* --- Chien pixel art (page Carnaval) --- */
+  #chien-carnaval {
+    position: fixed;
+    right: 0; bottom: 0;
+    width: 460px; height: 150px;
+    z-index: 9400;
+    pointer-events: none;
+    overflow: visible;
+  }
+  #chien-carnaval .chien-marionnette {
+    position: absolute;
+    bottom: 8px;
+    pointer-events: auto;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #chien-carnaval .chien-corps {
+    display: block;
+    width: 96px;
+    height: 60px;
+    image-rendering: pixelated;
+  }
+  #chien-carnaval .chien-corps.gauche { transform: scaleX(-1); }
+  #chien-carnaval .bulle-chien,
+  #chien-carnaval .zzz-chien {
+    position: absolute;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    font-weight: bold;
+    color: #111111;
+    white-space: pre;
+    pointer-events: none;
+    animation: bulle-chien-pop .25s ease;
+  }
+  @keyframes bulle-chien-pop {
+    from { transform: scale(0.6); opacity: 0; }
+  }
+  #chien-carnaval .zzz-chien { animation: zzz-chien-flotte 1.6s ease-out forwards; }
+  @keyframes zzz-chien-flotte {
+    from { transform: translate(0, 0); opacity: 1; }
+    to   { transform: translate(8px, -30px); opacity: 0; }
+  }
+  @media (max-width: 760px) {
+    #chien-carnaval { width: 220px; }
+    #chien-carnaval .chien-corps { width: 72px; height: 45px; }
+  }
   
   @keyframes battement-pixel {
     from { transform: scaleY(1); opacity: 1; }
@@ -395,6 +466,8 @@
     #tapette-charge.clignote { animation: none; }
     #barre-charge.chargee { animation: none; }
     .mouche.boss.secoue { animation: none; }
+    #chien-carnaval .bulle-chien { animation: none; }
+    #chien-carnaval .zzz-chien { animation: none; opacity: 0; }
   }
 </style>
 </head>
@@ -588,6 +661,8 @@
     window.reinitialiserAccueil = null;
     if (typeof reinitialiserPhysique === "function") reinitialiserPhysique();
     arreterJeu();
+    arreterChien();
+    arreterMicroVent();
 
     const dossier = decodeURIComponent(location.hash.slice(1));
 
@@ -668,17 +743,16 @@
   window.addEventListener("resize", redimensionnerCanvasExp);
   redimensionnerCanvasExp();
 
-  function creerPixelPhysique(x, y) {
+  function creerPixelPhysique(x, y, couleur) {
     if (!ctxExp) return;
-    // Explosion uniquement rouge : petite impulsion initiale vers le haut,
-    // puis la gravité les fait retomber vers le bas
+    // Explosion rouge par défaut (jeu), ou couleur imposée (terre du chien)
     particulesExp.push({
       x: x,
       y: y,
       vx: (Math.random() - 0.5) * 2.5,
       vy: -(0.5 + Math.random() * 2.2),
       taille: Math.floor(Math.random() * 3 + 2),
-      couleur: "#ff1744",
+      couleur: couleur || "#ff1744",
       vie: 1.0,
       decroissance: 0.015 + Math.random() * 0.02
     });
@@ -796,6 +870,175 @@
     }
   }
 
+  /* --- VENT AU MICROPHONE (page d'accueil) --- */
+  // Souffler dans le micro declenche un vent qui arrache le monticule
+  // de pixels et le fait s'envoler. Le micro n'est active qu'apres un
+  // clic sur le bouton (permission navigateur), et il se coupe
+  // automatiquement quand on quitte la page d'accueil.
+  let ventActif = false;      // le micro ecoute
+  let ventEnergie = 0;        // force du souffle, de 0 a 1
+  let ventRepetitions = 0;    // analyses consecutives au-dessus du seuil
+  let ventRafale = 0;         // images de rafale restantes (gros souffle brutal)
+  let ventEtiquetteEl = null; // l'emoji souffle (coin de l'image)
+  let ventCompteur = 0;       // horloge d'animation de l'emoji
+  let ventFlux = null;
+  let ventAudio = null;
+  let ventAnalyseur = null;
+  let ventDonnees = null;
+  let ventIntervalle = null;
+  let particulesVent = [];   // Pixels arraches par le souffle, en vol
+
+  // Emojis ecrits en sequences d'echappement Unicode : le fichier reste
+  // entierement ASCII, le navigateur affache lui-meme le bon caractere.
+  const EMOJI_VENT = "\uD83C\uDF2C\uFE0F";  // visage qui souffle du vent
+  const EMOJI_REFUS = "\uD83D\uDEAB";       // micro refuse ou indisponible
+
+  function majBoutonVent(bouton, actif) {
+    if (!bouton) return;
+    bouton.textContent = EMOJI_VENT;
+    bouton.title = actif ? "Souffle pour nettoyer !" : "Nettoyer en soufflant dans le micro";
+  }
+
+  function arreterMicroVent() {
+    if (ventIntervalle) { clearInterval(ventIntervalle); ventIntervalle = null; }
+    if (ventFlux) {
+      ventFlux.getTracks().forEach(function (t) { t.stop(); });
+      ventFlux = null;
+    }
+    if (ventAudio) {
+      try { ventAudio.close(); } catch (e) { /* deja ferme */ }
+      ventAudio = null;
+    }
+    ventAnalyseur = null;
+    ventDonnees = null;
+    ventActif = false;
+    ventEnergie = 0;
+    ventRepetitions = 0;
+    ventRafale = 0;
+    if (ventEtiquetteEl) ventEtiquetteEl.style.transform = "";
+    ventEtiquetteEl = null;
+    ventCompteur = 0;
+    particulesVent = [];
+  }
+
+  function analyserSouffle() {
+    if (!ventActif || !ventAnalyseur || !ventDonnees) return;
+    ventAnalyseur.getByteTimeDomainData(ventDonnees);
+    let somme = 0;
+    for (let i = 0; i < ventDonnees.length; i++) {
+      const v = (ventDonnees[i] - 128) / 128;
+      somme += v * v;
+    }
+    const rms = Math.sqrt(somme / ventDonnees.length);
+    // Seuil bas : meme un petit souffle declenche le vent, sans s'epuiser.
+    if (rms > 0.06) {
+      ventRepetitions++;
+      if (ventRepetitions >= 1) {
+        const ancienne = ventEnergie;
+        // Plancher haut et saturation rapide : un petit souffle suffit
+        // deja a emporter beaucoup de pixels, sans s'epuiser.
+        ventEnergie = Math.min(1, Math.max(0.8, (rms - 0.06) / 0.15));
+        // Gros souffle brutal d'un coup : rafale qui emporte presque tout
+        if (ventEnergie >= 0.7 && ancienne < 0.4) ventRafale = 20;
+      }
+    } else {
+      ventRepetitions = 0;
+      ventEnergie *= 0.86; // decroissance douce quand on arrete de souffler
+    }
+    // L'emoji grossit et fretille avec la force du souffle
+    if (ventEtiquetteEl) {
+      ventEtiquetteEl.style.transform = "scale(" + (1 + ventEnergie * 0.5 + Math.sin(ventCompteur * 0.15) * 0.06) + ") rotate(" + (Math.sin(ventCompteur * 0.3) * ventEnergie * 14) + "deg)";
+      ventCompteur++;
+    }
+    // Le vent fait tourner la boucle d'animation si besoin
+    if (tasActif && ventEnergie > 0.2 && !animExpId) animerExp();
+  }
+
+  function demarrerMicroVent(bouton) {
+    if (ventActif) {
+      arreterMicroVent();
+      majBoutonVent(bouton, false);
+      return;
+    }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !Ctx) {
+      bouton.textContent = EMOJI_REFUS;
+      return;
+    }
+    // iOS/Safari : l'AudioContext doit etre cree pendant le clic
+    ventAudio = new Ctx();
+    ventAudio.resume();
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flux) {
+      ventFlux = flux;
+      if (ventAudio && ventAudio.state === "suspended") ventAudio.resume();
+      const source = ventAudio.createMediaStreamSource(flux);
+      ventAnalyseur = ventAudio.createAnalyser();
+      ventAnalyseur.fftSize = 512;
+      source.connect(ventAnalyseur);
+      // Octets (0-255) : marche sur tous les navigateurs, y compris
+      // les anciens Safari qui n'ont pas getFloatTimeDomainData
+      ventDonnees = new Uint8Array(ventAnalyseur.fftSize);
+      ventActif = true;
+      ventRepetitions = 0;
+      ventEnergie = 0;
+      ventEtiquetteEl = bouton;
+      majBoutonVent(bouton, true);
+      ventIntervalle = setInterval(analyserSouffle, 50);
+    }).catch(function () {
+      bouton.textContent = EMOJI_REFUS;
+      if (ventAudio) {
+        try { ventAudio.close(); } catch (e) { /* deja ferme */ }
+        ventAudio = null;
+      }
+    });
+  }
+
+  function arracherPixelTas(bin) {
+    // Retire le pixel du haut d'une tranche du monticule et renvoie
+    // sa couleur, lue sur le canvas du tas juste avant l'effacement.
+    const solLocal = tasCanvas.height - TAS_SOL;
+    const y = Math.round(solLocal - tasHauteurs[bin]);
+    let couleur = "#111111";
+    try {
+      const px = tasCtx.getImageData(bin * TAS_BIN, y, TAS_BIN, TAS_TAILLE);
+      if (px.data[3] > 0) {
+        couleur = "#" + ((1 << 24) + (px.data[0] << 16) + (px.data[1] << 8) + px.data[2]).toString(16).slice(1);
+      }
+    } catch (e) { /* canvas illisible : pixel noir par defaut */ }
+    tasCtx.clearRect(bin * TAS_BIN, y, TAS_BIN, TAS_TAILLE);
+    tasHauteurs[bin] -= TAS_TAILLE;
+    return couleur;
+  }
+
+  function soufflerSurTas(force) {
+    if (!tasActif || !tasCtx || force < 0.2) return;
+    // Petit souffle = beaucoup de pixels partent deja (inutile de
+    // s'epuiser) ; gros souffle d'un coup = quasi tout le tas s'envole
+    const arrachements = Math.round(10 + force * 90 + Math.random() * 6);
+    let arraches = 0;
+    for (let k = 0; k < arrachements * 3 && arraches < arrachements; k++) {
+      const bin = Math.floor(Math.random() * tasHauteurs.length);
+      if (tasHauteurs[bin] < TAS_TAILLE) continue;
+      const solLocal = tasCanvas.height - TAS_SOL;
+      const couleur = arracherPixelTas(bin);
+      particulesVent.push({
+        x: bin * TAS_BIN + TAS_BIN / 2,
+        y: solLocal - tasHauteurs[bin] - TAS_TAILLE,
+        vx: 3 + Math.random() * 7,   // le vent les chasse vite vers la droite
+        vy: -(1 + Math.random() * 3),
+        vie: 1,
+        decroissance: 0.012 + Math.random() * 0.02,
+        couleur: couleur
+      });
+      arraches++;
+    }
+    // Le vent pousse aussi les pixels encore en chute libre
+    for (let i = 0; i < particulesTas.length; i++) {
+      particulesTas[i].vx += 0.3 + force * 0.9;
+      particulesTas[i].vy -= force * 0.35;
+    }
+  }
+
   function animerExp() {
     if (!ctxExp) return;
     ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
@@ -846,7 +1089,33 @@
     }
     ctxExp.globalAlpha = 1.0;
 
-    if (particulesExp.length > 0 || particulesOnde.length > 0 || particulesTas.length > 0 || tasActif) {
+    // 4. Vent : le souffle arrache le monticule et emporte les pixels
+    let forceVent = ventEnergie;
+    if (ventRafale > 0) { forceVent = Math.min(1, forceVent + 0.4); ventRafale--; }
+    if (forceVent > 0.2 && tasActif) soufflerSurTas(forceVent);
+    if (particulesVent.length > 0 && tasElement) {
+      const rectV = tasElement.getBoundingClientRect();
+      for (let i = particulesVent.length - 1; i >= 0; i--) {
+        const pv = particulesVent[i];
+        pv.x += pv.vx;
+        pv.y += pv.vy;
+        // Tant que le souffle dure, le vent sustente les pixels ;
+        // quand il retombe, la gravite les ramene doucement
+        pv.vy += 0.12 - forceVent * 0.22;
+        pv.vx += forceVent * 0.06;
+        pv.vie -= pv.decroissance;
+        if (pv.vie <= 0 || pv.x > tasCanvas.width + tasDebord + 60 || pv.y > tasCanvas.height + 60) {
+          particulesVent.splice(i, 1);
+          continue;
+        }
+        ctxExp.fillStyle = pv.couleur;
+        ctxExp.globalAlpha = Math.max(0, pv.vie);
+        ctxExp.fillRect(Math.round(rectV.left - tasDebord + pv.x - TAS_TAILLE / 2), Math.round(rectV.top + pv.y), TAS_TAILLE, TAS_TAILLE);
+      }
+      ctxExp.globalAlpha = 1.0;
+    }
+
+    if (particulesExp.length > 0 || particulesOnde.length > 0 || particulesTas.length > 0 || particulesVent.length > 0 || tasActif) {
       animExpId = requestAnimationFrame(animerExp);
     } else {
       animExpId = null;
@@ -857,6 +1126,7 @@
     particulesExp = [];
     particulesOnde = [];
     particulesTas = [];
+    particulesVent = [];
     tasCanvas = null;
     tasCtx = null;
     tasHauteurs = [];
@@ -874,6 +1144,7 @@
     if (!SITE.accueil) return;
 
     const fig = document.createElement("figure");
+    fig.className = "figure-accueil";
     const canvas = document.createElement("canvas");
     canvas.id = "canvas-accueil";
     fig.appendChild(canvas);
@@ -1059,6 +1330,20 @@
 
     canvas.addEventListener("pointerup", stopperGomme);
     canvas.addEventListener("pointercancel", stopperGomme);
+
+    // Emoji qui souffle, pose tout en bas a droite de l'image, sans
+    // encart. Le micro n'est active qu'apres ce clic (permission
+    // navigateur), jamais automatiquement.
+    const boutonVent = document.createElement("button");
+    boutonVent.type = "button";
+    boutonVent.className = "bouton-vent";
+    boutonVent.textContent = EMOJI_VENT;
+    boutonVent.title = "Nettoyer en soufflant dans le micro";
+    boutonVent.setAttribute("aria-label", "Nettoyer en soufflant dans le micro");
+    boutonVent.addEventListener("click", function () {
+      demarrerMicroVent(boutonVent);
+    });
+    fig.appendChild(boutonVent);
   }
 
   /* --- SÃRIES CLASSIQUES --- */
@@ -1178,6 +1463,10 @@
   /* --- SÃRIE CARNAVAL --- */
   function dessinerCarnaval(serie) {
     document.title = serie.titre + " - " + SITE.nom;
+
+    // Le chien pixel art vit uniquement sur cette page
+    creerChien();
+
     if (serie.texte) {
       const p = document.createElement("p");
       p.className = "texte";
@@ -2447,6 +2736,560 @@
         }
       }
     }
+  }
+
+  /* --- CHIEN PIXEL ART (page Carnaval) --- */
+  // Un petit chien noir et blanc qui vit dans le coin inférieur droit.
+  // Il ne fait rien la plupart du temps ; de temps en temps il choisit
+  // au hasard une action typique de chien : aller-retour, flairer,
+  // creuser un trou, sauter, aboyer, se gratter, se coucher... et dormir.
+  // Cliquer sur lui pendant son sommeil le réveille.
+  // Chaque frame est une grille de caracteres 32 x 20 : un caractere =
+  // un pixel, grossi 3 fois sur un canvas. Il regarde vers la DROITE ;
+  // le canvas est retourné par miroir quand il part vers la gauche.
+  //   . = transparent   k = noir (silhouette, oeil)
+  //   w = blanc (oeil, collier)   g = gris (pattes arrieres)
+  const CHIEN_COULEURS = {
+    k: "#1a1a1a",
+    w: "#ffffff",
+    g: "#8a8a8a"
+  };
+  const CHIEN_PIXELS = {
+    debout: [
+      "................................",
+      "....................kkk.........",
+      "...................kkkkkkkkkk...",
+      ".kk................kkkkkkkkk....",
+      "kkk................kkkkkkkkkk...",
+      "kkk................kkkkkkkwkk...",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "...kkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkwwkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      ".....kkkkkkkkkkkkkkkkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      ".....kkkk.ggg..ggg.kkkk.........",
+      ".....kkkk...........kkkk........",
+      "................................"
+    ],
+    debout2: [
+      "................................",
+      "....................kkk.........",
+      "...................kkkkkkkkkk...",
+      "..kk...............kkkkkkkkk....",
+      ".kkk...............kkkkkkkkkk...",
+      ".kkk...............kkkkkkkwkk...",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "...kkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkwwkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      ".....kkkkkkkkkkkkkkkkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      ".....kkkk.ggg..ggg.kkkk.........",
+      ".....kkkk...........kkkk........",
+      "................................"
+    ],
+    marcheA: [
+      "................................",
+      "....................kkk.........",
+      "...................kkkkkkkkkk...",
+      ".kk................kkkkkkkkk....",
+      "kkk................kkkkkkkkkk...",
+      "kkk................kkkkkkkwkk...",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "...kkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkwwkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      ".....kkkkkkkkkkkkkkkkk..........",
+      ".....kkk..ggg..ggg..kkk.........",
+      ".....kkk..ggg..ggg..kkk.........",
+      ".....kkk..ggg..ggg..kkk.........",
+      ".....kkk..ggg..ggg..kkk.........",
+      ".....kkk..ggg..ggg..kkk.........",
+      "....kkkkk.ggg..ggg.kkkkk........",
+      "....kkkkk..........kkkkk........",
+      "................................"
+    ],
+    marcheB: [
+      "................................",
+      "....................kkk.........",
+      "...................kkkkkkkkkk...",
+      ".kk................kkkkkkkkk....",
+      "kkk................kkkkkkkkkk...",
+      "kkk................kkkkkkkwkk...",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "...kkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkwwkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      ".....kkkkkkkkkkkkkkkkk..........",
+      ".......kkkggg..gggkkk...........",
+      ".......kkkggg..gggkkk...........",
+      ".......kkkggg..gggkkk...........",
+      ".......kkkggg..gggkkk...........",
+      ".......kkkggg..gggkkk...........",
+      "......kkkkk......kkkkk..........",
+      "......kkkkk......kkkkk..........",
+      "................................"
+    ],
+    couche: [
+      "................................",
+      "................................",
+      "................................",
+      "................................",
+      "....................kkkkkkkkk...",
+      "...................kkkkkkkkkk...",
+      "...................kkkkkkkwkk...",
+      "...................kkkkkkkkkkkkk",
+      "...................kkkkkkkkkkkkk",
+      "...................kkkkkkkkkkk..",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      ".kkkkkkkkkkkkkkkkkkkkkkkkkkk....",
+      "...kkkk...............kkkk......",
+      "................................",
+      "................................",
+      "................................",
+      "................................",
+      "................................",
+      "................................"
+    ],
+    dort: [
+      "................................",
+      "................................",
+      "................................",
+      "................................",
+      "....................kkkkkkkkk...",
+      "...................kkkkkkkkkk...",
+      "...................kkkkkkkkkk...",
+      "...................kkkkkkkkkkkkk",
+      "...................kkkkkkkkkkkkk",
+      "...................kkkkkkkkkkk..",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      ".kkkkkkkkkkkkkkkkkkkkkkkkkkk....",
+      "...kkkk...............kkkk......",
+      "................................",
+      "................................",
+      "................................",
+      "................................",
+      "................................",
+      "................................"
+    ],
+    saute: [
+      "................................",
+      "..................kkk...........",
+      "...................kkkkkkkkkk...",
+      ".kk................kkkkkkkkk....",
+      "kkk................kkkkkkkkkk...",
+      "kkk................kkkkkkkwkk...",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "...kkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkwwkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      ".....kkkkkkkkkkkkkkkkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "................................",
+      "................................",
+      "................................",
+      "................................",
+      "................................",
+      "................................"
+    ],
+    creuse: [
+      "................................",
+      "................................",
+      "................................",
+      ".kk.............................",
+      "kkk.............................",
+      "kkk.............................",
+      "....kkkkkkkkkkkkkkkk............",
+      "...kkkkkkkkkkkkkkkkk............",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkwkk...",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "......kkk.ggg..ggg..kkk.........",
+      "......kkk.ggg..ggg..kkk.........",
+      "......kkk.ggg..ggg..kkk.........",
+      "......kkk.ggg..ggg..kkk.........",
+      "......kkkkggg..ggg..kkkkk.......",
+      "......kkkkk........kkkkk........",
+      "......kkkkk........kkkkk........",
+      "................................"
+    ],
+    flaire: [
+      "................................",
+      "................................",
+      "................................",
+      ".kk.............................",
+      "kkk.............................",
+      "kkk.............................",
+      "....kkkkkkkkkkkkkkkk............",
+      "...kkkkkkkkkkkkkkkkk............",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkwkk...",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      ".....kkkk.ggg..ggg.kkkk.........",
+      ".....kkkk...........kkkk........",
+      "................................"
+    ],
+    gratte: [
+      "................................",
+      "....................kkk.........",
+      "...................kkkkkkkkkk...",
+      ".kk................kkkkkkkkk....",
+      "kkk................kkkkkkkkkk...",
+      "kkk................kkkkkkkwkk...",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "...kkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkwwkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      ".....kkkkkkkkkkkkkkkkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "....kkk...ggg..ggg.kkk..........",
+      "...kkk....ggg..ggg.kkk..........",
+      "..kkk.....ggg..ggg.kkk..........",
+      ".kkk......ggg..ggg.kkk..........",
+      ".kkkk..............kkkk.........",
+      ".kkkk..............kkkk.........",
+      "................................"
+    ],
+    aboie: [
+      "................................",
+      "....................kkkkk.......",
+      "...................kkkkkkkkkk...",
+      ".kk................kkkkkkkkkkkkk",
+      "kkk................kkkkkkkkkkkkk",
+      "kkk................kkkkkkkwkk...",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkk.kk",
+      "...kkkkkkkkkkkkkkkkkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkwwkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      ".....kkkkkkkkkkkkkkkkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      ".....kkkk.ggg..ggg.kkkk.........",
+      ".....kkkk...........kkkk........",
+      "................................"
+    ],
+    reveille: [
+      ".....................kk.........",
+      "...................kk.kk........",
+      "...................kkkkkkkkkk...",
+      ".kk................kkkkkkkkk....",
+      "kkk................kkkkkkkkkk...",
+      "kkk................kkkkkwkwkk...",
+      "....kkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "...kkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
+      "..kkkkkkkkkkkkkkkwwkkkkkkkkk....",
+      "..kkkkkkkkkkkkkkkkkkkk..........",
+      ".....kkkkkkkkkkkkkkkkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      "......kkk.ggg..ggg.kkk..........",
+      ".....kkkk.ggg..ggg.kkkk.........",
+      ".....kkkk...........kkkk........",
+      "................................"
+    ]
+  };
+  const CHIEN_LARG = 32;   // pixels par ligne
+  const CHIEN_HAUT = 20;   // lignes
+  const CHIEN_ECHELLE = 3; // chaque pixel de grille = 3 px (rendu fin)
+  const CHIEN_ZONE = 460;  // largeur de son territoire : il sort bien du coin
+  let chienEl = null;
+  let chienMarionnetteEl = null;
+  let chienCorpsEl = null;
+  let chienCtx = null;
+  let chienId = null;
+  let chienEtat = "idle";
+  let chienSousTimer = 0;
+  let chienDelai = 0;
+  let chienX = 60;
+  let chienCible = 60;
+  let chienDirection = 1;
+  let chienCompteur = 0;
+  let chienYOffset = 0;
+  let chienDerniereFrame = "";
+
+  function dessinerFrameChien(nom) {
+    if (!chienCtx || nom === chienDerniereFrame) return;
+    chienDerniereFrame = nom;
+    const grille = CHIEN_PIXELS[nom];
+    chienCtx.clearRect(0, 0, CHIEN_LARG * CHIEN_ECHELLE, CHIEN_HAUT * CHIEN_ECHELLE);
+    for (let y = 0; y < grille.length; y++) {
+      const ligne = grille[y];
+      for (let x = 0; x < ligne.length; x++) {
+        const couleur = CHIEN_COULEURS[ligne.charAt(x)];
+        if (couleur) {
+          chienCtx.fillStyle = couleur;
+          chienCtx.fillRect(x * CHIEN_ECHELLE, y * CHIEN_ECHELLE, CHIEN_ECHELLE, CHIEN_ECHELLE);
+        }
+      }
+    }
+  }
+
+  function majChien() {
+    if (!chienMarionnetteEl) return;
+    chienMarionnetteEl.style.left = chienX + "px";
+    chienMarionnetteEl.style.bottom = (8 + chienYOffset) + "px";
+    // Le chien regarde vers la droite par défaut :
+    // miroir UNIQUEMENT quand il part vers la gauche
+    chienCorpsEl.classList.toggle("gauche", chienDirection < 0);
+  }
+
+  function afficherBulleChien(texte) {
+    if (!chienMarionnetteEl) return;
+    const bulle = document.createElement("div");
+    bulle.className = "bulle-chien";
+    bulle.textContent = texte;
+    bulle.style.left = (chienDirection > 0 ? 55 : 5) + "px";
+    bulle.style.bottom = "64px";
+    chienMarionnetteEl.appendChild(bulle);
+    setTimeout(function () { bulle.remove(); }, 900);
+  }
+
+  function creerZzzChien() {
+    if (!chienMarionnetteEl) return;
+    const z = document.createElement("div");
+    z.className = "zzz-chien";
+    z.textContent = "z";
+    z.style.left = (60 + Math.floor(Math.random() * 20)) + "px";
+    z.style.bottom = (45 + Math.floor(Math.random() * 15)) + "px";
+    chienMarionnetteEl.appendChild(z);
+    setTimeout(function () { z.remove(); }, 1700);
+  }
+
+  function positionPageChien() {
+    // Position du museau dans la page, pour faire voler la terre
+    if (!chienMarionnetteEl) return null;
+    const r = chienMarionnetteEl.getBoundingClientRect();
+    return {
+      x: r.left + (chienDirection < 0 ? r.width * 0.1 : r.width * 0.9),
+      y: r.top + r.height * 0.55
+    };
+  }
+
+  function chienReposAleatoire() {
+    chienEtat = "idle";
+    chienDelai = 180 + Math.floor(Math.random() * 240); // 3 à 7 s sans rien faire
+  }
+
+  function choisirActionChien() {
+    const r = Math.random();
+    if (r < 0.34) {
+      // Aller-retour : il trotte vers un autre point du territoire
+      chienCible = 10 + Math.random() * (CHIEN_ZONE - 140);
+      if (Math.abs(chienCible - chienX) < 50) {
+        chienCible = (chienX > CHIEN_ZONE / 2) ? 10 : CHIEN_ZONE - 130;
+      }
+      chienDirection = (chienCible > chienX) ? 1 : -1;
+      chienEtat = "marche";
+    } else if (r < 0.49) {
+      chienEtat = "flaire";
+      chienSousTimer = 110;
+      afficherBulleChien("snif snif");
+    } else if (r < 0.62) {
+      chienEtat = "creuse";
+      chienSousTimer = 150;
+      afficherBulleChien("creuse...");
+    } else if (r < 0.74) {
+      chienEtat = "saute";
+      chienSousTimer = 40;
+      afficherBulleChien("hop !");
+    } else if (r < 0.85) {
+      chienEtat = "aboie";
+      chienSousTimer = 55;
+      afficherBulleChien("wouf !");
+    } else if (r < 0.94) {
+      chienEtat = "gratte";
+      chienSousTimer = 120;
+      afficherBulleChien("grat grat");
+    } else {
+      // Il se couche, puis s'endort une fois sur deux
+      chienEtat = "couche";
+      chienSousTimer = 110;
+    }
+  }
+
+  function boucleChien() {
+    chienId = requestAnimationFrame(boucleChien);
+    if (!chienEl) return;
+    chienCompteur++;
+
+    if (chienEtat === "idle") {
+      chienDelai--;
+      // À l'arrêt, il remue doucement la queue : on comprend que ça vit
+      dessinerFrameChien(chienCompteur % 30 < 15 ? "debout" : "debout2");
+      if (chienDelai <= 0) choisirActionChien();
+
+    } else if (chienEtat === "marche") {
+      // Trot : alternance de deux allures + petit rebond de marche
+      if (chienCompteur % 16 < 8) dessinerFrameChien("marcheA");
+      else dessinerFrameChien("marcheB");
+      chienYOffset = Math.sin(chienCompteur * 0.25) * 1.5;
+      const pas = 1.7;
+      if (chienCible > chienX) chienX = Math.min(chienCible, chienX + pas);
+      else chienX = Math.max(chienCible, chienX - pas);
+      if (Math.abs(chienCible - chienX) < 1) {
+        chienYOffset = 0;
+        dessinerFrameChien("debout");
+        // 40% : il repart aussitôt vers un nouveau point (vrai aller-retour)
+        if (Math.random() < 0.4) {
+          chienCible = 10 + Math.random() * (CHIEN_ZONE - 140);
+          if (Math.abs(chienCible - chienX) < 60) {
+            chienCible = (chienX > CHIEN_ZONE / 2) ? 10 : CHIEN_ZONE - 130;
+          }
+          chienDirection = (chienCible > chienX) ? 1 : -1;
+        } else {
+          chienReposAleatoire();
+        }
+      }
+
+    } else if (chienEtat === "flaire" || chienEtat === "gratte" ||
+               chienEtat === "aboie" || chienEtat === "reveille") {
+      dessinerFrameChien(chienEtat);
+      chienSousTimer--;
+      if (chienSousTimer <= 0) {
+        dessinerFrameChien("debout");
+        chienReposAleatoire();
+      }
+
+    } else if (chienEtat === "couche") {
+      dessinerFrameChien("couche");
+      chienSousTimer--;
+      if (chienSousTimer <= 0) {
+        if (Math.random() < 0.5) {
+          chienEtat = "dort";
+          chienSousTimer = 500 + Math.floor(Math.random() * 500);
+        } else {
+          dessinerFrameChien("debout");
+          chienReposAleatoire();
+        }
+      }
+
+    } else if (chienEtat === "dort") {
+      dessinerFrameChien("dort");
+      if (chienCompteur % 90 === 0) creerZzzChien();
+      chienSousTimer--;
+      if (chienSousTimer <= 0) {
+        dessinerFrameChien("reveille");
+        chienEtat = "reveille";
+        chienSousTimer = 40;
+        afficherBulleChien("?");
+      }
+
+    } else if (chienEtat === "saute") {
+      dessinerFrameChien("saute");
+      // Arc de saut : monte puis redescend
+      const progression = 1 - chienSousTimer / 40;
+      chienYOffset = Math.sin(progression * Math.PI) * 30;
+      chienSousTimer--;
+      if (chienSousTimer <= 0) {
+        chienYOffset = 0;
+        dessinerFrameChien("debout");
+        chienReposAleatoire();
+      }
+
+    } else if (chienEtat === "creuse") {
+      dessinerFrameChien("creuse");
+      // La terre vole : petits pixels marron éjectés depuis le museau
+      if (chienCompteur % 9 === 0) {
+        const museau = positionPageChien();
+        if (museau) {
+          creerPixelPhysique(museau.x, museau.y, "#a0714f");
+          creerPixelPhysique(museau.x, museau.y, "#7a4f2e");
+        }
+      }
+      chienSousTimer--;
+      if (chienSousTimer <= 0) {
+        dessinerFrameChien("debout");
+        chienReposAleatoire();
+      }
+    }
+
+    majChien();
+  }
+
+  function creerChien() {
+    arreterChien();
+
+    chienEl = document.createElement("div");
+    chienEl.id = "chien-carnaval";
+
+    chienMarionnetteEl = document.createElement("div");
+    chienMarionnetteEl.className = "chien-marionnette";
+
+    chienCorpsEl = document.createElement("canvas");
+    chienCorpsEl.className = "chien-corps";
+    chienCorpsEl.width = CHIEN_LARG * CHIEN_ECHELLE;
+    chienCorpsEl.height = CHIEN_HAUT * CHIEN_ECHELLE;
+    chienCtx = chienCorpsEl.getContext("2d");
+    chienMarionnetteEl.appendChild(chienCorpsEl);
+    chienEl.appendChild(chienMarionnetteEl);
+    document.body.appendChild(chienEl);
+
+    chienEtat = "idle";
+    chienX = 30 + Math.random() * (CHIEN_ZONE - 170);
+    chienYOffset = 0;
+    chienDirection = 1;
+    chienDerniereFrame = "";
+    dessinerFrameChien("debout");
+    chienReposAleatoire();
+    majChien();
+
+    // Cliquer sur le chien : s'il dort, il se réveille ; sinon il aboie
+    chienCorpsEl.addEventListener("pointerdown", function () {
+      if (chienEtat === "dort") {
+        dessinerFrameChien("reveille");
+        chienEtat = "reveille";
+        chienSousTimer = 45;
+        afficherBulleChien(" !");
+      } else if (chienEtat !== "saute" && chienEtat !== "creuse" &&
+                 chienEtat !== "reveille") {
+        dessinerFrameChien("aboie");
+        chienEtat = "aboie";
+        chienSousTimer = 50;
+        afficherBulleChien("wouf !");
+      }
+    });
+
+    chienId = requestAnimationFrame(boucleChien);
+  }
+
+  function arreterChien() {
+    if (chienId) { cancelAnimationFrame(chienId); chienId = null; }
+    if (chienEl) { chienEl.remove(); chienEl = null; }
+    chienMarionnetteEl = null;
+    chienCorpsEl = null;
+    chienCtx = null;
   }
 
   // Lancement initial
