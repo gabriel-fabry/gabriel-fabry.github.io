@@ -34,6 +34,14 @@
   }
   a:focus-visible, button:focus-visible { outline: 2px solid var(--texte); outline-offset: 3px; }
 
+  .sr-seul {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
   /* Colonne de gauche */
   aside {
     position: fixed;
@@ -137,11 +145,11 @@
   }
   .zone-clic.gauche { 
     left: 0; 
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text x='16' y='24' font-size='28' font-family='Helvetica, Arial, sans-serif' font-weight='bold' fill='%23ff1744' text-anchor='middle'>‹</text></svg>") 16 16, pointer;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text x='16' y='24' font-size='28' font-family='Helvetica, Arial, sans-serif' font-weight='bold' fill='%23ff1744' text-anchor='middle'>â¹</text></svg>") 16 16, pointer;
   }
   .zone-clic.droite { 
     right: 0; 
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text x='16' y='24' font-size='28' font-family='Helvetica, Arial, sans-serif' font-weight='bold' fill='%2300e676' text-anchor='middle'>›</text></svg>") 16 16, pointer;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text x='16' y='24' font-size='28' font-family='Helvetica, Arial, sans-serif' font-weight='bold' fill='%2300e676' text-anchor='middle'>âº</text></svg>") 16 16, pointer;
   }
 
   .vitrine { position: relative; display: block; max-width: 100%; }
@@ -193,16 +201,140 @@
     z-index: 999;
   }
 
-  /* Style pour le jeu de la mouche */
-  #mouche-jeu {
+  /* --- Jeu de la mouche (page Contact) --- */
+  #jeu-mouches {
     position: fixed;
-    width: 24px;
-    height: 24px;
-    z-index: 10000;
-    cursor: pointer;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 9000;
+  }
+  .mouche {
+    position: absolute;
+    top: 0; left: 0;
+    width: 7px; height: 7px;
+    opacity: 0;
+    transition: opacity .2s ease;
+    will-change: transform;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .mouche.visible { opacity: 1; }
+  .mouche svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+  .mouche .ailes {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: battement-pixel .04s steps(2, jump-none) infinite alternate;
+  }
+  .mouche.pose .ailes,
+  .mouche.touchee .ailes,
+  .mouche.morte .ailes { animation: none; }
+
+  /* Fin de partie : le boss et le mot "congratulations !" */
+  .mouche.boss {
+    width: 42px; height: 42px; /* Le boss : 6 fois la taille d'une mouche */
+  }
+  .mouche.boss.phase2 .corps { fill: #8a0f1f; } /* Phase 2 : le corps devient rouge sombre */
+  .mouche.touche {
+    animation: boss-hit .18s linear;
+  }
+  @keyframes boss-hit {
+    50% { filter: brightness(4); }
+  }
+  .mot-fin {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity .8s ease;
     user-select: none;
-    touch-action: none;
-    transition: transform 0.1s linear;
+    -webkit-user-select: none;
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 9500;
+  }
+  .mot-fin.visible { opacity: 1; }
+  .mot-fin canvas { display: block; image-rendering: pixelated; }
+
+  /* HUD : compteur de mouches mortes + timer, en haut à droite, en typo pixel art */
+  #hud-jeu {
+    position: fixed;
+    top: 20px; right: 32px;
+    z-index: 9100;
+    text-align: right;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #hud-compteur,
+  #hud-timer { display: flex; justify-content: flex-end; }
+  #hud-compteur canvas,
+  #hud-timer canvas { display: block; image-rendering: pixelated; }
+
+  /* Barre de vie du boss, en bas de l'écran */
+  #barre-vie-boss {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    text-align: center;
+    z-index: 9100;
+    pointer-events: none;
+  }
+  #nom-boss { margin-bottom: 8px; }
+  #nom-boss canvas { display: inline-block; }
+  #barre-vie-piste { height: 7px; width: 50%; margin: 0 auto; background: rgba(17, 17, 17, 0.08); }
+  #barre-vie-remplie {
+    height: 100%;
+    width: 100%;
+    background: var(--rouge);
+    transition: width .12s steps(2, jump-none);
+  }
+
+  /* Barre de coup chargé (sous la tapette), pixel art */
+  #barre-charge {
+    position: fixed;
+    width: 44px; height: 8px;
+    border: 2px solid #111111;
+    background: #ffffff;
+    z-index: 9600;
+    pointer-events: none;
+  }
+  #barre-charge-remplie {
+    height: 100%;
+    width: 0%;
+    background: var(--rouge);
+  }
+  
+  @keyframes battement-pixel {
+    from { transform: scaleY(1); opacity: 1; }
+    to   { transform: scaleY(0.4); opacity: 0.6; }
+  }
+
+  /* Screen Shake (Secousse d'impact) */
+  body.screen-shake {
+    animation: shake-anim 0.25s cubic-bezier(.36,.07,.19,.97) both;
+  }
+  @keyframes shake-anim {
+    10%, 90% { transform: translate3d(-3px, 2px, 0); }
+    20%, 80% { transform: translate3d(5px, -4px, 0); }
+    30%, 50%, 70% { transform: translate3d(-6px, 5px, 0); }
+    40%, 60% { transform: translate3d(6px, -3px, 0); }
+  }
+
+  /* Screen Shake renforcé (coup chargé) */
+  body.screen-shake-fort {
+    animation: shake-fort-anim 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  }
+  @keyframes shake-fort-anim {
+    10%, 90% { transform: translate3d(-6px, 4px, 0); }
+    20%, 80% { transform: translate3d(10px, -8px, 0); }
+    30%, 50%, 70% { transform: translate3d(-12px, 10px, 0); }
+    40%, 60% { transform: translate3d(12px, -6px, 0); }
+  }
+
+  /* Le curseur devient une tapette (plus grande, inclinÃ©e) dans la zone de vol */
+  html.zone-tapette,
+  html.zone-tapette * {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g transform='rotate(-28 20 20)'><rect x='14' y='3' width='12' height='13' fill='%23808080' stroke='%23000000' stroke-width='1.5' stroke-dasharray='2.5,2.5'/><rect x='18' y='17' width='4' height='21' fill='%23000000'/><rect x='13' y='1' width='14' height='2' fill='%23000000'/><rect x='13' y='16' width='14' height='2' fill='%23000000'/></g></svg>") 15 11, crosshair !important;
   }
 
   @media (max-width: 760px) {
@@ -218,14 +350,22 @@
     .pao-cadre { width: 100%; }
     .pao-cadre img { max-height: none; }
   }
-  @media (prefers-reduced-motion: reduce) { nav a, nav button, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    nav a, nav button, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; }
+    .mouche .ailes { animation: none; }
+    .mouche.touche { animation: none; }
+    .mot-fin { transition: none; }
+    #barre-vie-remplie { transition: none; }
+    body.screen-shake { animation: none; }
+    body.screen-shake-fort { animation: none; }
+  }
 </style>
 </head>
 <body>
 
 <aside>
   <a class="nom" href="#" id="nom"></a>
-  <nav id="menu" aria-label="Séries"></nav>
+  <nav id="menu" aria-label="SÃ©ries"></nav>
 </aside>
 
 <main id="contenu" tabindex="-1"></main>
@@ -353,12 +493,10 @@
   ulContact.append(liMail, liInsta);
 
   btnContact.addEventListener("click", function () {
-    const ouvrir = ulContact.hidden;
-    basculer(btnContact, ulContact);
-    if (ouvrir) {
-      demarrerMouche();
+    if (location.hash === "#contact") {
+      basculer(btnContact, ulContact);
     } else {
-      arreterMouche();
+      location.hash = "contact";
     }
   });
 
@@ -400,8 +538,26 @@
   function afficher() {
     window.reinitialiserAccueil = null;
     if (typeof reinitialiserPhysique === "function") reinitialiserPhysique();
+    arreterJeu();
 
     const dossier = decodeURIComponent(location.hash.slice(1));
+
+    if (dossier === "contact") {
+      Object.values(liens).forEach(function (a) { a.removeAttribute("aria-current"); });
+      groupes.forEach(function (g) { basculer(g.bouton, g.liste, false); });
+      basculer(btnContact, ulContact, true);
+      contenu.replaceChildren();
+      const lecteur = document.createElement("p");
+      lecteur.className = "sr-seul";
+      lecteur.textContent = "Contact : " + SITE.email + ", Instagram @" + SITE.instagram + ".";
+      contenu.appendChild(lecteur);
+      document.title = "Contact â " + SITE.nom;
+      demarrerJeu();
+      window.scrollTo(0, 0);
+      return;
+    }
+    basculer(btnContact, ulContact, false);
+
     const serie = trouver(dossier);
 
     if (!serie) {
@@ -433,7 +589,234 @@
   }
 
   window.addEventListener("hashchange", afficher);
-  window.addEventListener("DOMContentLoaded", afficher);
+
+  /* --- MOTEUR DE PARTICULES (GRATTAGE & TAPETTE) --- */
+  const canvasExp = document.getElementById("canvas-explosion");
+  const ctxExp = canvasExp ? canvasExp.getContext("2d") : null;
+  let particulesExp = []; // Pixels éphémères (impact tapette)
+  let particulesOnde = []; // Onde de pixels noirs qui se propage depuis l'impact
+  let animExpId = null;
+
+  /* Monticule de pixels de grattage (page d'accueil) */
+  const TAS_TAILLE = 3; // Taille d'un pixel du tas (px)
+  const TAS_BIN = 3;    // Largeur d'une tranche = taille du pixel : dépôts pleins, tas dense
+  const TAS_SOL = 2;    // Épaisseur du sol imaginaire au bas de l'image
+  let tasCanvas = null;   // Canvas offscreen où le monticule est dessiné de façon permanente
+  let tasCtx = null;
+  let tasElement = null;  // L'image d'accueil : ancre du monticule (suit le scroll de la page)
+  let tasDebord = 0;        // Largeur de débord de chaque côté de l'image (px)
+  let tasLargeurImage = 0;  // Largeur affichée de l'image
+  let tasHauteurImage = 0;  // Hauteur affichée de l'image
+  let tasHauteurs = [];   // Hauteur du monticule par tranche
+  let tasActif = false;
+  let particulesTas = []; // Pixels arrachés en cours de chute
+
+  function redimensionnerCanvasExp() {
+    if (!canvasExp) return;
+    canvasExp.width = window.innerWidth;
+    canvasExp.height = window.innerHeight;
+  }
+  window.addEventListener("resize", redimensionnerCanvasExp);
+  redimensionnerCanvasExp();
+
+  function creerPixelPhysique(x, y, couleur) {
+    if (!ctxExp) return;
+    const angle = Math.random() * Math.PI * 2;
+    const vitesse = 1 + Math.random() * 5;
+    particulesExp.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * vitesse,
+      vy: Math.sin(angle) * vitesse - 1,
+      taille: Math.floor(Math.random() * 3 + 2),
+      couleur: couleur,
+      vie: 1.0,
+      decroissance: 0.015 + Math.random() * 0.02
+    });
+    if (!animExpId) animerExp();
+  }
+
+  function creerOndeImpact(x, y, dense) {
+    // Onde de pixels noirs qui se propage depuis le point d'impact
+    // et disparaît. Coup chargé : onde plus dense et plus longue portée.
+    if (!ctxExp) return;
+    const nb = dense ? 44 : 26;          // densité de l'onde
+    const rayonDepart = dense ? 10 : 8;  // rayon de départ
+    const vitesse = dense ? 5.5 : 4.0;   // vitesse de propagation
+    const vie = dense ? 0.028 : 0.045;   // durée de vie (fade)
+
+    for (let i = 0; i < nb; i++) {
+      const angle = (i / nb) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
+      particulesOnde.push({
+        x: x + Math.cos(angle) * rayonDepart,
+        y: y + Math.sin(angle) * rayonDepart,
+        vx: Math.cos(angle) * vitesse,
+        vy: Math.sin(angle) * vitesse,
+        taille: 3,
+        couleur: "#111111",
+        vie: 1.0,
+        decroissance: vie + Math.random() * 0.012
+      });
+    }
+    if (!animExpId) animerExp();
+  }
+
+  function initialiserTas(element) {
+    const rect = element.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    tasElement = element;
+    tasLargeurImage = Math.round(rect.width);
+    tasHauteurImage = Math.round(rect.height);
+    // Le monticule peut s'étendre en dehors des côtés de l'image
+    tasDebord = Math.round(tasLargeurImage * 0.25);
+    if (!tasCanvas) tasCanvas = document.createElement("canvas");
+    tasCanvas.width = tasLargeurImage + tasDebord * 2;
+    tasCanvas.height = tasHauteurImage;
+    tasCtx = tasCanvas.getContext("2d");
+    tasCtx.clearRect(0, 0, tasCanvas.width, tasCanvas.height);
+    tasHauteurs = new Array(Math.ceil(tasCanvas.width / TAS_BIN)).fill(0);
+    particulesTas = [];
+    tasActif = true;
+  }
+
+  function creerParticuleTas(x, y, couleur) {
+    if (!ctxExp || !tasActif) return;
+    particulesTas.push({
+      x: x,
+      y: y,
+      vx: (Math.random() - 0.5) * 2,
+      vy: 0.4 + Math.random() * 0.8,
+      couleur: couleur,
+      roulements: 0
+    });
+    if (!animExpId) animerExp();
+  }
+
+  function actualiserTas(rect) {
+    const solLocal = tasCanvas.height - TAS_SOL;
+
+    for (let i = particulesTas.length - 1; i >= 0; i--) {
+      const p = particulesTas[i];
+
+      // Gravité
+      p.vy += 0.15;
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // Rester dans les limites du tas (débord compris)
+      if (p.x < TAS_TAILLE) { p.x = TAS_TAILLE; p.vx = Math.abs(p.vx) * 0.5; }
+      if (p.x > tasCanvas.width - TAS_TAILLE) { p.x = tasCanvas.width - TAS_TAILLE; p.vx = -Math.abs(p.vx) * 0.5; }
+
+      const bin = Math.min(tasHauteurs.length - 1, Math.max(0, Math.floor(p.x / TAS_BIN)));
+      const surfaceY = solLocal - tasHauteurs[bin] - TAS_TAILLE;
+
+      if (p.y >= surfaceY) {
+        const hauteurGauche = bin > 0 ? tasHauteurs[bin - 1] : Infinity;
+        const hauteurDroite = bin < tasHauteurs.length - 1 ? tasHauteurs[bin + 1] : Infinity;
+        const plusBasse = Math.min(hauteurGauche, hauteurDroite);
+
+        // Physique du tas : le pixel roule vers la tranche plus basse,
+        // ce qui forme un monticule en pente plutôt que des colonnes
+        if (tasHauteurs[bin] - plusBasse > TAS_TAILLE && p.roulements < 8) {
+          p.roulements++;
+          p.x += (hauteurGauche <= hauteurDroite) ? -TAS_BIN : TAS_BIN;
+          p.x = Math.min(tasCanvas.width - TAS_TAILLE, Math.max(TAS_TAILLE, p.x));
+          p.y = surfaceY - 0.5;
+          p.vy = 0.2;
+          p.vx = 0;
+        } else {
+          // Dépôt définitif : le pixel remplit toute la tranche (tas dense, sans interstices)
+          tasHauteurs[bin] += TAS_TAILLE;
+          tasCtx.globalAlpha = 1;
+          tasCtx.fillStyle = p.couleur;
+          tasCtx.fillRect(
+            bin * TAS_BIN,
+            Math.round(solLocal - tasHauteurs[bin]),
+            TAS_BIN,
+            TAS_TAILLE
+          );
+          particulesTas.splice(i, 1);
+          continue;
+        }
+      }
+
+      // Dessin en coordonnées page (suit le scroll, débord compris)
+      ctxExp.fillStyle = p.couleur;
+      ctxExp.fillRect(Math.round(rect.left - tasDebord + p.x - TAS_TAILLE / 2), Math.round(rect.top + p.y), TAS_TAILLE, TAS_TAILLE);
+    }
+  }
+
+  function animerExp() {
+    if (!ctxExp) return;
+    ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
+
+    // 1. Le monticule, ancré au bas de l'image (suit le scroll de la page)
+    if (tasActif && tasCanvas && tasElement) {
+      const rect = tasElement.getBoundingClientRect();
+      if (Math.round(rect.width) !== tasLargeurImage || Math.round(rect.height) !== tasHauteurImage) {
+        // L'image a été redimensionnée : on repart d'un monticule vierge
+        initialiserTas(tasElement);
+      } else {
+        actualiserTas(rect);
+        // Le canvas du tas est plus large que l'image (débord des deux côtés)
+        ctxExp.drawImage(tasCanvas, rect.left - tasDebord, rect.top);
+      }
+    }
+
+    // 2. Pixels éphémères (impact tapette)
+    for (let i = particulesExp.length - 1; i >= 0; i--) {
+      const p = particulesExp[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.15; // Gravité
+      p.vie -= p.decroissance;
+      if (p.vie <= 0) {
+        particulesExp.splice(i, 1);
+        continue;
+      }
+      ctxExp.fillStyle = p.couleur;
+      ctxExp.globalAlpha = p.vie;
+      ctxExp.fillRect(Math.round(p.x), Math.round(p.y), p.taille, p.taille);
+    }
+    ctxExp.globalAlpha = 1.0;
+
+    // 3. Onde de pixels noirs (propagation circulaire depuis l'impact)
+    for (let i = particulesOnde.length - 1; i >= 0; i--) {
+      const p = particulesOnde[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vie -= p.decroissance;
+      if (p.vie <= 0) {
+        particulesOnde.splice(i, 1);
+        continue;
+      }
+      ctxExp.fillStyle = "#111111";
+      ctxExp.globalAlpha = p.vie;
+      ctxExp.fillRect(Math.round(p.x), Math.round(p.y), p.taille, p.taille);
+    }
+    ctxExp.globalAlpha = 1.0;
+
+    if (particulesExp.length > 0 || particulesOnde.length > 0 || particulesTas.length > 0 || tasActif) {
+      animExpId = requestAnimationFrame(animerExp);
+    } else {
+      animExpId = null;
+    }
+  }
+
+  function reinitialiserPhysique() {
+    particulesExp = [];
+    particulesOnde = [];
+    particulesTas = [];
+    tasCanvas = null;
+    tasCtx = null;
+    tasHauteurs = [];
+    tasActif = false;
+    tasElement = null;
+    tasDebord = 0;
+    tasLargeurImage = 0;
+    tasHauteurImage = 0;
+    if (ctxExp) ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
+  }
 
   /* --- PAGE D'ACCUEIL & GRATTAGE --- */
   function dessinerAccueil() {
@@ -480,9 +863,7 @@
         ctx.drawImage(photo, 0, 0);
         actualiserPhotoData();
       }
-      if (typeof reinitialiserPhysique === "function") {
-        reinitialiserPhysique();
-      }
+      reinitialiserPhysique();
     };
 
     let estEnTrainDeCliquer = false;
@@ -521,10 +902,9 @@
                 pBuffer[index + 2]
               ).toString(16).slice(1);
 
-              const posXPage = rect.left + (px / echelleX);
-              const posYPage = rect.top + (py / echelleY);
-
-              creerPixelPhysique(posXPage, posYPage, hexColor);
+              // Le pixel arraché tombe et grossit le monticule en bas de l'image
+              if (!tasActif) initialiserTas(canvas);
+              creerParticuleTas(tasDebord + px / echelleX, py / echelleY, hexColor);
             }
           }
         }
@@ -579,9 +959,9 @@
     canvas.addEventListener("pointercancel", stopperGomme);
   }
 
-  /* --- SÉRIES CLASSIQUES --- */
+  /* --- SÃRIES CLASSIQUES --- */
   function dessiner(serie) {
-    document.title = serie.titre + " – " + SITE.nom;
+    document.title = serie.titre + " â " + SITE.nom;
     if (serie.texte) {
       const p = document.createElement("p");
       p.className = "texte";
@@ -592,7 +972,7 @@
     if (total === 0) {
       const p = document.createElement("p");
       p.className = "vide";
-      p.textContent = "Bientôt.";
+      p.textContent = "BientÃ´t.";
       contenu.appendChild(p);
       return;
     }
@@ -618,7 +998,7 @@
       const btnGauche = document.createElement("button");
       btnGauche.type = "button";
       btnGauche.className = "zone-clic gauche";
-      btnGauche.setAttribute("aria-label", "Image précédente");
+      btnGauche.setAttribute("aria-label", "Image prÃ©cÃ©dente");
 
       const btnDroite = document.createElement("button");
       btnDroite.type = "button";
@@ -638,13 +1018,13 @@
     const prec = document.createElement("button");
     prec.type = "button";
     prec.id = "prec";
-    prec.textContent = "‹";
-    prec.setAttribute("aria-label", "Image précédente");
+    prec.textContent = "â¹";
+    prec.setAttribute("aria-label", "Image prÃ©cÃ©dente");
     const num = document.createElement("span");
     const suiv = document.createElement("button");
     suiv.type = "button";
     suiv.id = "suiv";
-    suiv.textContent = "›";
+    suiv.textContent = "âº";
     suiv.setAttribute("aria-label", "Image suivante");
     compteur.append(prec, num, suiv);
     if (total > 1) fig.appendChild(compteur);
@@ -693,9 +1073,9 @@
     montrer(0);
   }
 
-  /* --- SÉRIE CARNAVAL --- */
+  /* --- SÃRIE CARNAVAL --- */
   function dessinerCarnaval(serie) {
-    document.title = serie.titre + " – " + SITE.nom;
+    document.title = serie.titre + " â " + SITE.nom;
     if (serie.texte) {
       const p = document.createElement("p");
       p.className = "texte";
@@ -706,7 +1086,7 @@
     if (total === 0) {
       const p = document.createElement("p");
       p.className = "vide";
-      p.textContent = "Bientôt.";
+      p.textContent = "BientÃ´t.";
       contenu.appendChild(p);
       return;
     }
@@ -745,7 +1125,7 @@
       const btnGauche = document.createElement("button");
       btnGauche.type = "button";
       btnGauche.className = "zone-clic gauche";
-      btnGauche.setAttribute("aria-label", "Duo précédent");
+      btnGauche.setAttribute("aria-label", "Duo prÃ©cÃ©dent");
 
       const btnDroite = document.createElement("button");
       btnDroite.type = "button";
@@ -765,13 +1145,13 @@
     const prec = document.createElement("button");
     prec.type = "button";
     prec.id = "prec";
-    prec.textContent = "‹";
-    prec.setAttribute("aria-label", "Duo précédent");
+    prec.textContent = "â¹";
+    prec.setAttribute("aria-label", "Duo prÃ©cÃ©dent");
     const num = document.createElement("span");
     const suiv = document.createElement("button");
     suiv.type = "button";
     suiv.id = "suiv";
-    suiv.textContent = "›";
+    suiv.textContent = "âº";
     suiv.setAttribute("aria-label", "Duo suivant");
     compteur.append(prec, num, suiv);
 
@@ -843,9 +1223,9 @@
     montrerDuo(0);
   }
 
-  /* --- SÉRIE PAO --- */
+  /* --- SÃRIE PAO --- */
   function dessinerPAO(serie) {
-    document.title = serie.titre + " – " + SITE.nom;
+    document.title = serie.titre + " â " + SITE.nom;
     if (serie.texte) {
       const p = document.createElement("p");
       p.className = "texte";
@@ -892,12 +1272,12 @@
     const btnGauche = document.createElement("button");
     btnGauche.type = "button";
     btnGauche.className = "zone-clic gauche";
-    btnGauche.setAttribute("aria-label", "Tirage précédent ou aléatoire");
+    btnGauche.setAttribute("aria-label", "Tirage prÃ©cÃ©dent ou alÃ©atoire");
 
     const btnDroite = document.createElement("button");
     btnDroite.type = "button";
     btnDroite.className = "zone-clic droite";
-    btnDroite.setAttribute("aria-label", "Nouveau tirage aléatoire");
+    btnDroite.setAttribute("aria-label", "Nouveau tirage alÃ©atoire");
 
     conteneur.append(btnGauche, btnDroite);
     fig.appendChild(conteneur);
@@ -908,12 +1288,12 @@
     const prec = document.createElement("button");
     prec.type = "button";
     prec.id = "prec";
-    prec.textContent = "‹";
+    prec.textContent = "â¹";
 
     const suiv = document.createElement("button");
     suiv.type = "button";
     suiv.id = "suiv";
-    suiv.textContent = "›";
+    suiv.textContent = "âº";
 
     compteur.append(prec, suiv);
     fig.appendChild(compteur);
@@ -970,251 +1350,912 @@
       if (precharge.complete) appliquer();
     }
 
-    function afficherPaire(paire) {
-      paireCourante = paire;
-      const [idx1, idx2] = paire;
-      remplacerFondu(cadre1, img1, chemin(serie.images[idx1]), SITE.nom + ", " + serie.titre + " (Image " + (idx1 + 1) + ")");
-      remplacerFondu(cadre2, img2, chemin(serie.images[idx2]), SITE.nom + ", " + serie.titre + " (Image " + (idx2 + 1) + ")");
-    }
-
-    function actionSuivant() {
+    function montrerPaire(paire) {
       pairePrecedente = paireCourante;
-      const nouvellePaire = genererPaireAleatoire(paireCourante);
-      afficherPaire(nouvellePaire);
+      paireCourante = paire;
+
+      const src1 = chemin(serie.images[paire[0]]);
+      const src2 = chemin(serie.images[paire[1]]);
+
+      remplacerFondu(cadre1, img1, src1, SITE.nom + ", PAO - " + serie.images[paire[0]]);
+      remplacerFondu(cadre2, img2, src2, SITE.nom + ", PAO - " + serie.images[paire[1]]);
     }
 
-    function actionPrecedent() {
+    function tirageSuivant() {
+      const nouvellePaire = genererPaireAleatoire(paireCourante);
+      montrerPaire(nouvellePaire);
+    }
+
+    function tiragePrecedent() {
       if (pairePrecedente) {
-        const temp = pairePrecedente;
+        const p = pairePrecedente;
         pairePrecedente = null;
-        afficherPaire(temp);
+        montrerPaire(p);
       } else {
-        const nouvellePaire = genererPaireAleatoire(paireCourante);
-        afficherPaire(nouvellePaire);
+        tirageSuivant();
       }
     }
 
-    btnDroite.addEventListener("click", actionSuivant);
-    suiv.addEventListener("click", actionSuivant);
+    btnDroite.addEventListener("click", tirageSuivant);
+    suiv.addEventListener("click", tirageSuivant);
 
-    btnGauche.addEventListener("click", actionPrecedent);
-    prec.addEventListener("click", actionPrecedent);
+    btnGauche.addEventListener("click", tiragePrecedent);
+    prec.addEventListener("click", tiragePrecedent);
 
     contenu.appendChild(fig);
-    actionSuivant();
+    tirageSuivant();
   }
 
-  /* --- MOTEUR PHYSIQUE ET ACCUMULATION EN MONTICULES --- */
-  const canvasExplosion = document.getElementById("canvas-explosion");
-  const ctxExplosion = canvasExplosion.getContext("2d");
+  /* --- JEU DE LA MOUCHE PIXEL ART, NIVEAUX & IMPACT JUICY --- */
+  let idAnimJeu = null;
+  let conteneurJeu = null;
+  let mouches = [];        // Toutes les mouches en jeu (vivantes et mortes)
+  let niveau = 1;          // Niveau = nombre de mouches simultanées
+  const NIVEAU_MAX = 50;   // Au-delà, le jeu se remet à zéro
+  let estEnFreeze = false;
+  const DEMI_MOUCHE = 3.5; // Moitié de la taille de la mouche (7 px)
+  const MOT_FIN = "CONGRATULATIONS !"; // En lettres capitales, comme un cri de victoire
+  const PV_BOSS = 20;      // Cliques nécessaires pour tuer le boss
+  let etapeFin = null;     // null | "boss" | "mot" : phase de fin de partie
+  let motEl = null;        // L'élément texte "congratulations !" (typo du site)
+  let bossEl = null;       // La grosse mouche formée par les cadavres
+  let bossX = 0, bossY = 0;
+  let bossVX = 0, bossVY = 0;
+  let bossCibleX = 0, bossCibleY = 0;
+  let bossPV = 0;
+  let timerBoss = 0;
+  let phase2Boss = false;  // Phase 2 du boss : déclenchée à mi-vie
+  let pauseBoss = 0;       // Pause dramatique au passage en phase 2
+  let bossChute = false;   // Le boss tué bascule et tombe lentement au sol
+  let bossAuSol = false;   // Le boss repose au sol, pattes en l'air
+  let rotationChuteBoss = 0;    // Virevolte : rotation pendant la chute
+  let vitesseRotationChute = 12; // Vitesse et sens de la virevolte
 
-  const TAILLE_GRAIN = 3; 
-  let grilleMasse = []; 
-  let particulesVoltige = [];
-  let animExplosionId = null;
-  let colonnesMax = 0;
-  let lignesMax = 0;
+  // HUD : compteur de mouches mortes + timer de partie (99 secondes)
+  let hudEl = null;
+  let compteurMouchesEl = null;
+  let timerEl = null;
+  let mouchesMortes = 0;
+  let timerJeu = 99;       // Une fois à 0 : GAME OVER
+  let intervalTimer = null;
+  let jeuCommence = false; // Compteur + timer n'apparaissent qu'au premier coup
 
-  function redimensionnerExplosion() {
-    canvasExplosion.width = window.innerWidth;
-    canvasExplosion.height = window.innerHeight;
-    colonnesMax = Math.ceil(canvasExplosion.width / TAILLE_GRAIN);
-    lignesMax = Math.ceil(canvasExplosion.height / TAILLE_GRAIN);
+  // Coup chargé : maintenir le clic 2 secondes pour une zone de frappe 50 % plus grande
+  const DUREE_CHARGE = 2000; // en millisecondes
+  let chargeActive = false;
+  let debutCharge = 0;
+  let barreChargeEl = null;
+  let remplieChargeEl = null;
+
+  // Barre de vie du boss
+  let barreVieEl = null;
+  let barreRemplieEl = null;
+
+  // Modèle SVG Pixel Art ultra minimaliste (7x7 px, quelques pixels seulement)
+  const SVG_PIXEL_FLY = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7 7" width="7" height="7">
+    <g class="ailes">
+      <rect x="0" y="1" width="2" height="2" fill="#ffffff" opacity="0.8" />
+      <rect x="5" y="1" width="2" height="2" fill="#ffffff" opacity="0.8" />
+    </g>
+    <rect x="3" y="1" width="1" height="1" fill="#111111" />
+    <rect x="2" y="2" width="3" height="4" fill="#111111" />
+  </svg>`;
+
+  // Le boss : même esprit pixel art, plus détaillé
+  // (contour gris autour des ailes pour les distinguer, deux yeux rouges)
+  const SVG_BOSS = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
+    <g class="ailes">
+      <rect x="0" y="1" width="4" height="5" fill="#808080" />
+      <rect x="1" y="2" width="3" height="3" fill="#ffffff" opacity="0.9" />
+      <rect x="10" y="1" width="4" height="5" fill="#808080" />
+      <rect x="10" y="2" width="3" height="3" fill="#ffffff" opacity="0.9" />
+    </g>
+    <rect class="corps" x="4" y="6" width="6" height="5" fill="#111111" />
+    <rect class="corps" x="5" y="3" width="4" height="6" fill="#111111" />
+    <rect class="corps" x="5" y="1" width="4" height="2" fill="#111111" />
+    <rect x="5" y="2" width="1" height="1" fill="#ff1744" />
+    <rect x="8" y="2" width="1" height="1" fill="#ff1744" />
+  </svg>`;
+
+  // Le boss mort, posé sur le dos au sol : les pattes en l'air au-dessus de lui
+  const SVG_BOSS_MORT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
+    <g class="ailes">
+      <rect x="0" y="9" width="4" height="4" fill="#808080" />
+      <rect x="10" y="9" width="4" height="4" fill="#808080" />
+    </g>
+    <rect class="pattes" x="4" y="3" width="1" height="4" fill="#111111" />
+    <rect class="pattes" x="6" y="2" width="1" height="5" fill="#111111" />
+    <rect class="pattes" x="8" y="2" width="1" height="5" fill="#111111" />
+    <rect class="pattes" x="10" y="3" width="1" height="4" fill="#111111" />
+    <rect class="corps" x="3" y="7" width="8" height="5" fill="#111111" />
+  </svg>`;
+
+  function declencherScreenShake() {
+    document.body.classList.remove("screen-shake");
+    // Forcer un reflow
+    void document.body.offsetWidth;
+    document.body.classList.add("screen-shake");
+    setTimeout(() => {
+      document.body.classList.remove("screen-shake");
+    }, 250);
   }
-  window.addEventListener("resize", redimensionnerExplosion);
-  redimensionnerExplosion();
 
-  window.reinitialiserPhysique = function() {
-    particulesVoltige = [];
-    grilleMasse = [];
-    ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
-    if (animExplosionId) {
-      cancelAnimationFrame(animExplosionId);
-      animExplosionId = null;
+  function declencherScreenShakeFort() {
+    // Secousse d'écran renforcée (coup chargé)
+    document.body.classList.remove("screen-shake-fort");
+    void document.body.offsetWidth;
+    document.body.classList.add("screen-shake-fort");
+    setTimeout(() => {
+      document.body.classList.remove("screen-shake-fort");
+    }, 400);
+  }
+
+  function creerMouche() {
+    const el = document.createElement("div");
+    el.className = "mouche";
+    el.innerHTML = SVG_PIXEL_FLY;
+    conteneurJeu.appendChild(el);
+
+    const marge = 60;
+    const m = {
+      el: el,
+      x: marge + Math.random() * (window.innerWidth - marge * 2),
+      y: marge + Math.random() * (window.innerHeight - marge * 2),
+      vx: 0,
+      vy: 0,
+      cibleX: 0,
+      cibleY: 0,
+      etat: "vol", // "vol", "pose", "touchee", "morte"
+      timerEtat: 0,
+      dureePause: 0,
+      reposeAuSol: false
+    };
+    nouvelleCibleMouche(m);
+    mouches.push(m);
+  }
+
+  function demarrerJeu() {
+    if (conteneurJeu) return;
+
+    conteneurJeu = document.createElement("div");
+    conteneurJeu.id = "jeu-mouches";
+    document.body.appendChild(conteneurJeu);
+
+    niveau = 1;
+    estEnFreeze = false;
+    etapeFin = null;
+    mouches = [];
+    creerMouche();
+
+    // Le HUD (compteur + timer) n'apparaîtra qu'au premier coup porté à une mouche
+    mouchesMortes = 0;
+    timerJeu = 99;
+    jeuCommence = false;
+    clearInterval(intervalTimer);
+
+    window.addEventListener("mousemove", gererSurvolSource);
+    window.addEventListener("pointerdown", frapperMouche);
+    window.addEventListener("pointerup", relacherClic);
+    window.addEventListener("pointercancel", relacherClic);
+
+    idAnimJeu = requestAnimationFrame(boucleJeu);
+  }
+
+  function arreterJeu() {
+    if (idAnimJeu) {
+      cancelAnimationFrame(idAnimJeu);
+      idAnimJeu = null;
     }
-  };
+    clearInterval(intervalTimer);
+    intervalTimer = null;
+    bossChute = false;
+    bossAuSol = false;
+    jeuCommence = false;
+    window.removeEventListener("mousemove", gererSurvolSource);
+    window.removeEventListener("pointerdown", frapperMouche);
+    window.removeEventListener("pointerup", relacherClic);
+    window.removeEventListener("pointercancel", relacherClic);
+    annulerCharge();
+    if (conteneurJeu) {
+      conteneurJeu.remove();
+      conteneurJeu = null;
+    }
+    mouches = [];
+    etapeFin = null;
+    motEl = null;
+    bossEl = null;
+    barreVieEl = null;
+    barreRemplieEl = null;
+    hudEl = null;
+    compteurMouchesEl = null;
+    timerEl = null;
+    document.documentElement.classList.remove("zone-tapette");
+  }
 
-  function creerPixelPhysique(x, y, couleur) {
-    particulesVoltige.push({
-      x: x,
-      y: y,
-      vx: (Math.random() - 0.5) * 3,
-      vy: Math.random() * -1.5 - 0.5,
-      couleur: couleur
+  function reinitialiserNiveau() {
+    // Fin de partie : on repart de zéro
+    mouches.forEach(function (m) { m.el.remove(); });
+    mouches = [];
+    if (motEl) { motEl.remove(); motEl = null; }
+    if (bossEl) { bossEl.remove(); bossEl = null; }
+    if (barreVieEl) { barreVieEl.remove(); barreVieEl = null; barreRemplieEl = null; }
+    bossChute = false;
+    bossAuSol = false;
+    niveau = 1;
+    estEnFreeze = false;
+    etapeFin = null;
+    // Comme au tout début : le HUD disparaît et le jeu
+    // attendra à nouveau le premier coup porté à une mouche
+    if (hudEl) { hudEl.remove(); hudEl = null; }
+    compteurMouchesEl = null;
+    timerEl = null;
+    clearInterval(intervalTimer);
+    intervalTimer = null;
+    jeuCommence = false;
+    annulerCharge();
+    document.documentElement.classList.remove("zone-tapette");
+    mouchesMortes = 0;
+    timerJeu = 99;
+    creerMouche();
+  }
+
+  function demarrerHUD() {
+    // HUD : compteur de mouches mortes + timer de 99 secondes,
+    // en haut à droite, en typo pixel art, sans libellé.
+    // Créé uniquement au moment du premier coup porté à une mouche.
+    hudEl = document.createElement("div");
+    hudEl.id = "hud-jeu";
+
+    compteurMouchesEl = document.createElement("div");
+    compteurMouchesEl.id = "hud-compteur";
+    majTextePixel(compteurMouchesEl, "0");
+
+    timerEl = document.createElement("div");
+    timerEl.id = "hud-timer";
+    majTextePixel(timerEl, "99");
+
+    hudEl.append(compteurMouchesEl, timerEl);
+    conteneurJeu.appendChild(hudEl);
+
+    // Le curseur ne devient une tapette qu'à partir de ce premier coup
+    document.documentElement.classList.add("zone-tapette");
+
+    timerJeu = 99;
+    clearInterval(intervalTimer);
+    intervalTimer = setInterval(tickTimer, 1000);
+  }
+
+  function majTextePixel(conteneur, texte, couleur) {
+    // Met à jour un texte pixel art (compteur, timer)
+    if (conteneur) conteneur.replaceChildren(creerTextePixel(texte, couleur || "#111111", 8, 3));
+  }
+
+  function creerTextePixel(texte, couleur, taille, echelle) {
+    // Rendu fin puis agrandissement sans lissage : typographie pixel art
+    taille = taille || 8;
+    echelle = echelle || 4;
+    const petit = document.createElement("canvas");
+    const pctx = petit.getContext("2d");
+    const police = "bold " + taille + "px 'Courier New', Courier, monospace";
+    pctx.font = police;
+    petit.width = Math.ceil(pctx.measureText(texte).width) + 4;
+    petit.height = taille + 6;
+    pctx.font = police;
+    pctx.textBaseline = "top";
+    pctx.fillStyle = couleur;
+    pctx.fillText(texte, 2, 2);
+
+    const rendu = document.createElement("canvas");
+    rendu.width = petit.width * echelle;
+    rendu.height = petit.height * echelle;
+    const rctx = rendu.getContext("2d");
+    rctx.imageSmoothingEnabled = false;
+    rctx.drawImage(petit, 0, 0, rendu.width, rendu.height);
+    return rendu;
+  }
+
+  function creerBarreVie() {
+    barreVieEl = document.createElement("div");
+    barreVieEl.id = "barre-vie-boss";
+
+    const nom = document.createElement("div");
+    nom.id = "nom-boss";
+    nom.appendChild(creerTextePixel("THE FLY KING", "#111111", 8, 2));
+
+    const piste = document.createElement("div");
+    piste.id = "barre-vie-piste";
+    barreRemplieEl = document.createElement("div");
+    barreRemplieEl.id = "barre-vie-remplie";
+    piste.appendChild(barreRemplieEl);
+
+    barreVieEl.append(nom, piste);
+    conteneurJeu.appendChild(barreVieEl);
+    actualiserBarreVie();
+  }
+
+  function actualiserBarreVie() {
+    if (barreRemplieEl) {
+      barreRemplieEl.style.width = Math.max(0, (bossPV / PV_BOSS) * 100) + "%";
+    }
+  }
+
+  function tickTimer() {
+    // Le temps ne s'écoule plus pendant le combat de boss ni après la partie
+    if (!conteneurJeu || etapeFin) return;
+    timerJeu--;
+    if (timerJeu <= 0) {
+      timerJeu = 0;
+      majTextePixel(timerEl, "0");
+      declencherDefaite();
+      return;
+    }
+    majTextePixel(timerEl, String(timerJeu));
+  }
+
+  function declencherDefaite() {
+    // Temps écoulé : GAME OVER, cliquable pour recommencer
+    etapeFin = "defaite";
+    annulerCharge();
+
+    motEl = document.createElement("div");
+    motEl.className = "mot-fin";
+    motEl.appendChild(creerTextePixel("GAME OVER", "#ff1744"));
+    conteneurJeu.appendChild(motEl);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { if (motEl) motEl.classList.add("visible"); });
+    });
+  }
+
+  function nouvelleCibleBoss() {
+    const marge = 100;
+    bossCibleX = marge + Math.random() * (window.innerWidth - marge * 2);
+    bossCibleY = marge + Math.random() * (window.innerHeight - marge * 2);
+  }
+
+  function updateBoss() {
+    // Le boss repose au sol, pattes en l'air : il ne bouge plus
+    if (bossAuSol) return;
+
+    // Le boss tué : il ne vole plus, il bascule sur le dos et chute lentement
+    if (bossChute) {
+      updateChuteBoss();
+      return;
+    }
+
+    // Phase 2 : pause dramatique au moment du déclenchement
+    if (pauseBoss > 0) {
+      pauseBoss--;
+      return;
+    }
+
+    timerBoss++;
+
+    const dx = bossCibleX - bossX;
+    const dy = bossCibleY - bossY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 40 || timerBoss > 90 || Math.random() < 0.02) {
+      nouvelleCibleBoss();
+      timerBoss = 0;
+    }
+
+    // Lent au départ, bien plus rapide en phase 2
+    const vitesseMax = phase2Boss ? 10.0 : 5.5;
+    bossVX += (dx / (dist || 1)) * (phase2Boss ? 2.0 : 1.2);
+    bossVY += (dy / (dist || 1)) * (phase2Boss ? 2.0 : 1.2);
+    bossVX += (Math.random() - 0.5) * (phase2Boss ? 4.0 : 2.0);
+    bossVY += (Math.random() - 0.5) * (phase2Boss ? 4.0 : 2.0);
+
+    const vActuelle = Math.hypot(bossVX, bossVY);
+    if (vActuelle > vitesseMax) {
+      bossVX = (bossVX / vActuelle) * vitesseMax;
+      bossVY = (bossVY / vActuelle) * vitesseMax;
+    }
+
+    bossX += bossVX;
+    bossY += bossVY;
+
+    const bord = 30;
+    if (bossX < bord) { bossX = bord; bossVX *= -1; }
+    if (bossX > window.innerWidth - bord) { bossX = window.innerWidth - bord; bossVX *= -1; }
+    if (bossY < bord) { bossY = bord; bossVY *= -1; }
+    if (bossY > window.innerHeight - bord) { bossY = window.innerHeight - bord; bossVY *= -1; }
+
+    const angle = Math.atan2(bossVY, bossVX) * (180 / Math.PI) + 90;
+    bossEl.style.transform = `translate3d(${bossX - 21}px, ${bossY - 21}px, 0) rotate(${angle}deg)`;
+  }
+
+  function frapperBoss(degats) {
+    bossPV -= (degats || 1); // Le coup chargé (degats = 2) compte pour deux coups
+    actualiserBarreVie();
+    declencherScreenShake();
+    creerOndeImpact(bossX, bossY, false);
+
+    for (let i = 0; i < 12; i++) {
+      const coul = PALETTE_RVB[Math.floor(Math.random() * PALETTE_RVB.length)];
+      creerPixelPhysique(bossX + (Math.random() - 0.5) * 30, bossY + (Math.random() - 0.5) * 30, coul);
+    }
+
+    // Flash du boss à chaque coup reçu
+    bossEl.classList.remove("touche");
+    void bossEl.offsetWidth;
+    bossEl.classList.add("touche");
+
+    // À mi-vie : phase 2 du boss
+    // (pause dramatique, puis il devient plus rapide et plus rouge)
+    if (bossPV > 0 && bossPV <= PV_BOSS / 2 && !phase2Boss) {
+      phase2Boss = true;
+      bossEl.classList.add("phase2");
+      pauseBoss = 55;
+      declencherScreenShake();
+    }
+
+    if (bossPV <= 0) tuerBoss();
+  }
+
+  function updateChuteBoss() {
+    // Chute lente, façon feuille morte : le boss retombe sur le dos
+    const sol = window.innerHeight - 25; // Même sol invisible que les petites mouches
+
+    if (bossY >= sol) {
+      // Une fois au sol : le boss se pose sur le dos, pattes en l'air,
+      // et le mot de victoire apparaît au milieu de l'écran
+      bossY = sol;
+      bossChute = false;
+      bossAuSol = true;
+      annulerCharge();
+      if (bossEl) {
+        bossEl.classList.remove("phase2");
+        bossEl.innerHTML = SVG_BOSS_MORT;
+        bossEl.style.transform = `translate3d(${bossX - 21}px, ${bossY - 21}px, 0)`;
+      }
+      afficherMotFin();
+      return;
+    }
+
+    bossVY = Math.min(bossVY + 0.12, 1.6); // accélération faible : chute lente
+    bossY += bossVY;                       // tout droit, sans dérive
+    rotationChuteBoss += vitesseRotationChute; // ...mais en virevoltant sur lui-même
+
+    // Virevolte pendant la chute
+    bossEl.style.transform = `translate3d(${bossX - 21}px, ${bossY - 21}px, 0) rotate(${rotationChuteBoss}deg)`;
+  }
+
+  function afficherMotFin() {
+    // Le mot de victoire apparaît au milieu de l'écran, en typo pixel art
+    motEl = document.createElement("div");
+    motEl.className = "mot-fin";
+    motEl.appendChild(creerTextePixel(MOT_FIN, "#111111"));
+    conteneurJeu.appendChild(motEl);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { if (motEl) motEl.classList.add("visible"); });
     });
 
-    if (!animExplosionId) {
-      bouclePhysique();
+    etapeFin = "mot";
+  }
+
+  function tuerBoss() {
+    // Grande explosion de pixels
+    for (let i = 0; i < 80; i++) {
+      const coul = PALETTE_RVB[Math.floor(Math.random() * PALETTE_RVB.length)];
+      creerPixelPhysique(bossX + (Math.random() - 0.5) * 40, bossY + (Math.random() - 0.5) * 40, coul);
+    }
+    declencherScreenShake();
+    creerOndeImpact(bossX, bossY, true); // coup fatal : onde dense
+    if (barreVieEl) { barreVieEl.remove(); barreVieEl = null; barreRemplieEl = null; }
+
+    // Le boss ne disparaît pas : il se retourne sur le dos et tombe
+    // tout droit, sans virevolter, jusqu'au sol où il finit pattes en l'air.
+    // Le mot de victoire n'apparaît qu'une fois qu'il a touché le sol.
+    bossChute = true;
+    bossVX = 0; // aucune dérive : chute verticale
+    bossVY = Math.max(0.5, bossVY);
+    rotationChuteBoss = 0; // départ de la virevolte
+    vitesseRotationChute = (Math.random() < 0.5 ? -1 : 1) * (10 + Math.random() * 8);
+    bossEl.classList.remove("touche");
+    bossEl.classList.add("morte"); // arrête le battement des ailes
+  }
+
+  function declencherFin() {
+    // Les 50 mouches sont tuées : les cadavres s'agglutinent pour former le boss
+    etapeFin = "boss";
+
+    // Le timer disparaît et n'est plus pris en compte pendant le combat de boss
+    if (timerEl) timerEl.style.display = "none";
+
+    // PV du boss : à régler AVANT de créer la barre de vie,
+    // pour qu'elle apparaisse pleine dès la naissance du boss
+    bossPV = PV_BOSS;
+    creerBarreVie();
+
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    mouches.forEach(function (m) {
+      m.el.classList.remove("pose", "touchee");
+      m.el.classList.add("morte");
+      m.etat = "virevolte";
+      m.departX = m.x;
+      m.departY = m.y;
+      m.cibleFinX = cx + (Math.random() - 0.5) * 50;
+      m.cibleFinY = cy + (Math.random() - 0.5) * 50;
+      m.progression = 0;
+      m.vitesseFin = 0.012 + Math.random() * 0.018;
+      m.delaiFin = Math.floor(Math.random() * 45); // départs décalés, en virevoltant
+    });
+
+    // Le boss naît au centre, formé par l'agglutination des cadavres
+    bossEl = document.createElement("div");
+    bossEl.className = "mouche boss";
+    bossEl.innerHTML = SVG_BOSS;
+    conteneurJeu.appendChild(bossEl);
+    bossX = cx;
+    bossY = cy;
+    bossVX = 0;
+    bossVY = 0;
+    timerBoss = 0;
+    phase2Boss = false;
+    pauseBoss = 0;
+    bossChute = false;
+    bossAuSol = false;
+    nouvelleCibleBoss();
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { if (bossEl) bossEl.classList.add("visible"); });
+    });
+  }
+
+  function gererSurvolSource(e) {
+    // Une fois la première mouche tuée (jeu démarré), le curseur
+    // est toujours une tapette, sauf sur le menu de gauche (aside / nav)
+    const surMenu = !!(e.target && e.target.closest && e.target.closest("aside"));
+    document.documentElement.classList.toggle("zone-tapette", jeuCommence && !surMenu);
+
+    // La barre de coup chargé suit la tapette
+    if (barreChargeEl) positionnerBarreCharge(e.clientX, e.clientY);
+  }
+
+  function demarrerCharge(e) {
+    // Début du coup chargé : la petite barre pixel art apparaît sous la tapette
+    if (chargeActive) return;
+    chargeActive = true;
+    debutCharge = performance.now();
+
+    barreChargeEl = document.createElement("div");
+    barreChargeEl.id = "barre-charge";
+    remplieChargeEl = document.createElement("div");
+    remplieChargeEl.id = "barre-charge-remplie";
+    barreChargeEl.appendChild(remplieChargeEl);
+    conteneurJeu.appendChild(barreChargeEl);
+    positionnerBarreCharge(e.clientX, e.clientY);
+  }
+
+  function positionnerBarreCharge(x, y) {
+    if (!barreChargeEl) return;
+    barreChargeEl.style.left = (x - 24) + "px";
+    barreChargeEl.style.top = (y + 24) + "px";
+  }
+
+  function annulerCharge() {
+    chargeActive = false;
+    if (barreChargeEl) { barreChargeEl.remove(); barreChargeEl = null; }
+    remplieChargeEl = null;
+  }
+
+  function relacherClic(e) {
+    // Relâchement du clic : si la charge est complète (2 s),
+    // la tapette s'abat sur une zone 50 % plus grande
+    if (!chargeActive) return;
+    const chargeComplete = (performance.now() - debutCharge) >= DUREE_CHARGE;
+    annulerCharge();
+    if (chargeComplete) frapperCharge(e);
+  }
+
+  function frapperCharge(e) {
+    // Coup chargé : zone de frappe 50 % plus grande, secousse renforcée
+    // et explosion de pixels bien plus généreuse
+    if (etapeFin === "mot" || etapeFin === "defaite") return;
+    if (etapeFin === "boss" && (bossChute || bossAuSol)) return;
+
+    declencherScreenShakeFort();
+
+    // Onde dense : le coup chargé se propage plus loin
+    creerOndeImpact(e.clientX, e.clientY, true);
+
+    // Grande explosion de pixels au point d'impact, même sans mouche touchée
+    for (let i = 0; i < 30; i++) {
+      const coul = PALETTE_RVB[Math.floor(Math.random() * PALETTE_RVB.length)];
+      creerPixelPhysique(e.clientX + (Math.random() - 0.5) * 44, e.clientY + (Math.random() - 0.5) * 44, coul);
+    }
+
+    if (etapeFin === "boss") {
+      // Rayon de collision 50 % plus grand sur le boss (45 px au lieu de 30),
+      // et le coup chargé compte pour deux coups
+      if (bossEl && Math.hypot(e.clientX - bossX, e.clientY - bossY) < 45) {
+        frapperBoss(2);
+      }
+      return;
+    }
+
+    if (estEnFreeze) return;
+
+    // Rayon de collision 50 % plus grand (42 px au lieu de 28) :
+    // on peut éliminer plusieurs mouches d'un seul coup chargé
+    for (const m of mouches) {
+      if (m.etat === "morte" || m.etat === "touchee") continue;
+      if (Math.hypot(e.clientX - m.x, e.clientY - m.y) < 42) {
+        tuerMouche(m);
+      }
     }
   }
 
-  function obtenirHauteur(colonne) {
-    if (colonne < 0 || colonne >= colonnesMax) return lignesMax;
-    let h = 0;
-    while (h < lignesMax && grilleMasse[colonne] && grilleMasse[colonne][lignesMax - 1 - h]) {
-      h++;
-    }
-    return h;
-  }
-
-  function ajouterAuSol(colonne, couleur) {
-    if (colonne < 0 || colonne >= colonnesMax) return;
-    
-    // Algorithme d'empilement/glissement de sable
-    let hCourante = obtenirHauteur(colonne);
-    let hGauche = obtenirHauteur(colonne - 1);
-    let hDroite = obtenirHauteur(colonne + 1);
-
-    if (hCourante > hGauche + 1 && hGauche <= hDroite) {
-      colonne = colonne - 1;
-    } else if (hCourante > hDroite + 1) {
-      colonne = colonne + 1;
+  function frapperMouche(e) {
+    // Fin de partie : cliquer sur "congratulations !" ou "GAME OVER"
+    // pour recommencer, avec secousse d'écran
+    if (etapeFin === "mot" || etapeFin === "defaite") {
+      if (motEl) {
+        const r = motEl.getBoundingClientRect();
+        if (e.clientX >= r.left - 20 && e.clientX <= r.right + 20 &&
+            e.clientY >= r.top - 12 && e.clientY <= r.bottom + 12) {
+          declencherScreenShake();
+          reinitialiserNiveau();
+        }
+      }
+      return;
     }
 
-    let hFinale = obtenirHauteur(colonne);
-    if (hFinale >= lignesMax) return;
+    // Boss : il faut 20 cliques pour le tuer
+    // (une fois tué, pendant sa chute, on ne peut plus le frapper)
+    if (etapeFin === "boss") {
+      if (bossEl && !bossChute && Math.hypot(e.clientX - bossX, e.clientY - bossY) < 30) {
+        frapperBoss();
+      }
+      // Maintenir le clic pour charger un coup plus large sur le boss
+      if (!bossChute && !bossAuSol) demarrerCharge(e);
+      return;
+    }
 
-    if (!grilleMasse[colonne]) grilleMasse[colonne] = [];
-    const ligneIndex = lignesMax - 1 - hFinale;
-    grilleMasse[colonne][ligneIndex] = couleur;
+    if (estEnFreeze) return;
+
+    // Rayon de collision précis ajusté pour la petite mouche
+    for (const m of mouches) {
+      if (m.etat === "morte" || m.etat === "touchee") continue;
+      if (Math.hypot(e.clientX - m.x, e.clientY - m.y) < 28) {
+        tuerMouche(m);
+      }
+    }
+
+    // Maintenir le clic pour charger un coup de zone 50 % plus grande
+    demarrerCharge(e);
   }
 
-  function dessinerGrilleSol() {
-    for (let col = 0; col < colonnesMax; col++) {
-      if (!grilleMasse[col]) continue;
-      for (let lig = 0; lig < lignesMax; lig++) {
-        const coul = grilleMasse[col][lig];
-        if (coul) {
-          ctxExplosion.fillStyle = coul;
-          ctxExplosion.fillRect(col * TAILLE_GRAIN, lig * TAILLE_GRAIN, TAILLE_GRAIN, TAILLE_GRAIN);
+  function tuerMouche(m) {
+    m.etat = "touchee";
+    m.el.classList.add("touchee");
+
+    // La partie ne commence qu'au premier coup porté à une mouche :
+    // compteur et timer apparaissent à ce moment-là, et pas avant
+    if (!jeuCommence) {
+      jeuCommence = true;
+      demarrerHUD();
+    }
+
+    mouchesMortes++;
+    majTextePixel(compteurMouchesEl, String(mouchesMortes));
+
+    // 1. Frame Freeze (micro-pause visuelle au moment du choc)
+    estEnFreeze = true;
+
+    // 2. Shake d'écran immédiat
+    declencherScreenShake();
+
+    // Onde de pixels noirs qui se propage depuis l'impact
+    creerOndeImpact(m.x, m.y, false);
+
+    // 3. Éjection de particules pixel art colorées
+    for (let i = 0; i < 16; i++) {
+      const coul = PALETTE_RVB[Math.floor(Math.random() * PALETTE_RVB.length)];
+      creerPixelPhysique(m.x, m.y, coul);
+    }
+
+    // Reprise après l'effet de freeze
+    setTimeout(() => {
+      estEnFreeze = false;
+      if (!m.el.isConnected || etapeFin) return;
+      m.etat = "morte";
+      m.reposeAuSol = false;
+      m.el.classList.remove("touchee");
+      m.el.classList.add("morte");
+    }, 70); // Frame Freeze de 70ms
+
+    // À chaque mort, une nouvelle mouche apparaît, plus une supplémentaire :
+    // plus on tue de mouches, plus il y en a à l'écran (niveau = mouches vivantes)
+    if (niveau >= NIVEAU_MAX) {
+      // Les 50 mouches sont tuées : les cadavres s'agglutinent en un boss
+      declencherFin();
+    } else {
+      niveau++;
+      creerMouche(); // Le remplacement
+      creerMouche(); // ...et une de plus
+    }
+  }
+
+  function nouvelleCibleMouche(m) {
+    const marge = 60;
+    m.cibleX = marge + Math.random() * (window.innerWidth - marge * 2);
+    m.cibleY = marge + Math.random() * (window.innerHeight - marge * 2);
+  }
+
+  function boucleJeu() {
+    if (!estEnFreeze) {
+      for (const m of mouches) updateMouche(m);
+      if (bossEl) updateBoss();
+    }
+
+    // Barre de coup chargé : remplissage progressif en pixel art
+    if (chargeActive && remplieChargeEl) {
+      const progression = Math.min(1, (performance.now() - debutCharge) / DUREE_CHARGE);
+      remplieChargeEl.style.width = (progression * 100) + "%";
+    }
+
+    idAnimJeu = requestAnimationFrame(boucleJeu);
+  }
+
+  function updateMouche(m) {
+    if (!m.el) return;
+
+    m.timerEtat++;
+
+    if (m.etat === "vol") {
+      m.el.classList.remove("pose");
+      m.el.classList.add("visible");
+
+      const dx = m.cibleX - m.x;
+      const dy = m.cibleY - m.y;
+      const dist = Math.hypot(dx, dy);
+
+      // Changement fréquent et erratique de cible (nervosité)
+      if (dist < 30 || m.timerEtat > 35 || Math.random() < 0.04) {
+        nouvelleCibleMouche(m);
+        m.timerEtat = 0;
+        if (Math.random() < 0.15) {
+          m.etat = "pose";
+          m.timerEtat = 0;
+          // Parfois une vraie pause de 2 secondes (120 frames) pour se laisser approcher
+          m.dureePause = (Math.random() < 0.45) ? 120 : 20 + Math.random() * 30;
+        }
+      }
+
+      // Vitesse accrue décuplée
+      const vitesseMax = 16.0;
+      m.vx += (dx / (dist || 1)) * 2.2;
+      m.vy += (dy / (dist || 1)) * 2.2;
+
+      // Mouvement erratique nerveux
+      m.vx += (Math.random() - 0.5) * 6;
+      m.vy += (Math.random() - 0.5) * 6;
+
+      const vActuelle = Math.hypot(m.vx, m.vy);
+      if (vActuelle > vitesseMax) {
+        m.vx = (m.vx / vActuelle) * vitesseMax;
+        m.vy = (m.vy / vActuelle) * vitesseMax;
+      }
+
+      m.x += m.vx;
+      m.y += m.vy;
+
+      // Rebond sur les bords de l'écran
+      const bord = 15;
+      if (m.x < bord) { m.x = bord; m.vx *= -1; }
+      if (m.x > window.innerWidth - bord) { m.x = window.innerWidth - bord; m.vx *= -1; }
+      if (m.y < bord) { m.y = bord; m.vy *= -1; }
+      if (m.y > window.innerHeight - bord) { m.y = window.innerHeight - bord; m.vy *= -1; }
+
+      const angle = Math.atan2(m.vy, m.vx) * (180 / Math.PI) + 90;
+      m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(${angle}deg)`;
+
+    } else if (m.etat === "pose") {
+      m.el.classList.add("pose", "visible");
+      m.vx = 0;
+      m.vy = 0;
+
+      // Micro-tremblements pixel art au repos
+      const ox = (Math.random() - 0.5) * 1.5;
+      const oy = (Math.random() - 0.5) * 1.5;
+      m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE + ox}px, ${m.y - DEMI_MOUCHE + oy}px, 0)`;
+
+      if (m.timerEtat > m.dureePause) {
+        m.etat = "vol";
+        m.timerEtat = 0;
+        nouvelleCibleMouche(m);
+      }
+
+    } else if (m.etat === "virevolte") {
+      // Fin de partie : le cadavre virevolte jusqu'à sa place dans le mot
+      if (m.delaiFin > 0) {
+        m.delaiFin--;
+        return;
+      }
+      if (m.progression < 1) {
+        m.progression = Math.min(1, m.progression + m.vitesseFin);
+        const t = m.progression;
+        const aise = t * t * (3 - 2 * t); // décélération douce
+        const tour = t * Math.PI * 4;     // deux tours complets en arrivant
+        const amplitude = 30 * (1 - aise);
+        m.x = m.departX + (m.cibleFinX - m.departX) * aise + Math.cos(tour) * amplitude;
+        m.y = m.departY + (m.cibleFinY - m.departY) * aise + Math.sin(tour) * amplitude;
+        m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(${180 + t * 540}deg)`;
+      } else {
+        // Arrivé à destination : la mouche se met en orbite autour du boss (puis du mot)
+        m.etat = "orbite";
+        m.angleOrbite = Math.atan2(m.y - bossY, m.x - bossX);
+        m.rayonOrbite = 50 + Math.random() * 110;
+        m.vitesseOrbite = (Math.random() < 0.5 ? -1 : 1) * (0.008 + Math.random() * 0.03);
+        // Paramètres de chaos : rayon oscillant, tangage et dérive erratiques
+        m.bobPhase = Math.random() * Math.PI * 2;
+        m.bobVitesse = 0.05 + Math.random() * 0.12;
+        m.amplitudeRayon = 12 + Math.random() * 26;
+        m.tangagePhase = Math.random() * Math.PI * 2;
+        m.tangageVitesse = 0.08 + Math.random() * 0.2;
+      }
+
+    } else if (m.etat === "orbite") {
+      // Les mouches mortes tournent autour du boss, puis autour du mot,
+      // de façon chaotique : rayon oscillant, vitesse instable,
+      // demi-tours brusques et changements de trajectoire imprévus
+      m.angleOrbite += m.vitesseOrbite + (Math.random() - 0.5) * 0.05;
+      m.bobPhase += m.bobVitesse;
+      m.tangagePhase += m.tangageVitesse;
+
+      if (Math.random() < 0.012) m.vitesseOrbite *= -1;   // demi-tour brutal
+      if (Math.random() < 0.02) m.rayonOrbite = 30 + Math.random() * 140; // nouvelle trajectoire
+
+      const centreX = (etapeFin === "mot") ? window.innerWidth / 2 : bossX;
+      const centreY = (etapeFin === "mot") ? window.innerHeight / 2 : bossY;
+      const rayon = m.rayonOrbite + Math.sin(m.bobPhase) * m.amplitudeRayon;
+      const cibleOrbiteX = centreX + Math.cos(m.angleOrbite) * rayon;
+      const cibleOrbiteY = centreY + Math.sin(m.angleOrbite) * rayon + Math.sin(m.tangagePhase) * 12;
+      m.x += (cibleOrbiteX - m.x) * 0.16;
+      m.y += (cibleOrbiteY - m.y) * 0.16;
+      m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(${180 + Math.sin(m.tangagePhase) * 30}deg)`;
+
+    } else if (m.etat === "morte") {
+      const sol = window.innerHeight - 8; // Sol invisible en bas de la page
+
+      if (!m.reposeAuSol) {
+        // Chute après impact, avec légère dérive horizontale
+        m.vy += 1.8;
+        m.y += m.vy;
+        m.vx *= 0.98;
+        m.x += m.vx;
+
+        if (m.x < 8) m.x = 8;
+        if (m.x > window.innerWidth - 8) m.x = window.innerWidth - 8;
+
+        if (m.y >= sol) {
+          m.y = sol;
+          if (m.vy > 2.5) {
+            m.vy = -m.vy * 0.35; // Petit rebond sur le sol invisible
+          } else {
+            m.vy = 0;
+            m.vx = 0;
+            m.reposeAuSol = true;
+            // Le cadavre reste définitivement au sol
+          }
+        }
+
+        m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(180deg) scale(0.9)`;
+      } else {
+        // La mouche morte repose sur le dos, sur le sol invisible, pour toujours
+        // (recalcul uniquement si la fenêtre est redimensionnée)
+        if (m.y !== sol) {
+          m.y = sol;
+          m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(180deg) scale(0.9)`;
         }
       }
     }
   }
 
-  function bouclePhysique() {
-    ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
-
-    dessinerGrilleSol();
-
-    const gravite = 0.22;
-    const friction = 0.98;
-
-    for (let i = particulesVoltige.length - 1; i >= 0; i--) {
-      const p = particulesVoltige[i];
-
-      p.vy += gravite;
-      p.vx *= friction;
-
-      p.x += p.vx;
-      p.y += p.vy;
-
-      const col = Math.floor(p.x / TAILLE_GRAIN);
-      const hActuelle = obtenirHauteur(col);
-      const ySol = (lignesMax - hActuelle) * TAILLE_GRAIN;
-
-      if (p.y >= ySol || p.y >= canvasExplosion.height) {
-        ajouterAuSol(col, p.couleur);
-        particulesVoltige.splice(i, 1);
-        continue;
-      }
-
-      ctxExplosion.fillStyle = p.couleur;
-      ctxExplosion.fillRect(p.x, p.y, TAILLE_GRAIN, TAILLE_GRAIN);
-    }
-
-    if (particulesVoltige.length > 0) {
-      animExplosionId = requestAnimationFrame(bouclePhysique);
-    } else {
-      animExplosionId = null;
-    }
-  }
-
-  /* --- JEU DE LA MOUCHE (PAGE CONTACT) --- */
-  let moucheEl = null;
-  let moucheAnimId = null;
-  let moucheX = window.innerWidth / 2;
-  let moucheY = window.innerHeight / 2;
-  let moucheVX = 0;
-  let moucheVY = 0;
-
-  function demarrerMouche() {
-    if (moucheEl) return;
-
-    moucheEl = document.createElement("div");
-    moucheEl.id = "mouche-jeu";
-    moucheEl.innerHTML = `
-      <svg viewBox="0 0 24 24" width="24" height="24">
-        <ellipse cx="12" cy="14" rx="4" ry="6" fill="#111" />
-        <circle cx="12" cy="7" r="3" fill="#111" />
-        <ellipse cx="7" cy="11" rx="5" ry="2" fill="rgba(200,200,250,0.7)" transform="rotate(-20 7 11)" />
-        <ellipse cx="17" cy="11" rx="5" ry="2" fill="rgba(200,200,250,0.7)" transform="rotate(20 17 11)" />
-      </svg>
-    `;
-
-    document.body.appendChild(moucheEl);
-
-    moucheX = window.innerWidth * 0.5;
-    moucheY = window.innerHeight * 0.4;
-
-    function bougerMouche() {
-      moucheVX += (Math.random() - 0.5) * 1.5;
-      moucheVY += (Math.random() - 0.5) * 1.5;
-
-      moucheVX *= 0.92;
-      moucheVY *= 0.92;
-
-      moucheX += moucheVX;
-      moucheY += moucheVY;
-
-      if (moucheX < 20) { moucheX = 20; moucheVX *= -1; }
-      if (moucheX > window.innerWidth - 30) { moucheX = window.innerWidth - 30; moucheVX *= -1; }
-      if (moucheY < 20) { moucheY = 20; moucheVY *= -1; }
-      if (moucheY > window.innerHeight - 30) { moucheY = window.innerHeight - 30; moucheVY *= -1; }
-
-      const angle = Math.atan2(moucheVY, moucheVX) * (180 / Math.PI) + 90;
-      moucheEl.style.transform = `translate3d(${moucheX}px, ${moucheY}px, 0) rotate(${angle}deg)`;
-
-      moucheAnimId = requestAnimationFrame(bougerMouche);
-    }
-
-    function fuir(e) {
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-      const dx = moucheX - clientX;
-      const dy = moucheY - clientY;
-      const dist = Math.hypot(dx, dy);
-
-      if (dist < 120) {
-        const force = (120 - dist) * 0.2;
-        moucheVX += (dx / dist) * force * 3;
-        moucheVY += (dy / dist) * force * 3;
-      }
-    }
-
-    window.addEventListener("mousemove", fuir);
-    window.addEventListener("touchmove", fuir, { passive: true });
-
-    moucheEl.addEventListener("pointerdown", function () {
-      moucheVX = (Math.random() - 0.5) * 40;
-      moucheVY = (Math.random() - 0.5) * 40;
-    });
-
-    bougerMouche();
-  }
-
-  function arreterMouche() {
-    if (moucheAnimId) {
-      cancelAnimationFrame(moucheAnimId);
-      moucheAnimId = null;
-    }
-    if (moucheEl) {
-      moucheEl.remove();
-      moucheEl = null;
-    }
-  }
-
+  // Lancement initial
   afficher();
 })();
 </script>
