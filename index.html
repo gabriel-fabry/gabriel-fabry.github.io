@@ -148,10 +148,14 @@
      aligne sur la ligne du bas de l'image d'accueil */
   .figure-accueil {
     position: relative;
-    /* Le cadre epouse exactement la photo grattée (pas toute la
-       largeur de la colonne) : la photo de dessous, rognée sur ce
-       cadre par object-fit: cover, ne depasse jamais a droite. */
+  }
+  /* Cadre qui epouse exactement la photo grattée (le figure peut
+     contenir aussi l'emoji, plus bas, sur mobile) : la photo de
+     dessous est rognée sur la photo du dessus, jamais au-dela */
+  .cadre-accueil {
+    position: relative;
     display: inline-block;
+    vertical-align: bottom;
   }
   .bouton-vent {
     position: absolute;
@@ -1241,6 +1245,13 @@
     const fig = document.createElement("figure");
     fig.className = "figure-accueil";
 
+    // Cadre intermediaire : il contient uniquement le canvas (et la
+    // photo de dessous). C'est sur lui que la photo de dessous est
+    // rognée : elle correspond toujours exactement a la photo grattée,
+    // meme quand le figure contient aussi l'emoji en dessous (mobile).
+    const cadre = document.createElement("div");
+    cadre.className = "cadre-accueil";
+
     // Photo de dessous : le grattage ne revele pas du blanc mais une
     // autre photo du dossier, tiree au hasard. Elle n'apparait qu'a
     // travers les zones effacees du canvas.
@@ -1249,11 +1260,12 @@
     imgDessous.alt = "";
     imgDessous.decoding = "async";
     imgDessous.style.visibility = "hidden"; // visible des que la photo principale est posee
-    fig.appendChild(imgDessous);
+    cadre.appendChild(imgDessous);
 
     const canvas = document.createElement("canvas");
     canvas.id = "canvas-accueil";
-    fig.appendChild(canvas);
+    cadre.appendChild(canvas);
+    fig.appendChild(cadre);
     contenu.appendChild(fig);
 
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
