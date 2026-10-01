@@ -310,7 +310,9 @@
 
   /* Tapette animée : elle remplace le curseur pendant la charge du coup */
   html.tapette-animee,
-  html.tapette-animee * { cursor: none !important; }
+  html.tapette-animee *,
+  html.zone-tapette.tapette-animee,
+  html.zone-tapette.tapette-animee * { cursor: none !important; }
   #tapette-charge {
     position: fixed;
     width: 56px; height: 56px;
@@ -325,8 +327,8 @@
   @keyframes clignote-tapette { 50% { opacity: 0.4; } }
   #tapette-charge.frappe { transition: transform .07s ease-in; }
 
-  /* Le boss se secoue au passage en phase 2 */
-  .mouche.boss.secoue { animation: boss-secoue .5s steps(2, jump-none); }
+  /* Le boss se secoue au passage en phase 2 (3 cycles bien visibles) */
+  .mouche.boss.secoue { animation: boss-secoue .45s steps(2, jump-none) 3; }
   @keyframes boss-secoue {
     20% { margin: -3px 3px 0 -3px; }
     40% { margin: 2px -3px 0 2px; }
@@ -866,12 +868,10 @@
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
-    // Image d'accueil aléatoire à chaque visite :
-    // accueil1.jpg, accueil2.jpg, ... dans images/accueil/.
-    // Adapter ACCUEIL_MAX au nombre d'images du dossier ; si une image
-    // manque, on retombe sur la précédente, puis sur celle configurée.
-    const ACCUEIL_MAX = 10;
-    let accueilAlea = 1 + Math.floor(Math.random() * ACCUEIL_MAX);
+    // Image d'accueil aléatoire à chaque visite : accueil1.jpg, accueil2.jpg...
+    // Le nombre d'images n'a pas besoin d'être connu à l'avance : on compte
+    // celles présentes en chargeant accueil1.jpg, puis 2, puis 3... jusqu'à
+    // la première absente, puis on tire une image au hasard parmi elles.
     const src = "images/accueil/" + encodeURIComponent(SITE.accueil);
     const photo = new Image();
     photo.decoding = "async";
@@ -894,19 +894,29 @@
     }
 
     photo.onload = chargerEtDessiner;
-    photo.onerror = function () {
-      // Image absente : on essaie le numéro juste en dessous
-      accueilAlea -= 1;
-      if (accueilAlea >= 1) {
-        photo.src = "images/accueil/accueil" + accueilAlea + ".jpg";
-      } else {
-        // Épuisé : on revient à l'image d'accueil configurée par défaut
-        photo.onerror = null;
-        photo.src = src;
-      }
-    };
-    photo.src = "images/accueil/accueil" + accueilAlea + ".jpg";
-    if (photo.complete && photo.naturalWidth) chargerEtDessiner();
+
+    // Comptage automatique des images du dossier, puis tirage au sort
+    let urlsAccueil = [];
+    let essaiAccueil = 0;
+    function chercherImageAccueil() {
+      essaiAccueil++;
+      const url = "images/accueil/accueil" + essaiAccueil + ".jpg";
+      const sonde = new Image();
+      sonde.onload = function () {
+        urlsAccueil.push(url);
+        chercherImageAccueil(); // il y en a peut-être d'autres
+      };
+      sonde.onerror = function () {
+        if (urlsAccueil.length > 0) {
+          photo.src = urlsAccueil[Math.floor(Math.random() * urlsAccueil.length)];
+        } else {
+          // Aucune image numérotée : image configurée par défaut
+          photo.src = src;
+        }
+      };
+      sonde.src = url;
+    }
+    chercherImageAccueil();
 
     window.reinitialiserAccueil = function () {
       if (photo.complete && photo.naturalWidth) {
@@ -1855,18 +1865,24 @@
     if (bossPV > 0 && bossPV <= PV_BOSS / 2 && !phase2Boss) {
       phase2Boss = true;
       bossEl.classList.add("phase2");
-      pauseBoss = 55;
+      pauseBoss = 120; // pause plus longue : on a le temps de voir sa colère
       declencherScreenShake();
 
       // Le boss se secoue violemment et des pixels rouges s'en échappent
+      // en plusieurs vagues, pendant toute la durée de la colère
       bossEl.classList.remove("secoue");
       void bossEl.offsetWidth;
       bossEl.classList.add("secoue");
       setTimeout(function () {
         if (bossEl) bossEl.classList.remove("secoue");
-      }, 520);
-      for (let i = 0; i < 18; i++) {
-        creerPixelPhysique(bossX + (Math.random() - 0.5) * 36, bossY + (Math.random() - 0.5) * 36);
+      }, 1400);
+      for (let vague = 0; vague < 5; vague++) {
+        setTimeout(function () {
+          if (!bossEl || bossChute) return;
+          for (let i = 0; i < 12; i++) {
+            creerPixelPhysique(bossX + (Math.random() - 0.5) * 42, bossY + (Math.random() - 0.5) * 42);
+          }
+        }, vague * 260);
       }
     }
 
@@ -2051,7 +2067,8 @@
       tapetteEl = null;
       t.classList.remove("clignote");
       t.classList.add("frappe");
-      t.style.transform = "translate(3px, 6px) rotate(16deg)";
+      // Elle s'abat vers la gauche, sur le point d'impact
+      t.style.transform = "translate(-5px, 7px) rotate(-14deg)";
       setTimeout(function () { t.remove(); }, 120);
     }
     reculCharge = -1;
@@ -2214,12 +2231,12 @@
       if (progression >= 1 && barreChargeEl) barreChargeEl.classList.add("chargee");
 
       // Recul réparti aux tiers du temps de charge :
-      // la tapette se prépare à frapper, de plus en plus loin
+      // la tapette se prépare à frapper vers la droite, de plus en plus loin
       const etape = Math.min(3, Math.floor(progression * 3));
       if (tapetteEl && etape !== reculCharge) {
         reculCharge = etape;
         tapetteEl.style.transform =
-          "translate(" + (-etape * 5) + "px, " + (-etape * 4) + "px) rotate(" + (-etape * 9) + "deg)";
+          "translate(" + (etape * 10) + "px, " + (-etape * 8) + "px) rotate(" + (etape * 16) + "deg)";
       }
     }
 
