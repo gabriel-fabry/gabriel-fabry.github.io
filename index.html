@@ -26,6 +26,7 @@
     background: var(--fond);
     color: var(--texte);
     font: 14px/1.55 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
   }
   a, button { 
     color: inherit; 
@@ -42,6 +43,7 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    z-index: 10;
   }
   .nom {
     font-size: 15px;
@@ -86,10 +88,11 @@
     padding: var(--marge) 48px 120px var(--marge);
     max-width: calc(var(--largeur-menu) + 1180px);
     min-height: 100vh;
+    position: relative;
+    z-index: 1;
   }
   
   main h1 { display: none !important; }
-
   main .texte { max-width: 60ch; margin: 0 0 32px; color: var(--discret); white-space: pre-line; }
   main figure { margin: 0 0 36px; }
   main img { display: block; max-width: 100%; max-height: 92vh; width: auto; height: auto; }
@@ -124,14 +127,12 @@
 
   .zone-clic {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 0; bottom: 0;
     width: 50%;
     z-index: 10;
     background: transparent;
     border: none;
-    padding: 0;
-    margin: 0;
+    padding: 0; margin: 0;
     -webkit-tap-highlight-color: transparent;
   }
   .zone-clic.gauche { 
@@ -173,8 +174,7 @@
     object-fit: contain;
   }
   .pao-cadre img.superpose {
-    position: absolute;
-    top: 0; left: 0;
+    position: absolute; top: 0; left: 0;
     width: 100%; height: 100%;
     object-fit: contain;
     transition: opacity .45s ease;
@@ -190,7 +190,19 @@
     top: 0; left: 0;
     width: 100vw; height: 100vh;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 999;
+  }
+
+  /* Style pour le jeu de la mouche */
+  #mouche-jeu {
+    position: fixed;
+    width: 24px;
+    height: 24px;
+    z-index: 10000;
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+    transition: transform 0.1s linear;
   }
 
   @media (max-width: 760px) {
@@ -341,7 +353,13 @@
   ulContact.append(liMail, liInsta);
 
   btnContact.addEventListener("click", function () {
+    const ouvrir = ulContact.hidden;
     basculer(btnContact, ulContact);
+    if (ouvrir) {
+      demarrerMouche();
+    } else {
+      arreterMouche();
+    }
   });
 
   liContact.append(btnContact, ulContact);
@@ -417,7 +435,7 @@
   window.addEventListener("hashchange", afficher);
   window.addEventListener("DOMContentLoaded", afficher);
 
-  /* --- PAGE D'ACCUEIL --- */
+  /* --- PAGE D'ACCUEIL & GRATTAGE --- */
   function dessinerAccueil() {
     document.title = SITE.nom;
     if (!SITE.accueil) return;
@@ -479,12 +497,11 @@
       const x = (clientX - rect.left) * echelleX;
       const y = (clientY - rect.top) * echelleY;
 
-      const solYPage = rect.bottom;
       const rayonPinceau = Math.min(canvas.width, canvas.height) * 0.04;
 
       if (photoData) {
         const pBuffer = photoData.data;
-        const nbParticules = 12;
+        const nbParticules = 10;
         
         for (let k = 0; k < nbParticules; k++) {
           const angle = Math.random() * Math.PI * 2;
@@ -507,7 +524,7 @@
               const posXPage = rect.left + (px / echelleX);
               const posYPage = rect.top + (py / echelleY);
 
-              creerPixelPhysique(posXPage, posYPage, hexColor, solYPage);
+              creerPixelPhysique(posXPage, posYPage, hexColor);
             }
           }
         }
@@ -987,25 +1004,29 @@
     actionSuivant();
   }
 
-  /* --- MOTEUR PHYSIQUE DE SABLE COMPLÉTÉ --- */
+  /* --- MOTEUR PHYSIQUE ET ACCUMULATION EN MONTICULES --- */
   const canvasExplosion = document.getElementById("canvas-explosion");
   const ctxExplosion = canvasExplosion.getContext("2d");
-  let particulesEnMouvement = [];
-  let animExplosionId = null;
 
   const TAILLE_GRAIN = 3; 
-  let hauteurSolMap = {};
+  let grilleMasse = []; 
+  let particulesVoltige = [];
+  let animExplosionId = null;
+  let colonnesMax = 0;
+  let lignesMax = 0;
 
   function redimensionnerExplosion() {
     canvasExplosion.width = window.innerWidth;
     canvasExplosion.height = window.innerHeight;
+    colonnesMax = Math.ceil(canvasExplosion.width / TAILLE_GRAIN);
+    lignesMax = Math.ceil(canvasExplosion.height / TAILLE_GRAIN);
   }
   window.addEventListener("resize", redimensionnerExplosion);
   redimensionnerExplosion();
 
   window.reinitialiserPhysique = function() {
-    particulesEnMouvement = [];
-    hauteurSolMap = {};
+    particulesVoltige = [];
+    grilleMasse = [];
     ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
     if (animExplosionId) {
       cancelAnimationFrame(animExplosionId);
@@ -1013,14 +1034,13 @@
     }
   };
 
-  function creerPixelPhysique(x, y, couleur, solY) {
-    particulesEnMouvement.push({
+  function creerPixelPhysique(x, y, couleur) {
+    particulesVoltige.push({
       x: x,
       y: y,
-      vx: (Math.random() - 0.5) * 4,
-      vy: Math.random() * -2 - 1,
-      couleur: couleur,
-      solY: solY
+      vx: (Math.random() - 0.5) * 3,
+      vy: Math.random() * -1.5 - 0.5,
+      couleur: couleur
     });
 
     if (!animExplosionId) {
@@ -1028,14 +1048,60 @@
     }
   }
 
+  function obtenirHauteur(colonne) {
+    if (colonne < 0 || colonne >= colonnesMax) return lignesMax;
+    let h = 0;
+    while (h < lignesMax && grilleMasse[colonne] && grilleMasse[colonne][lignesMax - 1 - h]) {
+      h++;
+    }
+    return h;
+  }
+
+  function ajouterAuSol(colonne, couleur) {
+    if (colonne < 0 || colonne >= colonnesMax) return;
+    
+    // Algorithme d'empilement/glissement de sable
+    let hCourante = obtenirHauteur(colonne);
+    let hGauche = obtenirHauteur(colonne - 1);
+    let hDroite = obtenirHauteur(colonne + 1);
+
+    if (hCourante > hGauche + 1 && hGauche <= hDroite) {
+      colonne = colonne - 1;
+    } else if (hCourante > hDroite + 1) {
+      colonne = colonne + 1;
+    }
+
+    let hFinale = obtenirHauteur(colonne);
+    if (hFinale >= lignesMax) return;
+
+    if (!grilleMasse[colonne]) grilleMasse[colonne] = [];
+    const ligneIndex = lignesMax - 1 - hFinale;
+    grilleMasse[colonne][ligneIndex] = couleur;
+  }
+
+  function dessinerGrilleSol() {
+    for (let col = 0; col < colonnesMax; col++) {
+      if (!grilleMasse[col]) continue;
+      for (let lig = 0; lig < lignesMax; lig++) {
+        const coul = grilleMasse[col][lig];
+        if (coul) {
+          ctxExplosion.fillStyle = coul;
+          ctxExplosion.fillRect(col * TAILLE_GRAIN, lig * TAILLE_GRAIN, TAILLE_GRAIN, TAILLE_GRAIN);
+        }
+      }
+    }
+  }
+
   function bouclePhysique() {
     ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
 
-    const gravite = 0.25;
+    dessinerGrilleSol();
+
+    const gravite = 0.22;
     const friction = 0.98;
 
-    for (let i = particulesEnMouvement.length - 1; i >= 0; i--) {
-      const p = particulesEnMouvement[i];
+    for (let i = particulesVoltige.length - 1; i >= 0; i--) {
+      const p = particulesVoltige[i];
 
       p.vy += gravite;
       p.vx *= friction;
@@ -1043,37 +1109,113 @@
       p.x += p.vx;
       p.y += p.vy;
 
-      const colIdx = Math.floor(p.x / TAILLE_GRAIN);
-      const hauteurAccumulee = hauteurSolMap[colIdx] || 0;
-      const limiteBasse = Math.min(canvasExplosion.height, p.solY) - hauteurAccumulee;
+      const col = Math.floor(p.x / TAILLE_GRAIN);
+      const hActuelle = obtenirHauteur(col);
+      const ySol = (lignesMax - hActuelle) * TAILLE_GRAIN;
 
-      if (p.y >= limiteBasse) {
-        p.y = limiteBasse;
-        hauteurSolMap[colIdx] = (hauteurSolMap[colIdx] || 0) + TAILLE_GRAIN;
-        
-        // Rendu statique du grain tombé au sol
-        ctxExplosion.fillStyle = p.couleur;
-        ctxExplosion.fillRect(colIdx * TAILLE_GRAIN, p.y, TAILLE_GRAIN, TAILLE_GRAIN);
-
-        particulesEnMouvement.splice(i, 1);
+      if (p.y >= ySol || p.y >= canvasExplosion.height) {
+        ajouterAuSol(col, p.couleur);
+        particulesVoltige.splice(i, 1);
         continue;
       }
 
-      // Dessin des particules en vol
       ctxExplosion.fillStyle = p.couleur;
       ctxExplosion.fillRect(p.x, p.y, TAILLE_GRAIN, TAILLE_GRAIN);
     }
 
-    if (particulesEnMouvement.length > 0) {
+    if (particulesVoltige.length > 0) {
       animExplosionId = requestAnimationFrame(bouclePhysique);
     } else {
       animExplosionId = null;
     }
   }
 
-  // Initialisation de la page au chargement
-  afficher();
+  /* --- JEU DE LA MOUCHE (PAGE CONTACT) --- */
+  let moucheEl = null;
+  let moucheAnimId = null;
+  let moucheX = window.innerWidth / 2;
+  let moucheY = window.innerHeight / 2;
+  let moucheVX = 0;
+  let moucheVY = 0;
 
+  function demarrerMouche() {
+    if (moucheEl) return;
+
+    moucheEl = document.createElement("div");
+    moucheEl.id = "mouche-jeu";
+    moucheEl.innerHTML = `
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <ellipse cx="12" cy="14" rx="4" ry="6" fill="#111" />
+        <circle cx="12" cy="7" r="3" fill="#111" />
+        <ellipse cx="7" cy="11" rx="5" ry="2" fill="rgba(200,200,250,0.7)" transform="rotate(-20 7 11)" />
+        <ellipse cx="17" cy="11" rx="5" ry="2" fill="rgba(200,200,250,0.7)" transform="rotate(20 17 11)" />
+      </svg>
+    `;
+
+    document.body.appendChild(moucheEl);
+
+    moucheX = window.innerWidth * 0.5;
+    moucheY = window.innerHeight * 0.4;
+
+    function bougerMouche() {
+      moucheVX += (Math.random() - 0.5) * 1.5;
+      moucheVY += (Math.random() - 0.5) * 1.5;
+
+      moucheVX *= 0.92;
+      moucheVY *= 0.92;
+
+      moucheX += moucheVX;
+      moucheY += moucheVY;
+
+      if (moucheX < 20) { moucheX = 20; moucheVX *= -1; }
+      if (moucheX > window.innerWidth - 30) { moucheX = window.innerWidth - 30; moucheVX *= -1; }
+      if (moucheY < 20) { moucheY = 20; moucheVY *= -1; }
+      if (moucheY > window.innerHeight - 30) { moucheY = window.innerHeight - 30; moucheVY *= -1; }
+
+      const angle = Math.atan2(moucheVY, moucheVX) * (180 / Math.PI) + 90;
+      moucheEl.style.transform = `translate3d(${moucheX}px, ${moucheY}px, 0) rotate(${angle}deg)`;
+
+      moucheAnimId = requestAnimationFrame(bougerMouche);
+    }
+
+    function fuir(e) {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      const dx = moucheX - clientX;
+      const dy = moucheY - clientY;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 120) {
+        const force = (120 - dist) * 0.2;
+        moucheVX += (dx / dist) * force * 3;
+        moucheVY += (dy / dist) * force * 3;
+      }
+    }
+
+    window.addEventListener("mousemove", fuir);
+    window.addEventListener("touchmove", fuir, { passive: true });
+
+    moucheEl.addEventListener("pointerdown", function () {
+      moucheVX = (Math.random() - 0.5) * 40;
+      moucheVY = (Math.random() - 0.5) * 40;
+    });
+
+    bougerMouche();
+  }
+
+  function arreterMouche() {
+    if (moucheAnimId) {
+      cancelAnimationFrame(moucheAnimId);
+      moucheAnimId = null;
+    }
+    if (moucheEl) {
+      moucheEl.remove();
+      moucheEl = null;
+    }
+  }
+
+  afficher();
 })();
 </script>
 </body>
