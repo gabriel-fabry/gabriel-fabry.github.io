@@ -303,6 +303,36 @@
     width: 0%;
     background: var(--rouge);
   }
+  #barre-charge.chargee { animation: clignote-charge .18s steps(2, jump-none) infinite; }
+  @keyframes clignote-charge {
+    50% { border-color: var(--rouge); background: #111111; }
+  }
+
+  /* Tapette animée : elle remplace le curseur pendant la charge du coup */
+  html.tapette-animee,
+  html.tapette-animee * { cursor: none !important; }
+  #tapette-charge {
+    position: fixed;
+    width: 56px; height: 56px;
+    z-index: 9700;
+    pointer-events: none;
+    transform-origin: 50% 90%;
+    transition: transform .22s cubic-bezier(.2,.8,.3,1);
+    will-change: transform;
+  }
+  #tapette-charge svg { display: block; width: 100%; height: 100%; }
+  #tapette-charge.clignote { animation: clignote-tapette .3s steps(2, jump-none) infinite; }
+  @keyframes clignote-tapette { 50% { opacity: 0.4; } }
+  #tapette-charge.frappe { transition: transform .07s ease-in; }
+
+  /* Le boss se secoue au passage en phase 2 */
+  .mouche.boss.secoue { animation: boss-secoue .5s steps(2, jump-none); }
+  @keyframes boss-secoue {
+    20% { margin: -3px 3px 0 -3px; }
+    40% { margin: 2px -3px 0 2px; }
+    60% { margin: -2px 2px 0 -2px; }
+    80% { margin: 3px -2px 0 3px; }
+  }
   
   @keyframes battement-pixel {
     from { transform: scaleY(1); opacity: 1; }
@@ -358,6 +388,9 @@
     #barre-vie-remplie { transition: none; }
     body.screen-shake { animation: none; }
     body.screen-shake-fort { animation: none; }
+    #tapette-charge.clignote { animation: none; }
+    #barre-charge.chargee { animation: none; }
+    .mouche.boss.secoue { animation: none; }
   }
 </style>
 </head>
@@ -551,7 +584,7 @@
       lecteur.className = "sr-seul";
       lecteur.textContent = "Contact : " + SITE.email + ", Instagram @" + SITE.instagram + ".";
       contenu.appendChild(lecteur);
-      document.title = "Contact â " + SITE.nom;
+      document.title = "Contact - " + SITE.nom;
       demarrerJeu();
       window.scrollTo(0, 0);
       return;
@@ -619,31 +652,32 @@
   window.addEventListener("resize", redimensionnerCanvasExp);
   redimensionnerCanvasExp();
 
-  function creerPixelPhysique(x, y, couleur) {
+  function creerPixelPhysique(x, y) {
     if (!ctxExp) return;
-    const angle = Math.random() * Math.PI * 2;
-    const vitesse = 1 + Math.random() * 5;
+    // Explosion uniquement rouge : petite impulsion initiale vers le haut,
+    // puis la gravité les fait retomber vers le bas
     particulesExp.push({
       x: x,
       y: y,
-      vx: Math.cos(angle) * vitesse,
-      vy: Math.sin(angle) * vitesse - 1,
+      vx: (Math.random() - 0.5) * 2.5,
+      vy: -(0.5 + Math.random() * 2.2),
       taille: Math.floor(Math.random() * 3 + 2),
-      couleur: couleur,
+      couleur: "#ff1744",
       vie: 1.0,
       decroissance: 0.015 + Math.random() * 0.02
     });
     if (!animExpId) animerExp();
   }
 
-  function creerOndeImpact(x, y, dense) {
+  function creerOndeImpact(x, y, numero) {
     // Onde de pixels noirs qui se propage depuis le point d'impact
-    // et disparaît. Coup chargé : onde plus dense et plus longue portée.
+    // et disparaît. Réservée au coup chargé : trois ondes successives,
+    // chacune plus dense et plus large que la précédente.
     if (!ctxExp) return;
-    const nb = dense ? 44 : 26;          // densité de l'onde
-    const rayonDepart = dense ? 10 : 8;  // rayon de départ
-    const vitesse = dense ? 5.5 : 4.0;   // vitesse de propagation
-    const vie = dense ? 0.028 : 0.045;   // durée de vie (fade)
+    numero = numero || 0;
+    const nb = 46 + numero * 10;           // densité croissante
+    const rayonDepart = 12 + numero * 18;  // chaque onde part de plus loin
+    const vitesse = 5.5;
 
     for (let i = 0; i < nb; i++) {
       const angle = (i / nb) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
@@ -652,10 +686,10 @@
         y: y + Math.sin(angle) * rayonDepart,
         vx: Math.cos(angle) * vitesse,
         vy: Math.sin(angle) * vitesse,
-        taille: 3,
+        taille: 4,
         couleur: "#111111",
         vie: 1.0,
-        decroissance: vie + Math.random() * 0.012
+        decroissance: 0.026 + Math.random() * 0.012
       });
     }
     if (!animExpId) animerExp();
@@ -768,7 +802,7 @@
       const p = particulesExp[i];
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.15; // Gravité
+      p.vy += 0.2; // Gravité bien marquée : les pixels retombent
       p.vie -= p.decroissance;
       if (p.vie <= 0) {
         particulesExp.splice(i, 1);
@@ -832,6 +866,12 @@
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
+    // Image d'accueil aléatoire à chaque visite :
+    // accueil1.jpg, accueil2.jpg, ... dans images/accueil/.
+    // Adapter ACCUEIL_MAX au nombre d'images du dossier ; si une image
+    // manque, on retombe sur la précédente, puis sur celle configurée.
+    const ACCUEIL_MAX = 10;
+    let accueilAlea = 1 + Math.floor(Math.random() * ACCUEIL_MAX);
     const src = "images/accueil/" + encodeURIComponent(SITE.accueil);
     const photo = new Image();
     photo.decoding = "async";
@@ -854,7 +894,18 @@
     }
 
     photo.onload = chargerEtDessiner;
-    photo.src = src;
+    photo.onerror = function () {
+      // Image absente : on essaie le numéro juste en dessous
+      accueilAlea -= 1;
+      if (accueilAlea >= 1) {
+        photo.src = "images/accueil/accueil" + accueilAlea + ".jpg";
+      } else {
+        // Épuisé : on revient à l'image d'accueil configurée par défaut
+        photo.onerror = null;
+        photo.src = src;
+      }
+    };
+    photo.src = "images/accueil/accueil" + accueilAlea + ".jpg";
     if (photo.complete && photo.naturalWidth) chargerEtDessiner();
 
     window.reinitialiserAccueil = function () {
@@ -961,7 +1012,7 @@
 
   /* --- SÃRIES CLASSIQUES --- */
   function dessiner(serie) {
-    document.title = serie.titre + " â " + SITE.nom;
+    document.title = serie.titre + " - " + SITE.nom;
     if (serie.texte) {
       const p = document.createElement("p");
       p.className = "texte";
@@ -1018,13 +1069,13 @@
     const prec = document.createElement("button");
     prec.type = "button";
     prec.id = "prec";
-    prec.textContent = "â¹";
+    prec.innerHTML = "&#8249;";
     prec.setAttribute("aria-label", "Image prÃ©cÃ©dente");
     const num = document.createElement("span");
     const suiv = document.createElement("button");
     suiv.type = "button";
     suiv.id = "suiv";
-    suiv.textContent = "âº";
+    suiv.innerHTML = "&#8250;";
     suiv.setAttribute("aria-label", "Image suivante");
     compteur.append(prec, num, suiv);
     if (total > 1) fig.appendChild(compteur);
@@ -1075,7 +1126,7 @@
 
   /* --- SÃRIE CARNAVAL --- */
   function dessinerCarnaval(serie) {
-    document.title = serie.titre + " â " + SITE.nom;
+    document.title = serie.titre + " - " + SITE.nom;
     if (serie.texte) {
       const p = document.createElement("p");
       p.className = "texte";
@@ -1145,13 +1196,13 @@
     const prec = document.createElement("button");
     prec.type = "button";
     prec.id = "prec";
-    prec.textContent = "â¹";
+    prec.innerHTML = "&#8249;";
     prec.setAttribute("aria-label", "Duo prÃ©cÃ©dent");
     const num = document.createElement("span");
     const suiv = document.createElement("button");
     suiv.type = "button";
     suiv.id = "suiv";
-    suiv.textContent = "âº";
+    suiv.innerHTML = "&#8250;";
     suiv.setAttribute("aria-label", "Duo suivant");
     compteur.append(prec, num, suiv);
 
@@ -1225,7 +1276,7 @@
 
   /* --- SÃRIE PAO --- */
   function dessinerPAO(serie) {
-    document.title = serie.titre + " â " + SITE.nom;
+    document.title = serie.titre + " - " + SITE.nom;
     if (serie.texte) {
       const p = document.createElement("p");
       p.className = "texte";
@@ -1288,12 +1339,12 @@
     const prec = document.createElement("button");
     prec.type = "button";
     prec.id = "prec";
-    prec.textContent = "â¹";
+    prec.innerHTML = "&#8249;";
 
     const suiv = document.createElement("button");
     suiv.type = "button";
     suiv.id = "suiv";
-    suiv.textContent = "âº";
+    suiv.innerHTML = "&#8250;";
 
     compteur.append(prec, suiv);
     fig.appendChild(compteur);
@@ -1410,6 +1461,7 @@
   let bossAuSol = false;   // Le boss repose au sol, pattes en l'air
   let rotationChuteBoss = 0;    // Virevolte : rotation pendant la chute
   let vitesseRotationChute = 12; // Vitesse et sens de la virevolte
+  let freezeBossImpact = 0;   // Léger freeze frame du boss à chaque coup reçu
 
   // HUD : compteur de mouches mortes + timer de partie (99 secondes)
   let hudEl = null;
@@ -1426,6 +1478,18 @@
   let debutCharge = 0;
   let barreChargeEl = null;
   let remplieChargeEl = null;
+  let tapetteEl = null;    // La tapette animée qui remplace le curseur
+  let reculCharge = -1;    // Étape de recul (0 à 3) de la tapette
+
+  // La tapette animée (même dessin que le curseur, en plus grand)
+  const SVG_TAPETTE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+    <g transform="rotate(-28 20 20)">
+      <rect x="13" y="1" width="14" height="2" fill="#111111" />
+      <rect x="14" y="3" width="12" height="13" fill="#808080" stroke="#111111" stroke-width="1.5" stroke-dasharray="2.5,2.5" />
+      <rect x="13" y="16" width="14" height="2" fill="#111111" />
+      <rect x="18" y="17" width="4" height="21" fill="#111111" />
+    </g>
+  </svg>`;
 
   // Barre de vie du boss
   let barreVieEl = null;
@@ -1716,6 +1780,12 @@
     // Le boss repose au sol, pattes en l'air : il ne bouge plus
     if (bossAuSol) return;
 
+    // Léger freeze frame après un coup reçu : l'impact est plus lisible
+    if (freezeBossImpact > 0) {
+      freezeBossImpact--;
+      return;
+    }
+
     // Le boss tué : il ne vole plus, il bascule sur le dos et chute lentement
     if (bossChute) {
       updateChuteBoss();
@@ -1769,11 +1839,10 @@
     bossPV -= (degats || 1); // Le coup chargé (degats = 2) compte pour deux coups
     actualiserBarreVie();
     declencherScreenShake();
-    creerOndeImpact(bossX, bossY, false);
+    freezeBossImpact = 5; // léger freeze frame du boss : ça claque
 
     for (let i = 0; i < 12; i++) {
-      const coul = PALETTE_RVB[Math.floor(Math.random() * PALETTE_RVB.length)];
-      creerPixelPhysique(bossX + (Math.random() - 0.5) * 30, bossY + (Math.random() - 0.5) * 30, coul);
+      creerPixelPhysique(bossX + (Math.random() - 0.5) * 30, bossY + (Math.random() - 0.5) * 30);
     }
 
     // Flash du boss à chaque coup reçu
@@ -1788,6 +1857,17 @@
       bossEl.classList.add("phase2");
       pauseBoss = 55;
       declencherScreenShake();
+
+      // Le boss se secoue violemment et des pixels rouges s'en échappent
+      bossEl.classList.remove("secoue");
+      void bossEl.offsetWidth;
+      bossEl.classList.add("secoue");
+      setTimeout(function () {
+        if (bossEl) bossEl.classList.remove("secoue");
+      }, 520);
+      for (let i = 0; i < 18; i++) {
+        creerPixelPhysique(bossX + (Math.random() - 0.5) * 36, bossY + (Math.random() - 0.5) * 36);
+      }
     }
 
     if (bossPV <= 0) tuerBoss();
@@ -1835,13 +1915,11 @@
   }
 
   function tuerBoss() {
-    // Grande explosion de pixels
+    // Grande explosion de pixels rouges
     for (let i = 0; i < 80; i++) {
-      const coul = PALETTE_RVB[Math.floor(Math.random() * PALETTE_RVB.length)];
-      creerPixelPhysique(bossX + (Math.random() - 0.5) * 40, bossY + (Math.random() - 0.5) * 40, coul);
+      creerPixelPhysique(bossX + (Math.random() - 0.5) * 40, bossY + (Math.random() - 0.5) * 40);
     }
     declencherScreenShake();
-    creerOndeImpact(bossX, bossY, true); // coup fatal : onde dense
     if (barreVieEl) { barreVieEl.remove(); barreVieEl = null; barreRemplieEl = null; }
 
     // Le boss ne disparaît pas : il se retourne sur le dos et tombe
@@ -1910,15 +1988,27 @@
     const surMenu = !!(e.target && e.target.closest && e.target.closest("aside"));
     document.documentElement.classList.toggle("zone-tapette", jeuCommence && !surMenu);
 
-    // La barre de coup chargé suit la tapette
+    // La barre de coup chargé et la tapette animée suivent le curseur
     if (barreChargeEl) positionnerBarreCharge(e.clientX, e.clientY);
+    if (tapetteEl) positionnerTapette(e.clientX, e.clientY);
   }
 
   function demarrerCharge(e) {
-    // Début du coup chargé : la petite barre pixel art apparaît sous la tapette
+    // Début du coup chargé : la tapette animée remplace le curseur,
+    // elle clignote pendant la charge, et la barre pixel art se remplit
     if (chargeActive) return;
     chargeActive = true;
     debutCharge = performance.now();
+    reculCharge = 0;
+
+    tapetteEl = document.createElement("div");
+    tapetteEl.id = "tapette-charge";
+    tapetteEl.className = "clignote";
+    tapetteEl.innerHTML = SVG_TAPETTE;
+    tapetteEl.style.transform = "translate(0px, 0px) rotate(0deg)";
+    conteneurJeu.appendChild(tapetteEl);
+    positionnerTapette(e.clientX, e.clientY);
+    document.documentElement.classList.add("tapette-animee");
 
     barreChargeEl = document.createElement("div");
     barreChargeEl.id = "barre-charge";
@@ -1929,6 +2019,12 @@
     positionnerBarreCharge(e.clientX, e.clientY);
   }
 
+  function positionnerTapette(x, y) {
+    if (!tapetteEl) return;
+    tapetteEl.style.left = (x - 27) + "px";
+    tapetteEl.style.top = (y - 22) + "px";
+  }
+
   function positionnerBarreCharge(x, y) {
     if (!barreChargeEl) return;
     barreChargeEl.style.left = (x - 24) + "px";
@@ -1936,9 +2032,29 @@
   }
 
   function annulerCharge() {
+    // Interruption brutale (fin de partie, sortie de page) :
+    // tout disparaît immédiatement, sans animation
     chargeActive = false;
     if (barreChargeEl) { barreChargeEl.remove(); barreChargeEl = null; }
     remplieChargeEl = null;
+    if (tapetteEl) { tapetteEl.remove(); tapetteEl = null; }
+    document.documentElement.classList.remove("tapette-animee");
+    reculCharge = -1;
+  }
+
+  function arreterChargeVisuel() {
+    // Relâchement du clic : la tapette s'abat d'un coup sec, puis disparaît
+    if (barreChargeEl) { barreChargeEl.remove(); barreChargeEl = null; remplieChargeEl = null; }
+    document.documentElement.classList.remove("tapette-animee");
+    if (tapetteEl) {
+      const t = tapetteEl;
+      tapetteEl = null;
+      t.classList.remove("clignote");
+      t.classList.add("frappe");
+      t.style.transform = "translate(3px, 6px) rotate(16deg)";
+      setTimeout(function () { t.remove(); }, 120);
+    }
+    reculCharge = -1;
   }
 
   function relacherClic(e) {
@@ -1946,7 +2062,8 @@
     // la tapette s'abat sur une zone 50 % plus grande
     if (!chargeActive) return;
     const chargeComplete = (performance.now() - debutCharge) >= DUREE_CHARGE;
-    annulerCharge();
+    chargeActive = false;
+    arreterChargeVisuel();
     if (chargeComplete) frapperCharge(e);
   }
 
@@ -1958,13 +2075,16 @@
 
     declencherScreenShakeFort();
 
-    // Onde dense : le coup chargé se propage plus loin
-    creerOndeImpact(e.clientX, e.clientY, true);
+    // Trois ondes noires successives, de plus en plus larges et denses
+    for (let o = 0; o < 3; o++) {
+      setTimeout(function () {
+        if (conteneurJeu) creerOndeImpact(e.clientX, e.clientY, o);
+      }, o * 150);
+    }
 
-    // Grande explosion de pixels au point d'impact, même sans mouche touchée
+    // Grande explosion de pixels rouges au point d'impact, même sans mouche touchée
     for (let i = 0; i < 30; i++) {
-      const coul = PALETTE_RVB[Math.floor(Math.random() * PALETTE_RVB.length)];
-      creerPixelPhysique(e.clientX + (Math.random() - 0.5) * 44, e.clientY + (Math.random() - 0.5) * 44, coul);
+      creerPixelPhysique(e.clientX + (Math.random() - 0.5) * 44, e.clientY + (Math.random() - 0.5) * 44);
     }
 
     if (etapeFin === "boss") {
@@ -2048,13 +2168,9 @@
     // 2. Shake d'écran immédiat
     declencherScreenShake();
 
-    // Onde de pixels noirs qui se propage depuis l'impact
-    creerOndeImpact(m.x, m.y, false);
-
-    // 3. Éjection de particules pixel art colorées
+    // 3. Éjection de particules pixel art rouges, qui retombent
     for (let i = 0; i < 16; i++) {
-      const coul = PALETTE_RVB[Math.floor(Math.random() * PALETTE_RVB.length)];
-      creerPixelPhysique(m.x, m.y, coul);
+      creerPixelPhysique(m.x, m.y);
     }
 
     // Reprise après l'effet de freeze
@@ -2091,10 +2207,20 @@
       if (bossEl) updateBoss();
     }
 
-    // Barre de coup chargé : remplissage progressif en pixel art
+    // Barre de coup chargé : remplissage + tapette qui recule en trois temps
     if (chargeActive && remplieChargeEl) {
       const progression = Math.min(1, (performance.now() - debutCharge) / DUREE_CHARGE);
       remplieChargeEl.style.width = (progression * 100) + "%";
+      if (progression >= 1 && barreChargeEl) barreChargeEl.classList.add("chargee");
+
+      // Recul réparti aux tiers du temps de charge :
+      // la tapette se prépare à frapper, de plus en plus loin
+      const etape = Math.min(3, Math.floor(progression * 3));
+      if (tapetteEl && etape !== reculCharge) {
+        reculCharge = etape;
+        tapetteEl.style.transform =
+          "translate(" + (-etape * 5) + "px, " + (-etape * 4) + "px) rotate(" + (-etape * 9) + "deg)";
+      }
     }
 
     idAnimJeu = requestAnimationFrame(boucleJeu);
@@ -2125,14 +2251,14 @@
         }
       }
 
-      // Vitesse accrue décuplée
-      const vitesseMax = 16.0;
-      m.vx += (dx / (dist || 1)) * 2.2;
-      m.vy += (dy / (dist || 1)) * 2.2;
+      // Vitesse modérée : les mouches restent attrapables
+      const vitesseMax = 11.0;
+      m.vx += (dx / (dist || 1)) * 1.8;
+      m.vy += (dy / (dist || 1)) * 1.8;
 
       // Mouvement erratique nerveux
-      m.vx += (Math.random() - 0.5) * 6;
-      m.vy += (Math.random() - 0.5) * 6;
+      m.vx += (Math.random() - 0.5) * 4.5;
+      m.vy += (Math.random() - 0.5) * 4.5;
 
       const vActuelle = Math.hypot(m.vx, m.vy);
       if (vActuelle > vitesseMax) {
