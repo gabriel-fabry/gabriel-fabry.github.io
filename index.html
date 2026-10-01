@@ -1849,12 +1849,12 @@
       timerBoss = 0;
     }
 
-    // Lent au départ, bien plus rapide en phase 2
-    const vitesseMax = phase2Boss ? 10.0 : 5.5;
-    bossVX += (dx / (dist || 1)) * (phase2Boss ? 2.0 : 1.2);
-    bossVY += (dy / (dist || 1)) * (phase2Boss ? 2.0 : 1.2);
-    bossVX += (Math.random() - 0.5) * (phase2Boss ? 4.0 : 2.0);
-    bossVY += (Math.random() - 0.5) * (phase2Boss ? 4.0 : 2.0);
+    // Lent au départ, plus rapide en phase 2 (mais toujours attrapable)
+    const vitesseMax = phase2Boss ? 6.0 : 3.5;
+    bossVX += (dx / (dist || 1)) * (phase2Boss ? 1.4 : 0.8);
+    bossVY += (dy / (dist || 1)) * (phase2Boss ? 1.4 : 0.8);
+    bossVX += (Math.random() - 0.5) * (phase2Boss ? 2.4 : 1.2);
+    bossVY += (Math.random() - 0.5) * (phase2Boss ? 2.4 : 1.2);
 
     const vActuelle = Math.hypot(bossVX, bossVY);
     if (vActuelle > vitesseMax) {
@@ -2191,8 +2191,9 @@
       }
     }
 
-    // Maintenir le clic pour charger un coup de zone 50 % plus grande
-    demarrerCharge(e);
+    // Maintenir le clic pour charger un coup de zone 50 % plus grande,
+    // mais seulement une fois la première mouche tuée
+    if (jeuCommence) demarrerCharge(e);
   }
 
   function tuerMouche(m) {
@@ -2298,14 +2299,14 @@
         }
       }
 
-      // Vitesse modérée : les mouches restent attrapables
-      const vitesseMax = 11.0;
-      m.vx += (dx / (dist || 1)) * 1.8;
-      m.vy += (dy / (dist || 1)) * 1.8;
+      // Vitesse faible : la première partie du jeu reste facile
+      const vitesseMax = 7.0;
+      m.vx += (dx / (dist || 1)) * 1.2;
+      m.vy += (dy / (dist || 1)) * 1.2;
 
       // Mouvement erratique nerveux
-      m.vx += (Math.random() - 0.5) * 4.5;
-      m.vy += (Math.random() - 0.5) * 4.5;
+      m.vx += (Math.random() - 0.5) * 3.5;
+      m.vy += (Math.random() - 0.5) * 3.5;
 
       const vActuelle = Math.hypot(m.vx, m.vy);
       if (vActuelle > vitesseMax) {
