@@ -460,9 +460,9 @@
     .pao-duo { flex-direction: column; gap: 20px; }
     .pao-cadre { width: 100%; }
     .pao-cadre img { max-height: none; }
-    /* Sur mobile la colonne de gauche n'existe plus : l'emoji
-       revient se coller en bas a gauche de l'image */
-    .bouton-vent { left: 4px; bottom: 4px; }
+    /* Sur mobile la colonne de gauche n'existe plus : l'emoji passe
+       sous l'image, aligne a gauche, pour ne pas couvrir la photo */
+    .bouton-vent { position: static; margin: 10px 0 0; }
   }
   @media (prefers-reduced-motion: reduce) {
     nav a, nav button, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; }
@@ -760,9 +760,33 @@
     if (!canvasExp) return;
     canvasExp.width = window.innerWidth;
     canvasExp.height = window.innerHeight;
+    reveillerCadre();
   }
   window.addEventListener("resize", redimensionnerCanvasExp);
   redimensionnerCanvasExp();
+
+  // Monticule au repos : on le redessine une fois (au scroll ou au
+  // redimensionnement), pas 60 fois par seconde. La boucle d'animation
+  // ne tourne que quand il y a vraiment des pixels en mouvement.
+  function dessinerCadreStatique() {
+    if (!ctxExp) return;
+    ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
+    if (tasActif && tasCanvas && tasElement) {
+      const rect = tasElement.getBoundingClientRect();
+      ctxExp.drawImage(tasCanvas, rect.left - tasDebord, rect.top);
+    }
+  }
+
+  function reveillerCadre() {
+    if (animExpId || !tasActif || !tasCanvas || !tasElement) return;
+    const rect = tasElement.getBoundingClientRect();
+    if (Math.round(rect.width) !== tasLargeurImage || Math.round(rect.height) !== tasHauteurImage) {
+      // L'image a change de taille : on repart d'un monticule vierge
+      initialiserTas(tasElement);
+    }
+    dessinerCadreStatique();
+  }
+  window.addEventListener("scroll", reveillerCadre, { passive: true });
 
   function creerPixelPhysique(x, y, couleur) {
     if (!ctxExp) return;
@@ -1151,10 +1175,15 @@
       ctxExp.globalAlpha = 1.0;
     }
 
-    if (particulesExp.length > 0 || particulesOnde.length > 0 || particulesTas.length > 0 || particulesVent.length > 0 || tasActif) {
+    // La boucle ne continue que s'il reste du mouvement : une fois les
+    // pixels poses, le dessin devient statique (revient au scroll), ce
+    // qui soulage le processeur et la batterie.
+    if (particulesExp.length > 0 || particulesOnde.length > 0 || particulesTas.length > 0 ||
+        particulesVent.length > 0 || (tasActif && forceVent > 0.2)) {
       animExpId = requestAnimationFrame(animerExp);
     } else {
       animExpId = null;
+      dessinerCadreStatique();
     }
   }
 
@@ -1198,17 +1227,27 @@
     photo.decoding = "async";
 
     let photoData = null;
+    let photoSale = true;  // l'instantane des pixels doit etre relu avant le prochain geste
+
+    // Le canvas de grattage travaille en resolution limitee : l'ecran
+    // n'affiche de toute facon qu'une fraction de la photo, et tout
+    // (pinceau, lecture de pixels, monticule) devient nettement plus
+    // rapide, surtout sur telephone.
+    const RESOLUTION_MAX = 1600; // cote le plus long du canvas
 
     function chargerEtDessiner() {
-      canvas.width = photo.naturalWidth;
-      canvas.height = photo.naturalHeight;
-      ctx.drawImage(photo, 0, 0);
-      actualiserPhotoData();
+      const plusLong = Math.max(photo.naturalWidth, photo.naturalHeight);
+      const k = plusLong > RESOLUTION_MAX ? RESOLUTION_MAX / plusLong : 1;
+      canvas.width = Math.max(1, Math.round(photo.naturalWidth * k));
+      canvas.height = Math.max(1, Math.round(photo.naturalHeight * k));
+      ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+      photoSale = true;
     }
 
     function actualiserPhotoData() {
       try {
         photoData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        photoSale = false;
       } catch (e) {
         photoData = null;
       }
@@ -1235,47 +1274,66 @@
       } catch (e) { /* stockage indisponible : on continue sans mémoire */ }
     }
 
-    // Comptage automatique des images du dossier, puis tirage au sort
-    let urlsAccueil = [];
-    let essaiAccueil = 0;
-    function chercherImageAccueil() {
-      essaiAccueil++;
-      const url = "images/accueil/accueil" + essaiAccueil + ".jpg";
-      const sonde = new Image();
-      sonde.onload = function () {
-        urlsAccueil.push(url);
-        chercherImageAccueil(); // il y en a peut-être d'autres
-      };
-      sonde.onerror = function () {
-        if (urlsAccueil.length > 0) {
-          // On exclut les images déjà vues récemment ; si elles l'ont toutes
-          // été (moins de 10 images au total), on tire dans la liste complète
-          let candidates = urlsAccueil.filter(function (u) {
-            return historiqueAccueil.indexOf(u) === -1;
-          });
-          if (candidates.length === 0) candidates = urlsAccueil;
-          const choisie = candidates[Math.floor(Math.random() * candidates.length)];
-          enregistrerAccueil(choisie);
-          photo.src = choisie;
-        } else {
-          // Aucune image numérotée : image configurée par défaut
-          photo.src = src;
-        }
-      };
-      sonde.src = url;
+    // Comptage automatique des images du dossier, puis tirage au sort.
+    // Les sondes partent par lots de 10 EN PARALLELE : la photo apparait
+    // apres un ou deux allers-retours reseau, au lieu d'attendre chaque
+    // image l'une apres l'autre. Le navigateur garde les sondes en
+    // cache : la photo tiree au sort s'affiche aussitot.
+    const LOT_SONDES = 10;
+    function tirerImageAccueil(total) {
+      const urls = [];
+      for (let n = 1; n <= total; n++) {
+        urls.push("images/accueil/accueil" + n + ".jpg");
+      }
+      let candidates = urls.filter(function (u) {
+        return historiqueAccueil.indexOf(u) === -1;
+      });
+      if (candidates.length === 0) candidates = urls;
+      const choisie = candidates[Math.floor(Math.random() * candidates.length)];
+      enregistrerAccueil(choisie);
+      photo.src = choisie;
     }
-    chercherImageAccueil();
+    function sonderAccueil(debut, fin) {
+      // restants est compte d'avance : le lot est clos quelle que soit
+      // l'ordre dans lequel les sondes repondent (rapide ou pas)
+      let restants = fin - debut + 1;
+      let premiereRatee = fin + 1;
+      const sondeTerminee = function (num, ok) {
+        if (!ok && num < premiereRatee) premiereRatee = num;
+        restants--;
+        if (restants > 0) return;
+        if (premiereRatee > fin) {
+          // tout le lot existe : on sonde le lot suivant
+          sonderAccueil(fin + 1, fin + LOT_SONDES);
+          return;
+        }
+        const total = premiereRatee - 1;
+        if (total > 0) tirerImageAccueil(total);
+        else photo.src = src; // aucune image numerotee : image par defaut
+      };
+      for (let n = debut; n <= fin; n++) {
+        (function (num) {
+          const sonde = new Image();
+          sonde.onload = function () { sondeTerminee(num, true); };
+          sonde.onerror = function () { sondeTerminee(num, false); };
+          sonde.src = "images/accueil/accueil" + num + ".jpg";
+        })(n);
+      }
+    }
+    sonderAccueil(1, LOT_SONDES);
 
     window.reinitialiserAccueil = function () {
       if (photo.complete && photo.naturalWidth) {
         ctx.globalCompositeOperation = "source-over";
-        ctx.drawImage(photo, 0, 0);
-        actualiserPhotoData();
+        ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+        photoSale = true;
       }
       reinitialiserPhysique();
     };
 
     let estEnTrainDeCliquer = false;
+    let precedentGrattage = null; // point precedent, pour tracer un trait continu
+    let griffeAttendue = null;    // au plus une griffe par image affichee
 
     function gratterEtEjecter(clientX, clientY) {
       const rect = canvas.getBoundingClientRect();
@@ -1288,6 +1346,27 @@
       const y = (clientY - rect.top) * echelleY;
 
       const rayonPinceau = Math.min(canvas.width, canvas.height) * 0.04;
+
+      // Geste rapide : on efface aussi les cercles intermediaires entre
+      // le point precedent et le point actuel, pour ne pas laisser de trous.
+      if (precedentGrattage) {
+        const dx = x - precedentGrattage.x;
+        const dy = y - precedentGrattage.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const pas = Math.max(1, Math.ceil(dist / (rayonPinceau * 0.75)));
+        if (pas > 1) {
+          ctx.save();
+          ctx.globalCompositeOperation = "destination-out";
+          for (let i = 1; i < pas; i++) {
+            const t = i / pas;
+            ctx.beginPath();
+            ctx.arc(precedentGrattage.x + dx * t, precedentGrattage.y + dy * t, rayonPinceau * 0.85, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+      precedentGrattage = { x: x, y: y };
 
       if (photoData) {
         const pBuffer = photoData.data;
@@ -1346,20 +1425,38 @@
 
     canvas.addEventListener("pointerdown", function (e) {
       estEnTrainDeCliquer = true;
+      precedentGrattage = null;
+      // L'instantane des pixels est relu seulement ici, au moment ou la
+      // main part : plus jamais pendant ou a la fin du geste.
+      if (photoSale) actualiserPhotoData();
       try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
       gratterEtEjecter(e.clientX, e.clientY);
     });
 
     canvas.addEventListener("pointermove", function (e) {
-      if (estEnTrainDeCliquer) {
-        gratterEtEjecter(e.clientX, e.clientY);
+      if (!estEnTrainDeCliquer) return;
+      // Les evenements pointermove peuvent arriver bien plus vite que
+      // l'ecran ne s'affiche : on ne gratte qu'une fois par image,
+      // a la derniere position connue. Le grattage reste fluide meme
+      // sur telephone.
+      if (griffeAttendue) {
+        griffeAttendue[0] = e.clientX;
+        griffeAttendue[1] = e.clientY;
+        return;
       }
+      griffeAttendue = [e.clientX, e.clientY];
+      requestAnimationFrame(function () {
+        const p = griffeAttendue;
+        griffeAttendue = null;
+        if (p && estEnTrainDeCliquer) gratterEtEjecter(p[0], p[1]);
+      });
     });
 
     const stopperGomme = function (e) {
       if (estEnTrainDeCliquer) {
         estEnTrainDeCliquer = false;
-        actualiserPhotoData();
+        precedentGrattage = null;
+        photoSale = true; // l'instantane sera relu au prochain geste
         try { canvas.releasePointerCapture(e.pointerId); } catch(err) {}
       }
     };
