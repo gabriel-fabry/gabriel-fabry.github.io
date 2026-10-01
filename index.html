@@ -1427,19 +1427,6 @@
         tampon(x, y);
       }
 
-      // Petites touches irregulieres autour du point (aspect gomme naturelle)
-      for (let i = 0; i < 3; i++) {
-        const ox = (Math.random() - 0.5) * rayonPinceau * 1.2;
-        const oy = (Math.random() - 0.5) * rayonPinceau * 1.2;
-        const or = Math.random() * (rayonPinceau * 0.4);
-        ctx.save();
-        ctx.translate(x + ox, y + oy);
-        ctx.beginPath();
-        ctx.arc(0, 0, or, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
       ctx.restore();
       precedentGrattage = { x: x, y: y };
     }
