@@ -89,6 +89,8 @@
   }
   nav ul ul { margin: 3px 0 10px 14px; }
   nav ul ul[hidden] { display: none; }
+  /* Plus d'écart entre les titres des séries et la section Contact */
+  #menu > ul > li:last-child { margin-top: 16px; }
 
   /* Colonne de droite */
   main {
@@ -463,10 +465,11 @@
   });
   nom.addEventListener("blur", decolorerNom);
 
-  nom.addEventListener("click", function () {
-    if (typeof window.reinitialiserAccueil === "function") {
-      window.reinitialiserAccueil();
-    }
+  nom.addEventListener("click", function (e) {
+    // Clique sur le nom en haut à gauche : on recharge la page,
+    // ce qui tire une nouvelle image d'accueil au hasard
+    e.preventDefault();
+    window.location.reload();
   });
 
   function creerLien(serie) {
@@ -895,6 +898,25 @@
 
     photo.onload = chargerEtDessiner;
 
+    // Règle anti-répétition : une même image ne peut pas revenir tant que
+    // 10 images différentes ne sont pas passées avant elle.
+    // L'historique est mémorisé entre les visites (localStorage).
+    const HISTO_MAX = 10;
+    let historiqueAccueil = [];
+    try {
+      historiqueAccueil = JSON.parse(localStorage.getItem("accueil-historique")) || [];
+      if (!Array.isArray(historiqueAccueil)) historiqueAccueil = [];
+    } catch (e) {
+      historiqueAccueil = [];
+    }
+    function enregistrerAccueil(url) {
+      historiqueAccueil.push(url);
+      if (historiqueAccueil.length > HISTO_MAX) historiqueAccueil.shift();
+      try {
+        localStorage.setItem("accueil-historique", JSON.stringify(historiqueAccueil));
+      } catch (e) { /* stockage indisponible : on continue sans mémoire */ }
+    }
+
     // Comptage automatique des images du dossier, puis tirage au sort
     let urlsAccueil = [];
     let essaiAccueil = 0;
@@ -908,7 +930,15 @@
       };
       sonde.onerror = function () {
         if (urlsAccueil.length > 0) {
-          photo.src = urlsAccueil[Math.floor(Math.random() * urlsAccueil.length)];
+          // On exclut les images déjà vues récemment ; si elles l'ont toutes
+          // été (moins de 10 images au total), on tire dans la liste complète
+          let candidates = urlsAccueil.filter(function (u) {
+            return historiqueAccueil.indexOf(u) === -1;
+          });
+          if (candidates.length === 0) candidates = urlsAccueil;
+          const choisie = candidates[Math.floor(Math.random() * candidates.length)];
+          enregistrerAccueil(choisie);
+          photo.src = choisie;
         } else {
           // Aucune image numérotée : image configurée par défaut
           photo.src = src;
