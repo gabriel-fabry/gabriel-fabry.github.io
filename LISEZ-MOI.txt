@@ -1,0 +1,17 @@
+SITE DE GABRIEL FABRY
+
+METTRE EN LIGNE (gratuit)
+1. Allez sur https://app.netlify.com/drop
+2. Glissez tout le dossier "site" dans la page. Le site est en ligne.
+3. Créez un compte Netlify (gratuit) pour garder le site et choisir son adresse
+   (Site configuration > Change site name : tonnom.netlify.app).
+
+METTRE A JOUR
+1. Mettez vos photos (jpg, environ 2000 px de large, moins de 500 Ko chacune) dans
+   images/<dossier de la série>/
+2. Ouvrez series.js (avec le Bloc-notes ou TextEdit) et ajoutez le nom des fichiers
+   dans la liste "images" de la série.
+3. Dans Netlify > Deploys, glissez à nouveau le dossier complet.
+
+Supprimez les 3 images d'exemple du dossier images/lait/ et la ligne correspondante
+dans series.js quand vous mettez vos vraies photos.

@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gabriel Fabry</title>
+<meta name="description" content="Gabriel Fabry, photographie.">
+<style>
+  :root {
+    --fond: #ffffff;
+    --texte: #111111;
+    --discret: #6b6b6b;
+    --marge: 32px;
+    --largeur-menu: 270px;
+    --rouge: #ff1744;
+    --vert: #00e676;
+    --bleu: #2979ff;
+  }
+  * { box-sizing: border-box; }
+  html { 
+    -webkit-text-size-adjust: 100%;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><polygon points='0,0 0,18 4.5,13.5 8,21 11,19.5 7.5,12 13.5,12' fill='%232979ff' stroke='%23ffffff' stroke-width='1.5'/></svg>") 0 0, auto;
+  }
+  body {
+    margin: 0;
+    background: var(--fond);
+    color: var(--texte);
+    font: 14px/1.55 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  a, button { 
+    color: inherit; 
+    cursor: pointer; 
+  }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--texte); outline-offset: 3px; }
+
+  /* Colonne de gauche */
+  aside {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: var(--largeur-menu);
+    padding: var(--marge);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .nom {
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    margin-bottom: 40px;
+    cursor: pointer;
+  }
+  .nom .lettre { display: inline-block; transition: color .25s ease; }
+  nav ul { list-style: none; margin: 0; padding: 0; }
+  nav li { margin: 0 0 3px; }
+  nav a, nav button {
+    display: inline;
+    padding: 1px 5px;
+    margin: 0 -5px;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-style: italic;
+    color: var(--discret);
+    text-align: left;
+    text-decoration: none;
+    transition: background-color .2s ease, color .2s ease;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+  }
+  nav a[aria-current="page"] { color: var(--texte); text-decoration: underline; text-underline-offset: 3px; }
+  nav button[aria-expanded="true"] { color: var(--texte); }
+  nav a:hover, nav button:hover,
+  nav a:active, nav button:active,
+  nav a:focus-visible, nav button:focus-visible {
+    background-color: var(--survol-fond, transparent);
+    color: var(--survol-texte, var(--texte));
+  }
+  nav ul ul { margin: 3px 0 10px 14px; }
+  nav ul ul[hidden] { display: none; }
+
+  /* Colonne de droite */
+  main {
+    margin-left: var(--largeur-menu);
+    padding: var(--marge) 48px 120px var(--marge);
+    max-width: calc(var(--largeur-menu) + 1180px);
+    min-height: 100vh;
+  }
+  
+  main h1 { display: none !important; }
+
+  main .texte { max-width: 60ch; margin: 0 0 32px; color: var(--discret); white-space: pre-line; }
+  main figure { margin: 0 0 36px; }
+  main img { display: block; max-width: 100%; max-height: 92vh; width: auto; height: auto; }
+  main figure.serie img { max-height: calc(100vh - 150px); }
+  .vide { color: var(--discret); margin-top: 8px; }
+
+  /* Canvas d'Accueil destructible (optimisé tactile) */
+  #canvas-accueil {
+    display: block;
+    max-width: 100%;
+    max-height: 92vh;
+    width: auto;
+    height: auto;
+    cursor: grab !important;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none; /* Empeche le scroll sur mobile au toucher */
+  }
+  #canvas-accueil:active {
+    cursor: grabbing !important;
+  }
+
+  .zone-interactive-conteneur {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+  }
+  .zone-interactive-conteneur.plein-largeur {
+    display: block;
+    width: 100%;
+  }
+
+  .zone-clic {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    z-index: 10;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .zone-clic.gauche { 
+    left: 0; 
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text x='16' y='24' font-size='28' font-family='Helvetica, Arial, sans-serif' font-weight='bold' fill='%23ff1744' text-anchor='middle'>‹</text></svg>") 16 16, pointer;
+  }
+  .zone-clic.droite { 
+    right: 0; 
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text x='16' y='24' font-size='28' font-family='Helvetica, Arial, sans-serif' font-weight='bold' fill='%2300e676' text-anchor='middle'>›</text></svg>") 16 16, pointer;
+  }
+
+  .vitrine { position: relative; display: block; max-width: 100%; }
+  .vitrine img { display: block; }
+  .vitrine img.superpose {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    transition: opacity .45s ease;
+  }
+  .vitrine img.superpose.fondu { opacity: 0; }
+
+  .pao-duo {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    width: 100%;
+  }
+  .pao-cadre {
+    position: relative;
+    flex: 1 1 50%;
+    width: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pao-cadre img {
+    width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+  }
+  .pao-cadre img.superpose {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    transition: opacity .45s ease;
+  }
+  .pao-cadre img.superpose.fondu { opacity: 0; }
+
+  .compteur { display: flex; gap: 14px; align-items: center; margin-top: 14px; color: var(--discret); font-variant-numeric: tabular-nums; }
+  .compteur button { border: 0; background: none; padding: 0 2px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
+  .compteur button:hover { color: var(--texte); }
+
+  /* Canvas de physique des pixels */
+  #canvas-explosion {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  @media (max-width: 760px) {
+    :root { --marge: 20px; }
+    aside { position: static; width: auto; }
+    .nom { margin-bottom: 24px; }
+    main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; }
+    main img { max-height: none; }
+    main figure.serie img { max-height: none; }
+    #canvas-accueil { max-height: none; }
+
+    .pao-duo { flex-direction: column; gap: 20px; }
+    .pao-cadre { width: 100%; }
+    .pao-cadre img { max-height: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { nav a, nav button, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; } }
+</style>
+</head>
+<body>
+
+<aside>
+  <a class="nom" href="#" id="nom"></a>
+  <nav id="menu" aria-label="Séries"></nav>
+</aside>
+
+<main id="contenu" tabindex="-1"></main>
+
+<canvas id="canvas-explosion"></canvas>
+
+<script src="series.js"></script>
+<script>
+(function () {
+  const menu = document.getElementById("menu");
+  const contenu = document.getElementById("contenu");
+  const liens = {};   
+  const groupes = []; 
+
+  const PALETTE_RVB = ["#ff1744", "#00e676", "#2979ff"];
+
+  const nom = document.getElementById("nom");
+  const lettres = [];
+  SITE.nom.split("").forEach(function (c) {
+    const s = document.createElement("span");
+    s.className = "lettre";
+    s.textContent = c;
+    nom.appendChild(s);
+    if (c !== " ") lettres.push(s);
+  });
+
+  function colorerNom() {
+    let derniereCouleur = null;
+    lettres.forEach(function (s) {
+      let options = PALETTE_RVB;
+      if (derniereCouleur !== null) {
+        options = PALETTE_RVB.filter(c => c !== derniereCouleur);
+      }
+      const choix = options[Math.floor(Math.random() * options.length)];
+      derniereCouleur = choix;
+      s.style.color = choix;
+    });
+  }
+  function decolorerNom() {
+    lettres.forEach(function (s) { s.style.color = ""; });
+  }
+
+  let minuteurNom = null;
+  const mouvementReduit = window.matchMedia("(prefers-reduced-motion: reduce)");
+  
+  nom.addEventListener("mouseenter", function () {
+    colorerNom();
+    if (!mouvementReduit.matches) minuteurNom = setInterval(colorerNom, 400);
+  });
+  nom.addEventListener("touchstart", function () {
+    colorerNom();
+  }, { passive: true });
+  nom.addEventListener("mouseleave", function () {
+    clearInterval(minuteurNom);
+    minuteurNom = null;
+    decolorerNom();
+  });
+  nom.addEventListener("focus", function () {
+    if (nom.matches(":focus-visible")) colorerNom();
+  });
+  nom.addEventListener("blur", decolorerNom);
+
+  nom.addEventListener("click", function () {
+    if (typeof window.reinitialiserAccueil === "function") {
+      window.reinitialiserAccueil();
+    }
+  });
+
+  function creerLien(serie) {
+    const a = document.createElement("a");
+    a.href = "#" + serie.dossier;
+    a.textContent = serie.titre;
+    liens[serie.dossier] = a;
+    return a;
+  }
+
+  const ul = document.createElement("ul");
+
+  // Affichage des séries
+  SERIES.forEach(function (serie) {
+    const li = document.createElement("li");
+    if (serie.sous) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = serie.titre;
+      b.setAttribute("aria-expanded", "false");
+      const sub = document.createElement("ul");
+      sub.hidden = true;
+      serie.sous.forEach(function (s) {
+        const l = document.createElement("li");
+        l.appendChild(creerLien(s));
+        sub.appendChild(l);
+      });
+      b.addEventListener("click", function () { basculer(b, sub); });
+      groupes.push({ bouton: b, liste: sub, enfants: serie.sous.map(function (s) { return s.dossier; }) });
+      li.append(b, sub);
+    } else {
+      li.appendChild(creerLien(serie));
+    }
+    ul.appendChild(li);
+  });
+
+  // Ajout du sous-menu déroulant Contact
+  const liContact = document.createElement("li");
+  const btnContact = document.createElement("button");
+  btnContact.type = "button";
+  btnContact.textContent = "Contact";
+  btnContact.setAttribute("aria-expanded", "false");
+
+  const ulContact = document.createElement("ul");
+  ulContact.hidden = true;
+
+  const liMail = document.createElement("li");
+  const aMail = document.createElement("a");
+  aMail.href = "mailto:" + SITE.email;
+  aMail.textContent = SITE.email;
+  liMail.appendChild(aMail);
+
+  const liInsta = document.createElement("li");
+  const aInsta = document.createElement("a");
+  aInsta.href = "https://www.instagram.com/" + SITE.instagram + "/";
+  aInsta.target = "_blank";
+  aInsta.rel = "noopener";
+  aInsta.textContent = "@" + SITE.instagram;
+  liInsta.appendChild(aInsta);
+
+  ulContact.append(liMail, liInsta);
+
+  btnContact.addEventListener("click", function () {
+    basculer(btnContact, ulContact);
+  });
+
+  liContact.append(btnContact, ulContact);
+  ul.appendChild(liContact);
+
+  menu.appendChild(ul);
+
+  function basculer(bouton, liste, ouvrir) {
+    const etat = ouvrir === undefined ? liste.hidden : ouvrir;
+    liste.hidden = !etat;
+    bouton.setAttribute("aria-expanded", String(etat));
+  }
+
+  let indexCouleurMenu = 0;
+  function colorerMenu(el) {
+    const couleurHex = PALETTE_RVB[indexCouleurMenu];
+    indexCouleurMenu = (indexCouleurMenu + 1) % PALETTE_RVB.length;
+    
+    const couleurTexte = (couleurHex === "#00e676") ? "#000000" : "#ffffff";
+    el.style.setProperty("--survol-fond", couleurHex);
+    el.style.setProperty("--survol-texte", couleurTexte);
+  }
+
+  menu.querySelectorAll("a, button").forEach(function (el) {
+    el.addEventListener("mouseenter", function () { colorerMenu(el); });
+    el.addEventListener("touchstart", function () { colorerMenu(el); }, { passive: true });
+    el.addEventListener("focus", function () { if (el.matches(":focus-visible")) colorerMenu(el); });
+  });
+
+  function trouver(dossier) {
+    for (const s of SERIES) {
+      if (s.sous) { for (const c of s.sous) if (c.dossier === dossier) return c; }
+      else if (s.dossier === dossier) return s;
+    }
+    return null;
+  }
+
+  function afficher() {
+    window.reinitialiserAccueil = null;
+    if (typeof reinitialiserPhysique === "function") reinitialiserPhysique();
+
+    const dossier = decodeURIComponent(location.hash.slice(1));
+    const serie = trouver(dossier);
+
+    if (!serie) {
+      contenu.replaceChildren();
+      Object.values(liens).forEach(function (a) { a.removeAttribute("aria-current"); });
+      groupes.forEach(function (g) { basculer(g.bouton, g.liste, false); });
+      dessinerAccueil();
+      window.scrollTo(0, 0);
+      return;
+    }
+    Object.keys(liens).forEach(function (d) {
+      if (d === serie.dossier) liens[d].setAttribute("aria-current", "page");
+      else liens[d].removeAttribute("aria-current");
+    });
+    groupes.forEach(function (g) {
+      if (g.enfants.indexOf(serie.dossier) !== -1) basculer(g.bouton, g.liste, true);
+    });
+    contenu.replaceChildren();
+
+    const nomDossier = serie.dossier.toUpperCase();
+    if (nomDossier === "PAO") {
+      dessinerPAO(serie);
+    } else if (nomDossier === "CARNAVAL") {
+      dessinerCarnaval(serie);
+    } else {
+      dessiner(serie);
+    }
+    window.scrollTo(0, 0);
+  }
+
+  /* --- PAGE D'ACCUEIL AVEC PINCEAU ET CURSEUR MAIN (OPTIMISÉ MOBILE) --- */
+  function dessinerAccueil() {
+    document.title = SITE.nom;
+    if (!SITE.accueil) return;
+
+    const fig = document.createElement("figure");
+    const canvas = document.createElement("canvas");
+    canvas.id = "canvas-accueil";
+    fig.appendChild(canvas);
+    contenu.appendChild(fig);
+
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+
+    const src = "images/accueil/" + encodeURIComponent(SITE.accueil);
+    const photo = new Image();
+    photo.decoding = "async";
+
+    let photoData = null;
+
+    function chargerEtDessiner() {
+      canvas.width = photo.naturalWidth;
+      canvas.height = photo.naturalHeight;
+      ctx.drawImage(photo, 0, 0);
+      actualiserPhotoData();
+    }
+
+    function actualiserPhotoData() {
+      try {
+        photoData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      } catch (e) {
+        photoData = null;
+      }
+    }
+
+    photo.onload = chargerEtDessiner;
+    photo.src = src;
+    if (photo.complete && photo.naturalWidth) chargerEtDessiner();
+
+    window.reinitialiserAccueil = function () {
+      if (photo.complete && photo.naturalWidth) {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.drawImage(photo, 0, 0);
+        actualiserPhotoData();
+      }
+      if (typeof reinitialiserPhysique === "function") {
+        reinitialiserPhysique();
+      }
+    };
+
+    let estEnTrainDeCliquer = false;
+
+    function gratterEtEjecter(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const echelleX = canvas.width / rect.width;
+      const echelleY = canvas.height / rect.height;
+
+      const x = (clientX - rect.left) * echelleX;
+      const y = (clientY - rect.top) * echelleY;
+
+      // Position du sol à l'écran (coordonnées CSS viewport)
+      const solYPage = rect.bottom;
+      const rayonPinceau = Math.min(canvas.width, canvas.height) * 0.04;
+
+      if (photoData) {
+        const pBuffer = photoData.data;
+        const nbParticules = 12;
+        
+        for (let k = 0; k < nbParticules; k++) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = Math.pow(Math.random(), 1.8) * rayonPinceau; 
+          const px = Math.floor(x + Math.cos(angle) * r);
+          const py = Math.floor(y + Math.sin(angle) * r);
+
+          if (px >= 0 && px < canvas.width && py >= 0 && py < canvas.height) {
+            const index = (py * canvas.width + px) * 4;
+            const alpha = pBuffer[index + 3];
+            
+            if (alpha > 0) {
+              const hexColor = "#" + (
+                (1 << 24) + 
+                (pBuffer[index] << 16) + 
+                (pBuffer[index + 1] << 8) + 
+                pBuffer[index + 2]
+              ).toString(16).slice(1);
+
+              // Coordonnées écran absolues pour le moteur physique
+              const posXPage = rect.left + (px / echelleX);
+              const posYPage = rect.top + (py / echelleY);
+
+              creerPixelPhysique(posXPage, posYPage, hexColor, solYPage);
+            }
+          }
+        }
+      }
+
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, rayonPinceau);
+      grad.addColorStop(0, "rgba(0,0,0,1)");
+      grad.addColorStop(0.5, "rgba(0,0,0,0.6)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x, y, rayonPinceau, 0, Math.PI * 2);
+      ctx.fill();
+
+      for (let i = 0; i < 3; i++) {
+        const ox = (Math.random() - 0.5) * rayonPinceau * 1.2;
+        const oy = (Math.random() - 0.5) * rayonPinceau * 1.2;
+        const or = Math.random() * (rayonPinceau * 0.4);
+        ctx.beginPath();
+        ctx.arc(x + ox, y + oy, or, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+      actualiserPhotoData();
+    }
+
+    canvas.addEventListener("pointerdown", function (e) {
+      estEnTrainDeCliquer = true;
+      try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
+      gratterEtEjecter(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener("pointermove", function (e) {
+      if (estEnTrainDeCliquer) {
+        gratterEtEjecter(e.clientX, e.clientY);
+      }
+    });
+
+    const stopperGomme = function (e) {
+      if (estEnTrainDeCliquer) {
+        estEnTrainDeCliquer = false;
+        try { canvas.releasePointerCapture(e.pointerId); } catch(err) {}
+      }
+    };
+
+    canvas.addEventListener("pointerup", stopperGomme);
+    canvas.addEventListener("pointercancel", stopperGomme);
+  }
+
+  /* --- SÉRIES CLASSIQUES --- */
+  function dessiner(serie) {
+    document.title = serie.titre + " – " + SITE.nom;
+    if (serie.texte) {
+      const p = document.createElement("p");
+      p.className = "texte";
+      p.textContent = serie.texte;
+      contenu.appendChild(p);
+    }
+    const total = serie.images ? serie.images.length : 0;
+    if (total === 0) {
+      const p = document.createElement("p");
+      p.className = "vide";
+      p.textContent = "Bientôt.";
+      contenu.appendChild(p);
+      return;
+    }
+
+    const chemin = function (n) {
+      return "images/" + serie.dossier + "/" + encodeURIComponent(serie.images[n]).replace(/%23/g, '#');
+    };
+
+    const fig = document.createElement("figure");
+    fig.className = "serie";
+
+    const conteneur = document.createElement("div");
+    conteneur.className = "zone-interactive-conteneur";
+
+    const vitrine = document.createElement("div");
+    vitrine.className = "vitrine";
+    const img = document.createElement("img");
+    img.decoding = "async";
+    vitrine.appendChild(img);
+    conteneur.appendChild(vitrine);
+
+    if (total > 1) {
+      const btnGauche = document.createElement("button");
+      btnGauche.type = "button";
+      btnGauche.className = "zone-clic gauche";
+      btnGauche.setAttribute("aria-label", "Image précédente");
+
+      const btnDroite = document.createElement("button");
+      btnDroite.type = "button";
+      btnDroite.className = "zone-clic droite";
+      btnDroite.setAttribute("aria-label", "Image suivante");
+
+      conteneur.append(btnGauche, btnDroite);
+
+      btnGauche.addEventListener("click", function () { montrer(i - 1); });
+      btnDroite.addEventListener("click", function () { montrer(i + 1); });
+    }
+
+    fig.appendChild(conteneur);
+
+    const compteur = document.createElement("div");
+    compteur.className = "compteur";
+    const prec = document.createElement("button");
+    prec.type = "button";
+    prec.id = "prec";
+    prec.textContent = "‹";
+    prec.setAttribute("aria-label", "Image précédente");
+    const num = document.createElement("span");
+    const suiv = document.createElement("button");
+    suiv.type = "button";
+    suiv.id = "suiv";
+    suiv.textContent = "›";
+    suiv.setAttribute("aria-label", "Image suivante");
+    compteur.append(prec, num, suiv);
+    if (total > 1) fig.appendChild(compteur);
+
+    let i = 0;
+    function montrer(n) {
+      i = (n + total) % total;
+      num.textContent = (i + 1) + " / " + total;
+      if (total > 1) { const suivante = new Image(); suivante.src = chemin((i + 1) % total); }
+      remplacer(chemin(i));
+    }
+
+    function remplacer(src) {
+      const ancienSrc = img.getAttribute("src");
+      if (ancienSrc === src) return;
+      let fait = false;
+      const appliquer = function () {
+        if (fait) return;
+        fait = true;
+        img.alt = SITE.nom + ", " + serie.titre + ", image " + (i + 1);
+        if (!ancienSrc || mouvementReduit.matches) {
+          img.src = src;
+          return;
+        }
+        const calque = img.cloneNode();
+        calque.className = "superpose";
+        vitrine.appendChild(calque);
+        img.src = src;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { calque.classList.add("fondu"); });
+          setTimeout(function () { calque.remove(); }, 700);
+        });
+        calque.addEventListener("transitionend", function () { calque.remove(); });
+      };
+      const precharge = new Image();
+      precharge.onload = appliquer;
+      precharge.onerror = function () { fait = true; img.src = src; };
+      precharge.src = src;
+      if (precharge.complete) appliquer();
+    }
+
+    suiv.addEventListener("click", function () { montrer(i + 1); });
+    prec.addEventListener("click", function () { montrer(i - 1); });
+
+    contenu.appendChild(fig);
+    montrer(0);
+  }
+
+  /* --- SÉRIE CARNAVAL --- */
+  function dessinerCarnaval(serie) {
+    document.title = serie.titre + " – " + SITE.nom;
+    if (serie.texte) {
+      const p = document.createElement("p");
+      p.className = "texte";
+      p.textContent = serie.texte;
+      contenu.appendChild(p);
+    }
+    const total = serie.images ? serie.images.length : 0;
+    if (total === 0) {
+      const p = document.createElement("p");
+      p.className = "vide";
+      p.textContent = "Bientôt.";
+      contenu.appendChild(p);
+      return;
+    }
+
+    const chemin = function (n) {
+      return "images/" + serie.dossier + "/" + encodeURIComponent(serie.images[n]).replace(/%23/g, '#');
+    };
+
+    const fig = document.createElement("figure");
+    fig.className = "serie";
+
+    const conteneur = document.createElement("div");
+    conteneur.className = "zone-interactive-conteneur plein-largeur";
+
+    const duo = document.createElement("div");
+    duo.className = "pao-duo";
+
+    const cadre1 = document.createElement("div");
+    cadre1.className = "pao-cadre";
+    const img1 = document.createElement("img");
+    img1.decoding = "async";
+    cadre1.appendChild(img1);
+
+    const cadre2 = document.createElement("div");
+    cadre2.className = "pao-cadre";
+    const img2 = document.createElement("img");
+    img2.decoding = "async";
+    cadre2.appendChild(img2);
+
+    duo.append(cadre1, cadre2);
+    conteneur.appendChild(duo);
+
+    const nbDuos = Math.ceil(total / 2);
+
+    if (nbDuos > 1) {
+      const btnGauche = document.createElement("button");
+      btnGauche.type = "button";
+      btnGauche.className = "zone-clic gauche";
+      btnGauche.setAttribute("aria-label", "Duo précédent");
+
+      const btnDroite = document.createElement("button");
+      btnDroite.type = "button";
+      btnDroite.className = "zone-clic droite";
+      btnDroite.setAttribute("aria-label", "Duo suivant");
+
+      conteneur.append(btnGauche, btnDroite);
+
+      btnGauche.addEventListener("click", function () { montrerDuo(indexDuo - 1); });
+      btnDroite.addEventListener("click", function () { montrerDuo(indexDuo + 1); });
+    }
+
+    fig.appendChild(conteneur);
+
+    const compteur = document.createElement("div");
+    compteur.className = "compteur";
+    const prec = document.createElement("button");
+    prec.type = "button";
+    prec.id = "prec";
+    prec.textContent = "‹";
+    prec.setAttribute("aria-label", "Duo précédent");
+    const num = document.createElement("span");
+    const suiv = document.createElement("button");
+    suiv.type = "button";
+    suiv.id = "suiv";
+    suiv.textContent = "›";
+    suiv.setAttribute("aria-label", "Duo suivant");
+    compteur.append(prec, num, suiv);
+
+    if (nbDuos > 1) fig.appendChild(compteur);
+
+    let indexDuo = 0;
+
+    function remplacerFondu(cadre, imgEl, nouvelleSrc, altTexte) {
+      if (!nouvelleSrc) {
+        imgEl.style.display = "none";
+        return;
+      }
+      imgEl.style.display = "block";
+      const ancienSrc = imgEl.getAttribute("src");
+      if (!ancienSrc || mouvementReduit.matches) {
+        imgEl.src = nouvelleSrc;
+        imgEl.alt = altTexte;
+        return;
+      }
+
+      let fait = false;
+      const appliquer = function () {
+        if (fait) return;
+        fait = true;
+        
+        const calque = imgEl.cloneNode();
+        calque.className = "superpose";
+        cadre.appendChild(calque);
+        
+        imgEl.src = nouvelleSrc;
+        imgEl.alt = altTexte;
+
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { calque.classList.add("fondu"); });
+          setTimeout(function () { calque.remove(); }, 700);
+        });
+        calque.addEventListener("transitionend", function () { calque.remove(); });
+      };
+
+      const precharge = new Image();
+      precharge.onload = appliquer;
+      precharge.onerror = function () { fait = true; imgEl.src = nouvelleSrc; imgEl.alt = altTexte; };
+      precharge.src = nouvelleSrc;
+      if (precharge.complete) appliquer();
+    }
+
+    function montrerDuo(n) {
+      indexDuo = (n + nbDuos) % nbDuos;
+      num.textContent = (indexDuo + 1) + " / " + nbDuos;
+
+      const i1 = indexDuo * 2;
+      const i2 = i1 + 1;
+
+      const src1 = chemin(i1);
+      const src2 = i2 < total ? chemin(i2) : null;
+
+      remplacerFondu(cadre1, img1, src1, SITE.nom + ", " + serie.titre + " (Image " + (i1 + 1) + ")");
+      if (src2) {
+        remplacerFondu(cadre2, img2, src2, SITE.nom + ", " + serie.titre + " (Image " + (i2 + 1) + ")");
+      } else {
+        img2.style.display = "none";
+      }
+    }
+
+    suiv.addEventListener("click", function () { montrerDuo(indexDuo + 1); });
+    prec.addEventListener("click", function () { montrerDuo(indexDuo - 1); });
+
+    contenu.appendChild(fig);
+    montrerDuo(0);
+  }
+
+  /* --- SÉRIE PAO --- */
+  function dessinerPAO(serie) {
+    document.title = serie.titre + " – " + SITE.nom;
+    if (serie.texte) {
+      const p = document.createElement("p");
+      p.className = "texte";
+      p.textContent = serie.texte;
+      contenu.appendChild(p);
+    }
+    const total = serie.images ? serie.images.length : 0;
+    if (total < 2) {
+      const p = document.createElement("p");
+      p.className = "vide";
+      p.textContent = "Il faut au moins 2 images dans le dossier PAO.";
+      contenu.appendChild(p);
+      return;
+    }
+
+    const chemin = function (nomFichier) {
+      return "images/" + serie.dossier + "/" + encodeURIComponent(nomFichier).replace(/%23/g, '#');
+    };
+
+    const fig = document.createElement("figure");
+    fig.className = "serie";
+
+    const conteneur = document.createElement("div");
+    conteneur.className = "zone-interactive-conteneur plein-largeur";
+
+    const duo = document.createElement("div");
+    duo.className = "pao-duo";
+
+    const cadre1 = document.createElement("div");
+    cadre1.className = "pao-cadre";
+    const img1 = document.createElement("img");
+    img1.decoding = "async";
+    cadre1.appendChild(img1);
+
+    const cadre2 = document.createElement("div");
+    cadre2.className = "pao-cadre";
+    const img2 = document.createElement("img");
+    img2.decoding = "async";
+    cadre2.appendChild(img2);
+
+    duo.append(cadre1, cadre2);
+    conteneur.appendChild(duo);
+
+    const btnGauche = document.createElement("button");
+    btnGauche.type = "button";
+    btnGauche.className = "zone-clic gauche";
+    btnGauche.setAttribute("aria-label", "Tirage précédent ou aléatoire");
+
+    const btnDroite = document.createElement("button");
+    btnDroite.type = "button";
+    btnDroite.className = "zone-clic droite";
+    btnDroite.setAttribute("aria-label", "Nouveau tirage aléatoire");
+
+    conteneur.append(btnGauche, btnDroite);
+    fig.appendChild(conteneur);
+
+    const compteur = document.createElement("div");
+    compteur.className = "compteur";
+
+    const prec = document.createElement("button");
+    prec.type = "button";
+    prec.id = "prec";
+    prec.textContent = "‹";
+
+    const suiv = document.createElement("button");
+    suiv.type = "button";
+    suiv.id = "suiv";
+    suiv.textContent = "›";
+
+    compteur.append(prec, suiv);
+    fig.appendChild(compteur);
+
+    let paireCourante = null;
+    let pairePrecedente = null;
+
+    function genererPaireAleatoire(paireAEviter) {
+      let i1, i2;
+      let tentatives = 0;
+      do {
+        i1 = Math.floor(Math.random() * total);
+        i2 = Math.floor(Math.random() * total);
+        tentatives++;
+        if (tentatives > 300) break;
+      } while (
+        i1 === i2 || 
+        (paireAEviter && (i1 === paireAEviter[0] || i1 === paireAEviter[1] || i2 === paireAEviter[0] || i2 === paireAEviter[1]))
+      );
+      return [i1, i2];
+    }
+
+    function remplacerFondu(cadre, imgEl, nouvelleSrc, altTexte) {
+      const ancienSrc = imgEl.getAttribute("src");
+      if (!ancienSrc || mouvementReduit.matches) {
+        imgEl.src = nouvelleSrc;
+        imgEl.alt = altTexte;
+        return;
+      }
+
+      let fait = false;
+      const appliquer = function () {
+        if (fait) return;
+        fait = true;
+        
+        const calque = imgEl.cloneNode();
+        calque.className = "superpose";
+        cadre.appendChild(calque);
+        
+        imgEl.src = nouvelleSrc;
+        imgEl.alt = altTexte;
+
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { calque.classList.add("fondu"); });
+          setTimeout(function () { calque.remove(); }, 700);
+        });
+        calque.addEventListener("transitionend", function () { calque.remove(); });
+      };
+
+      const precharge = new Image();
+      precharge.onload = appliquer;
+      precharge.onerror = function () { fait = true; imgEl.src = nouvelleSrc; imgEl.alt = altTexte; };
+      precharge.src = nouvelleSrc;
+      if (precharge.complete) appliquer();
+    }
+
+    function afficherPaire(paire) {
+      paireCourante = paire;
+      const [idx1, idx2] = paire;
+      remplacerFondu(cadre1, img1, chemin(serie.images[idx1]), SITE.nom + ", " + serie.titre + " (Image " + (idx1 + 1) + ")");
+      remplacerFondu(cadre2, img2, chemin(serie.images[idx2]), SITE.nom + ", " + serie.titre + " (Image " + (idx2 + 1) + ")");
+    }
+
+    function actionSuivant() {
+      pairePrecedente = paireCourante;
+      const nouvellePaire = genererPaireAleatoire(paireCourante);
+      afficherPaire(nouvellePaire);
+    }
+
+    function actionPrecedent() {
+      if (pairePrecedente) {
+        const temp = pairePrecedente;
+        pairePrecedente = null;
+        afficherPaire(temp);
+      } else {
+        const nouvellePaire = genererPaireAleatoire(paireCourante);
+        afficherPaire(nouvellePaire);
+      }
+    }
+
+    btnDroite.addEventListener("click", actionSuivant);
+    suiv.addEventListener("click", actionSuivant);
+
+    btnGauche.addEventListener("click", actionPrecedent);
+    prec.addEventListener("click", actionPrecedent);
+
+    contenu.appendChild(fig);
+    actionSuivant();
+  }
+
+  /* --- MOTEUR PHYSIQUE DE SABLE (OPTIMISÉ MOBILE ET DESKTOP) --- */
+  const canvasExplosion = document.getElementById("canvas-explosion");
+  const ctxExplosion = canvasExplosion.getContext("2d");
+  let particulesEnMouvement = [];
+  let particulesAccumulees = []; 
+  let animExplosionId = null;
+
+  const TAILLE_GRAIN = 3; 
+  let hauteurSolMap = {};
+
+  function redimensionnerExplosion() {
+    canvasExplosion.width = window.innerWidth;
+    canvasExplosion.height = window.innerHeight;
+  }
+  window.addEventListener("resize", redimensionnerExplosion);
+  redimensionnerExplosion();
+
+  function reinitialiserPhysique() {
+    particulesEnMouvement = [];
+    particulesAccumulees = [];
+    hauteurSolMap = {};
+    if (ctxExplosion) {
+      ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
+    }
+  }
+
+  window.reinitialiserPhysique = reinitialiserPhysique;
+
+  function getHauteurColonne(col) {
+    return hauteurSolMap[col] || 0;
+  }
+
+  function creerPixelPhysique(xPage, yPage, couleurHex, solYPage) {
+    const angle = Math.random() * Math.PI * 2;
+    const vitesse = 1 + Math.random() * 2.5;
+
+    const p = {
+      x: xPage,
+      y: yPage,
+      vx: Math.cos(angle) * vitesse,
+      vy: Math.sin(angle) * vitesse - 1,
+      couleur: couleurHex,
+      taille: TAILLE_GRAIN,
+      solY: solYPage
+    };
+
+    particulesEnMouvement.push(p);
+
+    if (!animExplosionId) {
+      bouclePhysique();
+    }
+  }
+
+  function ebouler(colonneIndex) {
+    const hCenter = getHauteurColonne(colonneIndex);
+    const hLeft = getHauteurColonne(colonneIndex - 1);
+    const hRight = getHauteurColonne(colonneIndex + 1);
+
+    if (hCenter - hLeft > 2) {
+      hauteurSolMap[colonneIndex] -= 1;
+      hauteurSolMap[colonneIndex - 1] = (hauteurSolMap[colonneIndex - 1] || 0) + 1;
+      ebouler(colonneIndex - 1);
+    } else if (hCenter - hRight > 2) {
+      hauteurSolMap[colonneIndex] -= 1;
+      hauteurSolMap[colonneIndex + 1] = (hauteurSolMap[colonneIndex + 1] || 0) + 1;
+      ebouler(colonneIndex + 1);
+    }
+  }
+
+  function bouclePhysique() {
+    ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
+
+    for (let i = 0; i < particulesAccumulees.length; i++) {
+      const p = particulesAccumulees[i];
+      ctxExplosion.fillStyle = p.couleur;
+      ctxExplosion.fillRect(p.x, p.y, p.taille, p.taille);
+    }
+
+    const gravite = 0.3;
+
+    for (let i = particulesEnMouvement.length - 1; i >= 0; i--) {
+      const p = particulesEnMouvement[i];
+
+      p.vx *= 0.97;
+      p.vy += gravite;
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      const col = Math.floor(p.x / p.taille);
+      const hauteurAccumulee = getHauteurColonne(col) * p.taille;
+      const limiteSol = p.solY - hauteurAccumulee;
+
+      if (p.y >= limiteSol) {
+        p.y = limiteSol;
+        hauteurSolMap[col] = (hauteurSolMap[col] || 0) + 1;
+        
+        ebouler(col);
+
+        particulesAccumulees.push(p);
+        particulesEnMouvement.splice(i, 1);
+      } else {
+        ctxExplosion.fillStyle = p.couleur;
+        ctxExplosion.fillRect(p.x, p.y, p.taille, p.taille);
+      }
+    }
+
+    if (particulesEnMouvement.length > 0) {
+      animExplosionId = requestAnimationFrame(bouclePhysique);
+    } else {
+      animExplosionId = null;
+    }
+  }
+
+  window.addEventListener("hashchange", afficher);
+  afficher();
+})();
+</script>
+</body>
+</html>
