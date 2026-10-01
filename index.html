@@ -96,7 +96,7 @@
   main figure.serie img { max-height: calc(100vh - 150px); }
   .vide { color: var(--discret); margin-top: 8px; }
 
-  /* Canvas d'Accueil destructible (optimisé tactile) */
+  /* Canvas d'Accueil destructible */
   #canvas-accueil {
     display: block;
     max-width: 100%;
@@ -106,7 +106,7 @@
     cursor: grab !important;
     user-select: none;
     -webkit-user-select: none;
-    touch-action: none; /* Empeche le scroll sur mobile au toucher */
+    touch-action: none;
   }
   #canvas-accueil:active {
     cursor: grabbing !important;
@@ -185,7 +185,6 @@
   .compteur button { border: 0; background: none; padding: 0 2px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
   .compteur button:hover { color: var(--texte); }
 
-  /* Canvas de physique des pixels */
   #canvas-explosion {
     position: fixed;
     top: 0; left: 0;
@@ -293,7 +292,6 @@
 
   const ul = document.createElement("ul");
 
-  // Affichage des séries
   SERIES.forEach(function (serie) {
     const li = document.createElement("li");
     if (serie.sous) {
@@ -317,7 +315,6 @@
     ul.appendChild(li);
   });
 
-  // Ajout du sous-menu déroulant Contact
   const liContact = document.createElement("li");
   const btnContact = document.createElement("button");
   btnContact.type = "button";
@@ -417,7 +414,10 @@
     window.scrollTo(0, 0);
   }
 
-  /* --- PAGE D'ACCUEIL AVEC PINCEAU ET CURSEUR MAIN (OPTIMISÉ MOBILE) --- */
+  window.addEventListener("hashchange", afficher);
+  window.addEventListener("DOMContentLoaded", afficher);
+
+  /* --- PAGE D'ACCUEIL --- */
   function dessinerAccueil() {
     document.title = SITE.nom;
     if (!SITE.accueil) return;
@@ -479,7 +479,6 @@
       const x = (clientX - rect.left) * echelleX;
       const y = (clientY - rect.top) * echelleY;
 
-      // Position du sol à l'écran (coordonnées CSS viewport)
       const solYPage = rect.bottom;
       const rayonPinceau = Math.min(canvas.width, canvas.height) * 0.04;
 
@@ -505,7 +504,6 @@
                 pBuffer[index + 2]
               ).toString(16).slice(1);
 
-              // Coordonnées écran absolues pour le moteur physique
               const posXPage = rect.left + (px / echelleX);
               const posYPage = rect.top + (py / echelleY);
 
@@ -538,7 +536,6 @@
       }
 
       ctx.restore();
-      actualiserPhotoData();
     }
 
     canvas.addEventListener("pointerdown", function (e) {
@@ -556,6 +553,7 @@
     const stopperGomme = function (e) {
       if (estEnTrainDeCliquer) {
         estEnTrainDeCliquer = false;
+        actualiserPhotoData();
         try { canvas.releasePointerCapture(e.pointerId); } catch(err) {}
       }
     };
@@ -989,11 +987,10 @@
     actionSuivant();
   }
 
-  /* --- MOTEUR PHYSIQUE DE SABLE (OPTIMISÉ MOBILE ET DESKTOP) --- */
+  /* --- MOTEUR PHYSIQUE DE SABLE COMPLÉTÉ --- */
   const canvasExplosion = document.getElementById("canvas-explosion");
   const ctxExplosion = canvasExplosion.getContext("2d");
   let particulesEnMouvement = [];
-  let particulesAccumulees = []; 
   let animExplosionId = null;
 
   const TAILLE_GRAIN = 3; 
@@ -1006,94 +1003,65 @@
   window.addEventListener("resize", redimensionnerExplosion);
   redimensionnerExplosion();
 
-  function reinitialiserPhysique() {
+  window.reinitialiserPhysique = function() {
     particulesEnMouvement = [];
-    particulesAccumulees = [];
     hauteurSolMap = {};
-    if (ctxExplosion) {
-      ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
+    ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
+    if (animExplosionId) {
+      cancelAnimationFrame(animExplosionId);
+      animExplosionId = null;
     }
-  }
+  };
 
-  window.reinitialiserPhysique = reinitialiserPhysique;
-
-  function getHauteurColonne(col) {
-    return hauteurSolMap[col] || 0;
-  }
-
-  function creerPixelPhysique(xPage, yPage, couleurHex, solYPage) {
-    const angle = Math.random() * Math.PI * 2;
-    const vitesse = 1 + Math.random() * 2.5;
-
-    const p = {
-      x: xPage,
-      y: yPage,
-      vx: Math.cos(angle) * vitesse,
-      vy: Math.sin(angle) * vitesse - 1,
-      couleur: couleurHex,
-      taille: TAILLE_GRAIN,
-      solY: solYPage
-    };
-
-    particulesEnMouvement.push(p);
+  function creerPixelPhysique(x, y, couleur, solY) {
+    particulesEnMouvement.push({
+      x: x,
+      y: y,
+      vx: (Math.random() - 0.5) * 4,
+      vy: Math.random() * -2 - 1,
+      couleur: couleur,
+      solY: solY
+    });
 
     if (!animExplosionId) {
       bouclePhysique();
     }
   }
 
-  function ebouler(colonneIndex) {
-    const hCenter = getHauteurColonne(colonneIndex);
-    const hLeft = getHauteurColonne(colonneIndex - 1);
-    const hRight = getHauteurColonne(colonneIndex + 1);
-
-    if (hCenter - hLeft > 2) {
-      hauteurSolMap[colonneIndex] -= 1;
-      hauteurSolMap[colonneIndex - 1] = (hauteurSolMap[colonneIndex - 1] || 0) + 1;
-      ebouler(colonneIndex - 1);
-    } else if (hCenter - hRight > 2) {
-      hauteurSolMap[colonneIndex] -= 1;
-      hauteurSolMap[colonneIndex + 1] = (hauteurSolMap[colonneIndex + 1] || 0) + 1;
-      ebouler(colonneIndex + 1);
-    }
-  }
-
   function bouclePhysique() {
     ctxExplosion.clearRect(0, 0, canvasExplosion.width, canvasExplosion.height);
 
-    for (let i = 0; i < particulesAccumulees.length; i++) {
-      const p = particulesAccumulees[i];
-      ctxExplosion.fillStyle = p.couleur;
-      ctxExplosion.fillRect(p.x, p.y, p.taille, p.taille);
-    }
-
-    const gravite = 0.3;
+    const gravite = 0.25;
+    const friction = 0.98;
 
     for (let i = particulesEnMouvement.length - 1; i >= 0; i--) {
       const p = particulesEnMouvement[i];
 
-      p.vx *= 0.97;
       p.vy += gravite;
+      p.vx *= friction;
 
       p.x += p.vx;
       p.y += p.vy;
 
-      const col = Math.floor(p.x / p.taille);
-      const hauteurAccumulee = getHauteurColonne(col) * p.taille;
-      const limiteSol = p.solY - hauteurAccumulee;
+      const colIdx = Math.floor(p.x / TAILLE_GRAIN);
+      const hauteurAccumulee = hauteurSolMap[colIdx] || 0;
+      const limiteBasse = Math.min(canvasExplosion.height, p.solY) - hauteurAccumulee;
 
-      if (p.y >= limiteSol) {
-        p.y = limiteSol;
-        hauteurSolMap[col] = (hauteurSolMap[col] || 0) + 1;
+      if (p.y >= limiteBasse) {
+        p.y = limiteBasse;
+        hauteurSolMap[colIdx] = (hauteurSolMap[colIdx] || 0) + TAILLE_GRAIN;
         
-        ebouler(col);
-
-        particulesAccumulees.push(p);
-        particulesEnMouvement.splice(i, 1);
-      } else {
+        // Rendu statique du grain tombé au sol
         ctxExplosion.fillStyle = p.couleur;
-        ctxExplosion.fillRect(p.x, p.y, p.taille, p.taille);
+        ctxExplosion.fillRect(colIdx * TAILLE_GRAIN, p.y, TAILLE_GRAIN, TAILLE_GRAIN);
+
+        particulesEnMouvement.splice(i, 1);
+        continue;
       }
+
+      // Dessin des particules en vol
+      ctxExplosion.fillStyle = p.couleur;
+      ctxExplosion.fillRect(p.x, p.y, TAILLE_GRAIN, TAILLE_GRAIN);
     }
 
     if (particulesEnMouvement.length > 0) {
@@ -1103,8 +1071,9 @@
     }
   }
 
-  window.addEventListener("hashchange", afficher);
+  // Initialisation de la page au chargement
   afficher();
+
 })();
 </script>
 </body>
