@@ -276,14 +276,14 @@
   /* Barre de vie du boss, en bas de l'écran */
   #barre-vie-boss {
     position: fixed;
-    bottom: 0; left: 0; right: 0;
+    bottom: 14px; left: 0; right: 0; /* décollée du bord bas de l'écran */
     text-align: center;
     z-index: 9100;
     pointer-events: none;
   }
   #nom-boss { margin-bottom: 8px; }
   #nom-boss canvas { display: inline-block; }
-  #barre-vie-piste { height: 7px; width: 50%; margin: 0 auto; background: rgba(17, 17, 17, 0.08); }
+  #barre-vie-piste { height: 9px; width: 35%; margin: 0 auto; background: rgba(17, 17, 17, 0.08); }
   #barre-vie-remplie {
     height: 100%;
     width: 100%;
@@ -1992,6 +1992,11 @@
   }
 
   function declencherFin() {
+    // Garde-fou : si plusieurs mouches meurent d'un même coup chargé
+    // au moment fatidique, la fin ne doit être déclenchée qu'une seule fois
+    // (sinon une seconde barre de vie orpheline apparaît et reste pleine)
+    if (etapeFin) return;
+
     // Les 50 mouches sont tuées : les cadavres s'agglutinent pour former le boss
     etapeFin = "boss";
 
@@ -2208,6 +2213,10 @@
   }
 
   function tuerMouche(m) {
+    // Une fois la fin déclenchée, les mouches restantes d'un même coup
+    // n'ont plus rien à faire ici : elles partent rejoindre le boss
+    if (etapeFin) return;
+
     m.etat = "touchee";
     m.el.classList.add("touchee");
 
