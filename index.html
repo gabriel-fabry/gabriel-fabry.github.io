@@ -455,7 +455,9 @@
     main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; }
     main img { max-height: none; }
     main figure.serie img { max-height: none; }
-    #canvas-accueil { max-height: none; }
+    /* Sur mobile, la photo d'accueil tient dans l'ecran : les pixels
+       grattes tombent sur un sol toujours visible, jamais sous l'ecran. */
+    #canvas-accueil { max-height: 85vh; }
 
     .pao-duo { flex-direction: column; gap: 20px; }
     .pao-cadre { width: 100%; }
@@ -944,11 +946,19 @@
 
   // Petit "clic" grave et tres discret, joue quand on active ou coupe
   // le micro. Grave volontairement (140 a 220 Hz) : pas d'agressivite.
-  function jouerClicVent() {
+  // Peut recevoir un AudioContext deja ouvert (le creer pendant le clic
+  // est obligatoire sur iPhone : un contexte cree plus tard, hors geste,
+  // reste muet).
+  function jouerClicVent(audioDejaOuvert) {
     try {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
-      const audio = new Ctx();
+      let audio = audioDejaOuvert || null;
+      let fermerApres = false;
+      if (!audio) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        audio = new Ctx();
+        fermerApres = true;
+      }
       const osc = audio.createOscillator();
       const vol = audio.createGain();
       osc.type = "sine";
@@ -960,9 +970,11 @@
       vol.connect(audio.destination);
       osc.start();
       osc.stop(audio.currentTime + 0.08);
-      osc.onended = function () {
-        try { audio.close(); } catch (e) { /* deja ferme */ }
-      };
+      if (fermerApres) {
+        osc.onended = function () {
+          try { audio.close(); } catch (e) { /* deja ferme */ }
+        };
+      }
     } catch (e) { /* pas de son disponible : tant pis */ }
   }
 
@@ -1028,6 +1040,9 @@
     // iOS/Safari : l'AudioContext doit etre cree pendant le clic
     ventAudio = new Ctx();
     ventAudio.resume();
+    // Le clic d'activation part tout de suite, pendant le geste : sur
+    // iPhone, le jouer apres la reponse du micro resterait muet.
+    jouerClicVent(ventAudio);
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flux) {
       ventFlux = flux;
       if (ventAudio && ventAudio.state === "suspended") ventAudio.resume();
@@ -1042,7 +1057,6 @@
       ventRepetitions = 0;
       ventEnergie = 0;
       majBoutonVent(bouton, true);
-      jouerClicVent();
       ventIntervalle = setInterval(analyserSouffle, 50);
     }).catch(function () {
       bouton.textContent = EMOJI_REFUS;
@@ -1347,27 +1361,6 @@
 
       const rayonPinceau = Math.min(canvas.width, canvas.height) * 0.04;
 
-      // Geste rapide : on efface aussi les cercles intermediaires entre
-      // le point precedent et le point actuel, pour ne pas laisser de trous.
-      if (precedentGrattage) {
-        const dx = x - precedentGrattage.x;
-        const dy = y - precedentGrattage.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const pas = Math.max(1, Math.ceil(dist / (rayonPinceau * 0.75)));
-        if (pas > 1) {
-          ctx.save();
-          ctx.globalCompositeOperation = "destination-out";
-          for (let i = 1; i < pas; i++) {
-            const t = i / pas;
-            ctx.beginPath();
-            ctx.arc(precedentGrattage.x + dx * t, precedentGrattage.y + dy * t, rayonPinceau * 0.85, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.restore();
-        }
-      }
-      precedentGrattage = { x: x, y: y };
-
       if (photoData) {
         const pBuffer = photoData.data;
         const nbParticules = 10;
@@ -1398,29 +1391,57 @@
         }
       }
 
+      // Pinceau doux : un seul degrade radial (centre a l'origine),
+      // deplace par translate pour chaque touche. Tous les bords sont
+      // fondus : aucune trace ronde nete, meme en deplacant vite le doigt.
       ctx.save();
       ctx.globalCompositeOperation = "destination-out";
-
-      const grad = ctx.createRadialGradient(x, y, 0, x, y, rayonPinceau);
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rayonPinceau);
       grad.addColorStop(0, "rgba(0,0,0,1)");
       grad.addColorStop(0.5, "rgba(0,0,0,0.6)");
       grad.addColorStop(1, "rgba(0,0,0,0)");
-
       ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(x, y, rayonPinceau, 0, Math.PI * 2);
-      ctx.fill();
 
+      const tampon = function (cx, cy) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        ctx.arc(0, 0, rayonPinceau, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+
+      // Trait continu : on repasse sur tout le segment entre le point
+      // precedent et le point actuel, pour ne pas laisser de trous.
+      if (precedentGrattage) {
+        const dx = x - precedentGrattage.x;
+        const dy = y - precedentGrattage.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        // Plafond : meme un tres grand geste rapide reste fluide
+        const pas = Math.min(12, Math.max(1, Math.ceil(dist / (rayonPinceau * 0.5))));
+        for (let i = 0; i <= pas; i++) {
+          const t = i / pas;
+          tampon(precedentGrattage.x + dx * t, precedentGrattage.y + dy * t);
+        }
+      } else {
+        tampon(x, y);
+      }
+
+      // Petites touches irregulieres autour du point (aspect gomme naturelle)
       for (let i = 0; i < 3; i++) {
         const ox = (Math.random() - 0.5) * rayonPinceau * 1.2;
         const oy = (Math.random() - 0.5) * rayonPinceau * 1.2;
         const or = Math.random() * (rayonPinceau * 0.4);
+        ctx.save();
+        ctx.translate(x + ox, y + oy);
         ctx.beginPath();
-        ctx.arc(x + ox, y + oy, or, 0, Math.PI * 2);
+        ctx.arc(0, 0, or, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
       }
 
       ctx.restore();
+      precedentGrattage = { x: x, y: y };
     }
 
     canvas.addEventListener("pointerdown", function (e) {
@@ -1464,9 +1485,9 @@
     canvas.addEventListener("pointerup", stopperGomme);
     canvas.addEventListener("pointercancel", stopperGomme);
 
-    // Emoji qui souffle, pose tout en bas a droite de l'image, sans
-    // encart. Le micro n'est active qu'apres ce clic (permission
-    // navigateur), jamais automatiquement.
+    // Emoji qui souffle : colonne de gauche (sous Contact) sur grand
+    // ecran, sous l'image sur mobile. Le micro n'est active qu'apres
+    // ce clic (permission navigateur), jamais automatiquement.
     const boutonVent = document.createElement("button");
     boutonVent.type = "button";
     boutonVent.className = "bouton-vent";
