@@ -52,7 +52,14 @@
     flex-direction: column;
     overflow-y: auto;
     z-index: 10;
+    /* La colonne elle-meme laisse passer les clics (notamment vers
+       l'emoji souffle place sous elle) ; seuls les vrais elements
+       interactifs du menu les captent. */
+    pointer-events: none;
   }
+  aside .nom,
+  aside nav a,
+  aside nav button { pointer-events: auto; }
   .nom {
     font-size: 15px;
     font-weight: 500;
