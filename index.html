@@ -125,14 +125,15 @@
     cursor: grabbing !important;
   }
 
-  /* Emoji souffle, colle au coin bas-droit de l'image (accueil) */
+  /* Emoji souffle, pose dans la colonne de gauche, sous Contact,
+     aligne sur la ligne du bas de l'image d'accueil */
   .figure-accueil {
     position: relative;
   }
   .bouton-vent {
     position: absolute;
-    right: 4px;
-    bottom: 4px;
+    left: calc(-1 * var(--largeur-menu));
+    bottom: 0;
     padding: 0;
     margin: 0;
     border: none;
@@ -143,8 +144,6 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
-    transform-origin: center;
-    transition: transform 0.15s ease;
   }
 
   .zone-interactive-conteneur {
@@ -454,6 +453,9 @@
     .pao-duo { flex-direction: column; gap: 20px; }
     .pao-cadre { width: 100%; }
     .pao-cadre img { max-height: none; }
+    /* Sur mobile la colonne de gauche n'existe plus : l'emoji
+       revient se coller en bas a gauche de l'image */
+    .bouton-vent { left: 4px; bottom: 4px; }
   }
   @media (prefers-reduced-motion: reduce) {
     nav a, nav button, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; }
@@ -655,6 +657,18 @@
       else if (s.dossier === dossier) return s;
     }
     return null;
+  }
+
+  // Section "Old fashion" : les images defilent au hasard. La meme
+  // image ne peut revenir avant qu'au moins 20 images differentes
+  // soient passees. La detection marche que le nom soit ecrit
+  // "Old fashion", "old-fashion", "old_fashion" ou "oldfashion".
+  function estSerieAleatoire(serie) {
+    const norm = function (s) {
+      return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    };
+    return norm(serie.dossier).indexOf("oldfashion") !== -1 ||
+           norm(serie.titre).indexOf("oldfashion") !== -1;
   }
 
   function afficher() {
@@ -879,8 +893,6 @@
   let ventEnergie = 0;        // force du souffle, de 0 a 1
   let ventRepetitions = 0;    // analyses consecutives au-dessus du seuil
   let ventRafale = 0;         // images de rafale restantes (gros souffle brutal)
-  let ventEtiquetteEl = null; // l'emoji souffle (coin de l'image)
-  let ventCompteur = 0;       // horloge d'animation de l'emoji
   let ventFlux = null;
   let ventAudio = null;
   let ventAnalyseur = null;
@@ -899,6 +911,30 @@
     bouton.title = actif ? "Souffle pour nettoyer !" : "Nettoyer en soufflant dans le micro";
   }
 
+  // Petit "clic" grave et tres discret, joue quand on active ou coupe
+  // le micro. Grave volontairement (140 a 220 Hz) : pas d'agressivite.
+  function jouerClicVent() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const audio = new Ctx();
+      const osc = audio.createOscillator();
+      const vol = audio.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(220, audio.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(140, audio.currentTime + 0.05);
+      vol.gain.setValueAtTime(0.05, audio.currentTime);
+      vol.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.07);
+      osc.connect(vol);
+      vol.connect(audio.destination);
+      osc.start();
+      osc.stop(audio.currentTime + 0.08);
+      osc.onended = function () {
+        try { audio.close(); } catch (e) { /* deja ferme */ }
+      };
+    } catch (e) { /* pas de son disponible : tant pis */ }
+  }
+
   function arreterMicroVent() {
     if (ventIntervalle) { clearInterval(ventIntervalle); ventIntervalle = null; }
     if (ventFlux) {
@@ -915,9 +951,6 @@
     ventEnergie = 0;
     ventRepetitions = 0;
     ventRafale = 0;
-    if (ventEtiquetteEl) ventEtiquetteEl.style.transform = "";
-    ventEtiquetteEl = null;
-    ventCompteur = 0;
     particulesVent = [];
   }
 
@@ -945,11 +978,6 @@
       ventRepetitions = 0;
       ventEnergie *= 0.86; // decroissance douce quand on arrete de souffler
     }
-    // L'emoji grossit et fretille avec la force du souffle
-    if (ventEtiquetteEl) {
-      ventEtiquetteEl.style.transform = "scale(" + (1 + ventEnergie * 0.5 + Math.sin(ventCompteur * 0.15) * 0.06) + ") rotate(" + (Math.sin(ventCompteur * 0.3) * ventEnergie * 14) + "deg)";
-      ventCompteur++;
-    }
     // Le vent fait tourner la boucle d'animation si besoin
     if (tasActif && ventEnergie > 0.2 && !animExpId) animerExp();
   }
@@ -958,6 +986,7 @@
     if (ventActif) {
       arreterMicroVent();
       majBoutonVent(bouton, false);
+      jouerClicVent();
       return;
     }
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -981,8 +1010,8 @@
       ventActif = true;
       ventRepetitions = 0;
       ventEnergie = 0;
-      ventEtiquetteEl = bouton;
       majBoutonVent(bouton, true);
+      jouerClicVent();
       ventIntervalle = setInterval(analyserSouffle, 50);
     }).catch(function () {
       bouton.textContent = EMOJI_REFUS;
@@ -1371,6 +1400,38 @@
     const fig = document.createElement("figure");
     fig.className = "serie";
 
+    // Ordre de defilement : lineaire partout, aleatoire pour Old fashion
+    const aleatoire = estSerieAleatoire(serie);
+    const historique = [0]; // dernieres images montrees, la plus recente en fin
+
+    function tirerAleatoire() {
+      // On interdit les 20 dernieres images montrees : la meme
+      // image ne peut donc pas revenir avant 20 images differentes.
+      const exclus = historique.slice(-20);
+      let candidats = [];
+      for (let n = 0; n < total; n++) {
+        if (exclus.indexOf(n) === -1) candidats.push(n);
+      }
+      if (candidats.length === 0) {
+        // Toutes les images sont encore bloquees (petite serie) :
+        // on repart de zero en gardant seulement l'image en cours.
+        candidats = [];
+        for (let n = 0; n < total; n++) {
+          if (n !== i) candidats.push(n);
+        }
+        historique.length = 0;
+        historique.push(i);
+      }
+      const n = candidats[Math.floor(Math.random() * candidats.length)];
+      historique.push(n);
+      return n;
+    }
+
+    function avancer(sens) {
+      if (aleatoire) { montrer(tirerAleatoire()); return; }
+      montrer(i + sens);
+    }
+
     const conteneur = document.createElement("div");
     conteneur.className = "zone-interactive-conteneur";
 
@@ -1394,8 +1455,8 @@
 
       conteneur.append(btnGauche, btnDroite);
 
-      btnGauche.addEventListener("click", function () { montrer(i - 1); });
-      btnDroite.addEventListener("click", function () { montrer(i + 1); });
+      btnGauche.addEventListener("click", function () { avancer(-1); });
+      btnDroite.addEventListener("click", function () { avancer(1); });
     }
 
     fig.appendChild(conteneur);
@@ -1420,7 +1481,9 @@
     function montrer(n) {
       i = (n + total) % total;
       num.textContent = (i + 1) + " / " + total;
-      if (total > 1) { const suivante = new Image(); suivante.src = chemin((i + 1) % total); }
+      // Prechargement de l'image suivante (inutile en ordre aleatoire :
+      // on ne sait pas laquelle viendra)
+      if (total > 1 && !aleatoire) { const suivante = new Image(); suivante.src = chemin((i + 1) % total); }
       remplacer(chemin(i));
     }
 
@@ -1453,8 +1516,8 @@
       if (precharge.complete) appliquer();
     }
 
-    suiv.addEventListener("click", function () { montrer(i + 1); });
-    prec.addEventListener("click", function () { montrer(i - 1); });
+    suiv.addEventListener("click", function () { avancer(1); });
+    prec.addEventListener("click", function () { avancer(-1); });
 
     contenu.appendChild(fig);
     montrer(0);
@@ -1463,9 +1526,6 @@
   /* --- SÃRIE CARNAVAL --- */
   function dessinerCarnaval(serie) {
     document.title = serie.titre + " - " + SITE.nom;
-
-    // Le chien pixel art vit uniquement sur cette page
-    creerChien();
 
     if (serie.texte) {
       const p = document.createElement("p");
