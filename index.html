@@ -466,10 +466,21 @@
   nom.addEventListener("blur", decolorerNom);
 
   nom.addEventListener("click", function (e) {
-    // Clique sur le nom en haut à gauche : on recharge la page,
-    // ce qui tire une nouvelle image d'accueil au hasard
+    // Cliquer sur le nom ramène toujours à la page d'accueil.
+    // Si on est déjà sur l'accueil, on recharge la page à la place,
+    // ce qui tire une nouvelle image au hasard.
     e.preventDefault();
-    window.location.reload();
+    const dossierCourant = decodeURIComponent(location.hash.slice(1));
+    const surAccueil =
+      location.hash === "" || location.hash === "#" ||
+      (dossierCourant !== "contact" && !trouver(dossierCourant));
+
+    if (surAccueil) {
+      window.location.reload();
+    } else {
+      location.hash = "";
+      window.scrollTo(0, 0);
+    }
   });
 
   function creerLien(serie) {
@@ -1850,11 +1861,11 @@
     }
 
     // Lent au départ, plus rapide en phase 2 (mais toujours attrapable)
-    const vitesseMax = phase2Boss ? 6.0 : 3.5;
-    bossVX += (dx / (dist || 1)) * (phase2Boss ? 1.4 : 0.8);
-    bossVY += (dy / (dist || 1)) * (phase2Boss ? 1.4 : 0.8);
-    bossVX += (Math.random() - 0.5) * (phase2Boss ? 2.4 : 1.2);
-    bossVY += (Math.random() - 0.5) * (phase2Boss ? 2.4 : 1.2);
+    const vitesseMax = phase2Boss ? 5.2 : 3.0;
+    bossVX += (dx / (dist || 1)) * (phase2Boss ? 1.3 : 0.75);
+    bossVY += (dy / (dist || 1)) * (phase2Boss ? 1.3 : 0.75);
+    bossVX += (Math.random() - 0.5) * (phase2Boss ? 2.2 : 1.1);
+    bossVY += (Math.random() - 0.5) * (phase2Boss ? 2.2 : 1.1);
 
     const vActuelle = Math.hypot(bossVX, bossVY);
     if (vActuelle > vitesseMax) {
@@ -2115,8 +2126,8 @@
   }
 
   function frapperCharge(e) {
-    // Coup chargé : zone de frappe 50 % plus grande, secousse renforcée
-    // et explosion de pixels bien plus généreuse
+    // Coup chargé : zone de frappe 200 % plus grande que le coup normal,
+    // secousse renforcée et explosion de pixels bien plus généreuse
     if (etapeFin === "mot" || etapeFin === "defaite") return;
     if (etapeFin === "boss" && (bossChute || bossAuSol)) return;
 
@@ -2135,21 +2146,21 @@
     }
 
     if (etapeFin === "boss") {
-      // Rayon de collision 50 % plus grand sur le boss (45 px au lieu de 30),
-      // et le coup chargé compte pour deux coups
-      if (bossEl && Math.hypot(e.clientX - bossX, e.clientY - bossY) < 45) {
-        frapperBoss(2);
+      // Zone de destruction 200 % plus grande sur le boss (90 px au lieu de 30),
+      // et le coup chargé retire 3 unités de vie
+      if (bossEl && Math.hypot(e.clientX - bossX, e.clientY - bossY) < 90) {
+        frapperBoss(3);
       }
       return;
     }
 
     if (estEnFreeze) return;
 
-    // Rayon de collision 50 % plus grand (42 px au lieu de 28) :
-    // on peut éliminer plusieurs mouches d'un seul coup chargé
+    // Zone de destruction 200 % plus grande (84 px au lieu de 28) :
+    // on peut éliminer un petit nuage de mouches d'un seul coup chargé
     for (const m of mouches) {
       if (m.etat === "morte" || m.etat === "touchee") continue;
-      if (Math.hypot(e.clientX - m.x, e.clientY - m.y) < 42) {
+      if (Math.hypot(e.clientX - m.x, e.clientY - m.y) < 84) {
         tuerMouche(m);
       }
     }
@@ -2300,13 +2311,13 @@
       }
 
       // Vitesse faible : la première partie du jeu reste facile
-      const vitesseMax = 7.0;
-      m.vx += (dx / (dist || 1)) * 1.2;
-      m.vy += (dy / (dist || 1)) * 1.2;
+      const vitesseMax = 6.0;
+      m.vx += (dx / (dist || 1)) * 1.1;
+      m.vy += (dy / (dist || 1)) * 1.1;
 
       // Mouvement erratique nerveux
-      m.vx += (Math.random() - 0.5) * 3.5;
-      m.vy += (Math.random() - 0.5) * 3.5;
+      m.vx += (Math.random() - 0.5) * 3.2;
+      m.vy += (Math.random() - 0.5) * 3.2;
 
       const vActuelle = Math.hypot(m.vx, m.vy);
       if (vActuelle > vitesseMax) {
