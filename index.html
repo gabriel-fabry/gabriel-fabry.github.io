@@ -493,9 +493,12 @@
     .pao-cadre { width: 100%; }
     .pao-cadre img { max-height: none; }
     /* Sur mobile, l'emoji se pose sur la ligne du menu ou se trouve
-       Contact : a droite, aligne sur le bord droit de l'image. La
-       bande d'espace reservee au-dessus de la photo disparait. */
-    .bouton-vent { left: auto; right: 0; top: auto; bottom: calc(100% + 2px); margin: 0; }
+       Contact : a droite, aligne sur le bord droit de l'image, le bas
+       de l'emoji affleure le bas de la ligne de Contact (le padding
+       bas du menu, var(--marge), separe cette ligne du haut de la
+       photo). La bande d'espace reservee au-dessus de la photo
+       disparait. */
+    .bouton-vent { left: auto; right: 0; top: auto; bottom: calc(100% + var(--marge)); margin: 0; }
   }
   @media (prefers-reduced-motion: reduce) {
     nav a, nav button, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; }
