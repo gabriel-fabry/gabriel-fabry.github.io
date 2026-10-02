@@ -59,7 +59,8 @@
   }
   aside .nom,
   aside nav a,
-  aside nav button { pointer-events: auto; }
+  aside nav button,
+  aside .bouton-rafraichir { pointer-events: auto; }
   .nom {
     font-size: 15px;
     font-weight: 500;
@@ -173,6 +174,11 @@
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Emoji de rafraichissement de la photo d'accueil : tire une
+     NOUVELLE photo au hasard sans recharger la page. Invisible sur
+     grand ecran ; il n'apparait que sur mobile (regle plus bas). */
+  .bouton-rafraichir { display: none; }
 
   .zone-interactive-conteneur {
     position: relative;
@@ -471,7 +477,9 @@
 
   @media (max-width: 760px) {
     :root { --marge: 20px; }
-    aside { position: static; width: auto; }
+    /* relative (identique a static dans le flux) : la colonne sert
+       de repere au bouton rafraichir, aligne sur la ligne du nom */
+    aside { position: relative; width: auto; }
     .nom { margin-bottom: 24px; }
     /* Menu reparti dans la largeur plutot qu'en colonne : il prend
        beaucoup moins de hauteur sur petit ecran. Un groupe ouvert
@@ -499,6 +507,28 @@
        photo). La bande d'espace reservee au-dessus de la photo
        disparait. */
     .bouton-vent { left: auto; right: 0; top: auto; bottom: calc(100% + var(--marge)); margin: 0; }
+    /* Emoji rafraichissement : en haut a droite, sur la ligne du
+       nom du site. Le haut du texte du nom est a var(--marge) du
+       haut de la colonne ; +3px pour centrer l'emoji sur la hauteur
+       de la ligne. Le bouton defile avec la page : il reste cale
+       sur le nom, pas sur l'ecran. */
+    .bouton-rafraichir {
+      display: block;
+      position: absolute;
+      top: calc(var(--marge) + 3px);
+      right: var(--marge);
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: none;
+      font-size: 17px;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      z-index: 2;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     nav a, nav button, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; }
@@ -716,6 +746,11 @@
 
   function afficher() {
     window.reinitialiserAccueil = null;
+    // Le bouton rafraichir ne vit que sur la page d'accueil : il
+    // est retire des qu'on change de page (dessinerAccueil le
+    // recree en revenant).
+    const ancienRafraichir = document.querySelector(".bouton-rafraichir");
+    if (ancienRafraichir) ancienRafraichir.remove();
     if (typeof reinitialiserPhysique === "function") reinitialiserPhysique();
     arreterJeu();
     arreterChien();
@@ -971,6 +1006,7 @@
   // entierement ASCII, le navigateur affache lui-meme le bon caractere.
   const EMOJI_VENT = "\uD83C\uDF2C\uFE0F";  // visage qui souffle du vent
   const EMOJI_REFUS = "\uD83D\uDEAB";       // micro refuse ou indisponible
+  const EMOJI_RAFRAICHIR = "\uD83D\uDD04"; // fleches circulaires : nouvelle photo
 
   function majBoutonVent(bouton, actif) {
     if (!bouton) return;
@@ -1348,7 +1384,11 @@
     // image l'une apres l'autre. Le navigateur garde les sondes en
     // cache : la photo tiree au sort s'affiche aussitot.
     const LOT_SONDES = 10;
+    // Total decouvert par les sondes : le bouton rafraichir le
+    // ressert sans resonder le dossier (les sondes sont en cache).
+    let totalAccueil = 0;
     function tirerImageAccueil(total) {
+      totalAccueil = total;
       const urls = [];
       for (let n = 1; n <= total; n++) {
         urls.push("images/accueil/accueil" + n + ".jpg");
@@ -1550,6 +1590,33 @@
       demarrerMicroVent(boutonVent);
     });
     cadre.appendChild(boutonVent);
+
+    // Emoji rafraichissement (l'affichage mobile uniquement est
+    // regle en CSS) : tire une NOUVELLE photo d'accueil au hasard,
+    // SANS recharger la page. Meme regle anti-repetition, photo de
+    // dessous retiree a nouveau, grattage et monticule remis a
+    // zero. Il vit dans la colonne du menu pour rester aligne sur
+    // le nom du site, et defile donc avec la page.
+    function rafraichirImageAccueil() {
+      reinitialiserPhysique();
+      photoSale = true;
+      estEnTrainDeCliquer = false;
+      precedentGrattage = null;
+      // La photo de dessous se masque le temps du chargement : les
+      // trous de l'ancien grattage ne doivent pas spoiler la
+      // nouvelle photo cachee. chargerEtDessiner la revele.
+      imgDessous.style.visibility = "hidden";
+      if (totalAccueil > 0) tirerImageAccueil(totalAccueil);
+      else { photo.src = src; imgDessous.src = src; }
+    }
+    const boutonRafraichir = document.createElement("button");
+    boutonRafraichir.type = "button";
+    boutonRafraichir.className = "bouton-rafraichir";
+    boutonRafraichir.textContent = EMOJI_RAFRAICHIR;
+    boutonRafraichir.title = "Changer la photo";
+    boutonRafraichir.setAttribute("aria-label", "Changer la photo d'accueil");
+    boutonRafraichir.addEventListener("click", rafraichirImageAccueil);
+    nom.parentNode.appendChild(boutonRafraichir);
   }
 
   /* --- SÃRIES CLASSIQUES --- */
