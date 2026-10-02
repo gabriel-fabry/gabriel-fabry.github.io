@@ -845,17 +845,21 @@
 
   function redimensionnerCanvasExp() {
     if (!canvasExp) return;
-    canvasExp.width = window.innerWidth;
-    canvasExp.height = window.innerHeight;
-    // Taille CSS en pixels EXACTS : la surface (innerWidth/innerHeight,
-    // zone d'affichage reelle, barre d'adresse comprise) doit
-    // mesurer precisement ce que dessine le code. Avec 100vw/100vh
-    // en CSS (grande zone, barre masquee), le calque etait etire sur
-    // mobile et le sol du monticule glissait sous le bas de l'image.
-    // A echelle 1:1, le sol reste colle au bas de l'image, quelle
-    // que soit la barre d'URL, visible ou masquee.
-    canvasExp.style.width = window.innerWidth + "px";
-    canvasExp.style.height = window.innerHeight + "px";
+    // Grande zone d'affichage (barre d'adresse repliee), et jamais
+    // moins que la zone visible : les pixels du monticule poses
+    // derriere la barre du bas de Safari existent deja dans le
+    // calque. Quand la barre se replie au scroll, ils apparaissent
+    // immediatement, sans attendre l'evenement resize (qui n'arrive
+    // qu'une fois la barre entierement repliee).
+    // Taille CSS en pixels EXACTS : la surface doit mesurer
+    // precisement ce que dessine le code, sinon le calque est etire
+    // et le sol du monticule glisse sous le bas de l'image.
+    const w = Math.max(window.innerWidth, document.documentElement.clientWidth || 0);
+    const h = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
+    canvasExp.width = w;
+    canvasExp.height = h;
+    canvasExp.style.width = w + "px";
+    canvasExp.style.height = h + "px";
     reveillerCadre();
   }
   window.addEventListener("resize", redimensionnerCanvasExp);
