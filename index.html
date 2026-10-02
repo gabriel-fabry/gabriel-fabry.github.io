@@ -473,6 +473,12 @@
     :root { --marge: 20px; }
     aside { position: static; width: auto; }
     .nom { margin-bottom: 24px; }
+    /* Menu reparti dans la largeur plutot qu'en colonne : il prend
+       beaucoup moins de hauteur sur petit ecran. Un groupe ouvert
+       affiche sa liste a l'interieur de sa case, juste sous le bouton. */
+    #menu > ul { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+    #menu > ul > li { margin: 0; }
+    nav ul ul { margin: 2px 0 0 14px; }
     main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; }
     main img { max-height: none; }
     main figure.serie img { max-height: none; }
