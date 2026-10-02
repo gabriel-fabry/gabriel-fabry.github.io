@@ -478,6 +478,9 @@
        affiche sa liste a l'interieur de sa case, juste sous le bouton. */
     #menu > ul { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     #menu > ul > li { margin: 0; }
+    /* En repartition largeur, Contact s'aligne sur la meme ligne que
+       les autres sections : plus de marge qui le fait sauter en bas */
+    #menu > ul > li:last-child { margin-top: 0; }
     nav ul ul { margin: 2px 0 0 14px; }
     main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; }
     main img { max-height: none; }
