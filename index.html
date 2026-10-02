@@ -869,7 +869,10 @@
     ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
     if (tasActif && tasCanvas && tasElement) {
       const rect = tasElement.getBoundingClientRect();
-      ctxExp.drawImage(tasCanvas, rect.left - tasDebord, rect.top);
+      // Meme blit exact que dans animerExp : taille fractionnaire
+      // reelle de l'image, base du monticule sur la vraie ligne du bas.
+      const kx = tasLargeurImage ? rect.width / tasLargeurImage : 1;
+      ctxExp.drawImage(tasCanvas, rect.left - tasDebord * kx, rect.top, tasCanvas.width * kx, rect.height);
     }
   }
 
@@ -959,6 +962,14 @@
 
   function actualiserTas(rect) {
     const solLocal = tasCanvas.height - TAS_SOL;
+    // Echelle exacte : le bitmap du tas mesure des tailles ARRONDIES
+    // de l'image, mais l'image affichee a des tailles FRACTIONNAIRES
+    // (ex. 787,4px). Un arrondi de 0,5px reste parfaitement visible
+    // comme un pixel d'ecran sur Retina. Les pixels en chute subissent
+    // la meme transformation exacte que le blit du monticule : tout
+    // atterrit sur la vraie ligne du bas de l'image.
+    const kx = tasLargeurImage ? rect.width / tasLargeurImage : 1;
+    const ky = tasHauteurImage ? rect.height / tasHauteurImage : 1;
 
     for (let i = particulesTas.length - 1; i >= 0; i--) {
       const p = particulesTas[i];
@@ -1007,7 +1018,7 @@
 
       // Dessin en coordonnées page (suit le scroll, débord compris)
       ctxExp.fillStyle = p.couleur;
-      ctxExp.fillRect(Math.round(rect.left - tasDebord + p.x - TAS_TAILLE / 2), Math.round(rect.top + p.y), TAS_TAILLE, TAS_TAILLE);
+      ctxExp.fillRect(Math.round(rect.left - tasDebord * kx + p.x * kx - TAS_TAILLE / 2), Math.round(rect.top + p.y * ky), TAS_TAILLE, TAS_TAILLE);
     }
   }
 
@@ -1220,8 +1231,14 @@
         initialiserTas(tasElement);
       } else {
         actualiserTas(rect);
-        // Le canvas du tas est plus large que l'image (débord des deux côtés)
-        ctxExp.drawImage(tasCanvas, rect.left - tasDebord, rect.top);
+        // Le canvas du tas est plus large que l'image (débord des deux
+        // côtés). Il est dessine ETIRE a la taille fractionnaire exacte
+        // de l'image : le bitmap a des tailles arrondies, et son arrondi
+        // (jusqu'a 0,5px) se voyait comme un pixel de decalage sur un
+        // ecran Retina. Etire au pixel pres, la base du monticule tombe
+        // exactement sur la ligne du bas de l'image.
+        const kx = tasLargeurImage ? rect.width / tasLargeurImage : 1;
+        ctxExp.drawImage(tasCanvas, rect.left - tasDebord * kx, rect.top, tasCanvas.width * kx, rect.height);
       }
     }
 
