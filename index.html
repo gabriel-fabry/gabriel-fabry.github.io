@@ -827,7 +827,12 @@
   /* Monticule de pixels de grattage (page d'accueil) */
   const TAS_TAILLE = 3; // Taille d'un pixel du tas (px)
   const TAS_BIN = 3;    // Largeur d'une tranche = taille du pixel : dépôts pleins, tas dense
-  const TAS_SOL = 2;    // Épaisseur du sol imaginaire au bas de l'image
+  const TAS_SOL = 0;    // Sol imaginaire : 0 = la premiere rangee de
+                        // depots posee au dernier pixel du canvas, le
+                        // monticule affleure EXACTEMENT le bas de
+                        // l'image, quelle que soit sa hauteur (sur
+                        // mobile, 2px de sol laissaient un petit
+                        // espace blanc visible sous le tas)
   let tasCanvas = null;   // Canvas offscreen où le monticule est dessiné de façon permanente
   let tasCtx = null;
   let tasElement = null;  // L'image d'accueil : ancre du monticule (suit le scroll de la page)
