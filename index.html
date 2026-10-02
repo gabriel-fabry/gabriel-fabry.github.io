@@ -492,11 +492,10 @@
     .pao-duo { flex-direction: column; gap: 20px; }
     .pao-cadre { width: 100%; }
     .pao-cadre img { max-height: none; }
-    /* Sur mobile, l'emoji flotte juste AU-DESSUS de l'image, aligne a
-       droite (jamais dessus, jamais sous le monticule) ; la marge
-       interne du figure lui reserve son espace sans toucher au menu */
-    .figure-accueil { padding-top: 46px; }
-    .bouton-vent { left: auto; right: 0; top: auto; bottom: calc(100% + 8px); margin: 0; }
+    /* Sur mobile, l'emoji se pose sur la ligne du menu ou se trouve
+       Contact : a droite, aligne sur le bord droit de l'image. La
+       bande d'espace reservee au-dessus de la photo disparait. */
+    .bouton-vent { left: auto; right: 0; top: auto; bottom: calc(100% + 2px); margin: 0; }
   }
   @media (prefers-reduced-motion: reduce) {
     nav a, nav button, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; }
@@ -1533,10 +1532,11 @@
     canvas.addEventListener("pointercancel", stopperGomme);
 
     // Emoji qui souffle : colonne de gauche (sous Contact) sur grand
-    // ecran, juste au-dessus de l'image a droite sur mobile. Il vit
-    // dans le cadre de la photo pour rester colle a elle dans toutes
-    // les tailles d'ecran. Le micro n'est active qu'apres ce clic
-    // (permission navigateur), jamais automatiquement.
+    // ecran, sur la ligne du menu ou se trouve Contact sur mobile,
+    // aligne sur le bord droit de l'image. Il vit dans le cadre de la
+    // photo pour rester colle a elle dans toutes les tailles d'ecran.
+    // Le micro n'est active qu'apres ce clic (permission navigateur),
+    // jamais automatiquement.
     const boutonVent = document.createElement("button");
     boutonVent.type = "button";
     boutonVent.className = "bouton-vent";
