@@ -1993,12 +1993,17 @@
      puis le chien se rendort. Contre le boss, le troisieme tir
      le tue d'un seul coup et il tombe sur la ligne du chien. En
      passant, le laser grave dans les images qu'il croise une
-     LIGNE fine et bien noire, a peine plus large que son trait
-     (4x sur les tirs rates), SANS monticule de pixels. Seul
-     l'IMPACT gratte vraiment l'image : un GROS TROU ROND brule,
-     qui tranche avec le trait fin. Sur l'accueil, ligne et
-     impact decouvrent la PHOTO PROPRE de dessous, comme un
-     grattage au doigt.
+     LIGNE fine et bien noire, a peine plus large que son trait,
+     la MEME pour tous les tirs, SANS monticule de pixels. Et a
+     l'IMPACT -- sur TOUS les tirs, les deux rates comme celui
+     qui touche -- un GROS TROU ROND brule, qui tranche avec le
+     trait fin : c'est LA que le laser gratte vraiment l'image.
+     Sur l'accueil, ligne et impact decouvrent la PHOTO PROPRE
+     de dessous, comme un grattage au doigt. Un clic rend le
+     pointeur : il revient NOIR, tout sale de sa fonte, se
+     SECOUE tout seul en projetant des pixels noirs autour de
+     lui, puis REPREND SA COULEUR, la pointe d'abord, et le
+     curseur bleu reparait.
   ----------------------------------------------------------------- */
   const ANIMATION_CHIEN = {
     // La planche : une seule image, tous les sprites cote a cote,
@@ -2052,6 +2057,12 @@
     laserGouttes: 0.35,    // part des pixels qui coulent en gouttes,
                            // les autres s'effacent juste sur place
     laserFonduPlaceMs: 500,// un pixel sur place met ce delai a partir
+    // ---- Retour du pointeur (clic apres sa fonte) ----
+    retourNettoyageMs: 900, // le pointeur detruit revient NOIR, se
+                           // secoue, projette ses saletes noires
+                           // puis reprend sa couleur, en ce delai
+    retourSale: 0.45,      // part des pixels du curseur qui
+                           // ejectent une salete noire en vol
     // ---- Tirs rates et boss ----
     laserRatres: 2,        // les N premiers tirs RATENT leur cible
                            // (le pointeur, ou la grosse mouche
@@ -2080,11 +2091,14 @@
                            // raccordes en une seule ligne continue
     laserBrulureRayon: 3,  // demi-largeur de la ligne brulee :
                            // a peine plus large que le trait du
-                           // laser (2 px), une trace fine
-    laserBrulureRayonRate: 12, // tirs rates : ligne 4x plus large
+                           // laser (2 px), une trace fine, LA
+                           // MEME pour tous les tirs, rates ou non
     laserImpactRayon: 60,  // L'IMPACT : un GROS trou rond, bien
                            // plus grand que la ligne fine -- c'est
-                           // LA que le laser gratte vraiment l'image
+                           // LA que le laser gratte vraiment
+                           // l'image. Tous les tirs en produisent
+                           // un, la ou la pointe se plante, les
+                           // rates compris.
     ondes: ["#ff1744", "#2979ff", "#00e676"],  // ondes qui partent de l'oeil
     poudre: ["#ff1744", "#2979ff", "#ffea00"],  // gouttes rouge, bleu, jaune
     oeilDecalX: 0,         // decalage de l'oeil (px) par rapport au
@@ -2103,6 +2117,7 @@
   let chienPointeur = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   let chienPointeurDetruit = false;
   let chienLaserCanvas = null;
+  let chienNettoyageCanvas = null;  // calque du nettoyage du pointeur au retour
   let chienLaserNumero = 0;    // combien de tirs ont deja ete tires
                                // (les laserRatres premiers ratent)
 
@@ -2238,6 +2253,128 @@
   function chienRestaurerPointeur() {
     chienPointeurDetruit = false;
     document.documentElement.classList.remove("chien-pointeur-detruit");
+  }
+
+  function chienNettoyerPointeur() {
+    // Le clic qui fait REPARAITRE le pointeur detruit : il ne
+    // revient pas d'un coup. Il reparait d'abord TOUT NOIR,
+    // sale de sa fonte, et se SECOUE tout seul ; des pixels
+    // NOIRS sont PROJETES autour de lui, comme s'il se
+    // debarbouillait, et chaque pixel REPREND SA COULEUR -- la
+    // pointe d'abord, comme une vague qui remonte le curseur.
+    // Quand tout est propre, le VRAI curseur (bleu) reparait :
+    // le curseur CSS reste cache jusqu'au bout (la classe
+    // chien-pointeur-detruit ne part qu'a la fin), le temps que
+    // ce dessin anime le remplace pixel par pixel.
+    if (chienNettoyageCanvas) return;  // nettoyage deja en cours
+    const pixels = chienPixelsPointeur();
+    if (!pixels.length) { chienRestaurerPointeur(); return; }
+    const gen = chienDortGen;
+    const duree = ANIMATION_CHIEN.retourNettoyageMs;
+    // La vague de nettoyage atteint chaque pixel a tNet, au
+    // prorata de sa distance a la POINTE (0,0) -- la fonte
+    // avait mange la pointe en premier, le nettoyage la lui
+    // rend en premier.
+    let distMax = 1;
+    for (let i = 0; i < pixels.length; i++) {
+      const dx = pixels[i].x + 0.5;
+      const dy = pixels[i].y + 0.5;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > distMax) distMax = dist;
+    }
+    const tNet = function (i, dist) {
+      return Math.min(duree * 0.75,
+        (dist / distMax) * duree * 0.55 *
+        (0.85 + chienBruit(i, 1, 30) * 0.3));
+    };
+    // Les SALETES : une part des pixels (retourSale) ejecte un
+    // pixel NOIR qui s'envole quand la vague passe -- surtout
+    // vers le haut, avec une derive laterale.
+    const sales = [];
+    for (let i = 0; i < pixels.length; i++) {
+      if (chienBruit(i, 2, 31) >= ANIMATION_CHIEN.retourSale) continue;
+      const p = pixels[i];
+      const dx = p.x + 0.5;
+      const dy = p.y + 0.5;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ang = chienBruit(i, 3, 32) * Math.PI * 2;
+      sales.push({
+        x: p.x, y: p.y,
+        t0: tNet(i, dist),
+        vx: Math.cos(ang) * (0.02 + chienBruit(i, 4, 33) * 0.05),
+        vy: -Math.abs(Math.sin(ang)) * (0.02 + chienBruit(i, 5, 34) * 0.06)
+      });
+    }
+    // Calque plein ecran, meme principe que le laser.
+    const canvas = document.createElement("canvas");
+    canvas.className = "chien-laser";
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
+    document.body.appendChild(canvas);
+    chienNettoyageCanvas = canvas;
+    const ctx = canvas.getContext("2d");
+    let ecoule = 0;
+    let dernierT = null;
+    const tremble = ANIMATION_CHIEN.laserTremble;
+    const dessiner = function (t) {
+      if (gen !== chienDortGen) {  // page changee : tout s'arrete
+        canvas.remove();
+        if (chienNettoyageCanvas === canvas) chienNettoyageCanvas = null;
+        return;
+      }
+      if (dernierT === null) dernierT = t;
+      ecoule += t - dernierT;
+      dernierT = t;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const px = chienPointeur.x;
+      const py = chienPointeur.y;
+      // Le curseur dessine : chaque pixel est NOIR et TREMBLE
+      // tant que la vague ne l'a pas nettoye ; nettoye, il prend
+      // sa vraie couleur et SE CALME d'un coup.
+      for (let i = 0; i < pixels.length; i++) {
+        const p = pixels[i];
+        const dx = p.x + 0.5;
+        const dy = p.y + 0.5;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const tn = tNet(i, dist);
+        // secousse = 1 tant que le pixel est sale, puis il
+        // retombe a zero en 180 ms : le tremblement s'arrete.
+        const secousse = ecoule < tn ? 1
+          : Math.max(0, 1 - (ecoule - tn) / 180);
+        const jx = Math.round((chienBruit(i, t, 12) - 0.5) *
+                              2 * tremble * secousse);
+        const jy = Math.round((chienBruit(i, t, 13) - 0.5) *
+                              2 * tremble * secousse);
+        ctx.fillStyle = ecoule < tn ? "#111111" : p.c;
+        ctx.fillRect(px + p.x + jx, py + p.y + jy, 1, 1);
+      }
+      // Les saletes noires, projettees autour : elles s'envolent
+      // au passage de la vague, tourbillonnent un peu, puis
+      // s'effacent.
+      ctx.fillStyle = "#111111";
+      for (let s = 0; s < sales.length; s++) {
+        const e = sales[s];
+        if (ecoule < e.t0) continue;
+        const age = ecoule - e.t0;
+        if (age > 700) continue;   // envolee puis oubliee
+        ctx.globalAlpha = Math.max(0, 1 - age / 700);
+        ctx.fillRect(Math.round(px + e.x + e.vx * age +
+                                Math.sin(age / 60 + s) * 1.5),
+                     Math.round(py + e.y + e.vy * age), 2, 2);
+      }
+      ctx.globalAlpha = 1;
+      if (ecoule < duree) {
+        window.requestAnimationFrame(dessiner);
+      } else {
+        // Propre : le vrai curseur (bleu) reparait.
+        canvas.remove();
+        if (chienNettoyageCanvas === canvas) chienNettoyageCanvas = null;
+        chienRestaurerPointeur();
+      }
+    };
+    window.requestAnimationFrame(dessiner);
   }
 
   function chienBruit(a, b, c) {
@@ -2776,11 +2913,9 @@
     // Aucune contre le boss : le jeu a deja sa propre
     // pyrotechnie, et la cible bouge sans cesse.
     const brulables = bossVivant ? [] : chienImagesBrulables();
-    // Les tirs rates brulent LARGE (ligne 4x), le tir qui
-    // touche grave fin : la demi-largeur s'adapte au tir.
-    const brulureRayon = rate ?
-      ANIMATION_CHIEN.laserBrulureRayonRate :
-      ANIMATION_CHIEN.laserBrulureRayon;
+    // La ligne brulee a la MEME demi-largeur pour tous les
+    // tirs, rates ou non : une seule trace fine.
+    const brulureRayon = ANIMATION_CHIEN.laserBrulureRayon;
     // La duree du tir : montee rapide, puis le trait reste pose
     // sur sa cible (tenue), puis s'eteint doucement -- sauf le
     // tir qui touche, qui reste pose sur le pointeur pendant
@@ -2887,10 +3022,31 @@
         }
       }
       if (ecoule >= montee && ecoule < total) {
+        // L'IMPACT, pour TOUS les tirs -- les deux rates comme
+        // celui qui touche -- des que la pointe du trait se
+        // plante (a cote de la cible pour un tir rate) : un GROS
+        // trou brule, bien plus grand que la fine ligne du
+        // passage, pour trancher avec le trait fin. C'est LA que
+        // le laser GRATTE vraiment l'image ; sur l'accueil, il
+        // decouvre la photo de dessous, comme un gros grattage du
+        // doigt. Rect relu frais : la page a pu bouger depuis le
+        // debut du tir. (Rien contre le boss : brulables est vide
+        // pendant le combat.)
+        if (!impactBrule && brulables.length) {
+          impactBrule = true;
+          for (let b = 0; b < brulables.length; b++) {
+            const rb = brulables[b].el.getBoundingClientRect();
+            if (cible.x >= rb.left && cible.x <= rb.right &&
+                cible.y >= rb.top && cible.y <= rb.bottom) {
+              chienGraverTrou(brulables[b], cible.x, cible.y,
+                              ANIMATION_CHIEN.laserImpactRayon, 999);
+            }
+          }
+        }
         if (rate) {
-          // Tir rate : le trait passe A COTE de sa cible, il ne
-          // se passe rien du tout (juste la brulure des images
-          // croisees, gravee pendant la montee).
+          // Tir rate : le trait passe A COTE de sa cible et s'y
+          // plante -- le GROS trou d'impact, lui, est deja grave
+          // juste au-dessus, la ou la pointe s'est arretee.
         } else if (bossVivant) {
           // Impact sur THE FLY KING : le chien le tue d'UN SEUL
           // COUP. frapperBoss(PV_BOSS) vide tous ses points de
@@ -2908,24 +3064,8 @@
           // depuis la pointe par l'onde de fonte, et quelques
           // gouttes rouge, bleu et jaune COULENT de lui.
           if (!chienPointeurDetruit) chienDetruirePointeur();
-          // Et si l'impact tombe dans une image : c'est LA que
-          // le laser GRATTE vraiment -- un GROS trou brule, bien
-          // plus grand que la fine ligne du passage, pour
-          // trancher avec le trait fin. Sur l'accueil, il
-          // decouvre la photo de dessous, comme un gros grattage
-          // du doigt. Rect relu frais : la page a pu bouger
-          // depuis le debut du tir.
-          if (!impactBrule && brulables.length) {
-            impactBrule = true;
-            for (let b = 0; b < brulables.length; b++) {
-              const rb = brulables[b].el.getBoundingClientRect();
-              if (cible.x >= rb.left && cible.x <= rb.right &&
-                  cible.y >= rb.top && cible.y <= rb.bottom) {
-                chienGraverTrou(brulables[b], cible.x, cible.y,
-                                ANIMATION_CHIEN.laserImpactRayon, 999);
-              }
-            }
-          }
+          // (Le GROS trou d'impact est deja grave juste
+          // au-dessus, commun a tous les tirs.)
           const dans = ecoule - montee;
           const tremble = ANIMATION_CHIEN.laserTremble;
           for (let i = 0; i < eclats.length; i++) {
@@ -3019,9 +3159,11 @@
     if (chienDortEtat === "suivi") chienRegarder();
   });
   // Pointeur detruit par le laser : un clic, n'importe ou, le
-  // fait reaparaitre.
+  // fait reaparaitre -- NOIR et tout sale d'abord : il se
+  // secoue, projette ses pixels noirs, puis reprend sa couleur
+  // (chienNettoyerPointeur).
   window.addEventListener("click", function () {
-    if (chienPointeurDetruit) chienRestaurerPointeur();
+    if (chienPointeurDetruit) chienNettoyerPointeur();
   });
 
   function creerChienDort() {
@@ -3059,6 +3201,7 @@
     chienClicsReveil = 0;
     chienClicsSuite = 0;
     if (chienLaserCanvas) { chienLaserCanvas.remove(); chienLaserCanvas = null; }
+    if (chienNettoyageCanvas) { chienNettoyageCanvas.remove(); chienNettoyageCanvas = null; }
     chienRestaurerPointeur();  // changement de page : le pointeur
                               // detruit par le laser revient toujours
     chienPlancheEl = null;     // le div est retire du DOM par afficher()
