@@ -52,15 +52,13 @@
     flex-direction: column;
     overflow-y: auto;
     z-index: 10;
-    /* La colonne elle-meme laisse passer les clics (notamment vers
-       l'emoji souffle place sous elle) ; seuls les vrais elements
-       interactifs du menu les captent. */
+    /* La colonne laisse passer les clics ; seuls les vrais
+       elements interactifs du menu les captent. */
     pointer-events: none;
   }
   aside .nom,
   aside nav a,
-  aside nav button,
-  aside .bouton-rafraichir { pointer-events: auto; }
+  aside nav button { pointer-events: auto; }
   .nom {
     font-size: 15px;
     font-weight: 500;
@@ -159,7 +157,7 @@
   }
 
   /* Chien qui dort (planche SPRITE SHEET DOG.png, sprites 32x32,
-     toutes les pages de series) : en bas a gauche, cote colonne.
+     toutes les pages SAUF mobile) : en bas a gauche, cote colonne.
      Chaque sprite fait 32x32 : affiche en 96x96 (agrandi x3) avec
      image-rendering: pixelated pour garder des pixels nets, pas
      flous. Si le fichier manque, le chien ne s'affiche pas. */
@@ -208,8 +206,12 @@
   html.chien-pointeur-detruit,
   html.chien-pointeur-detruit * { cursor: none !important; }
 
-  /* Emoji souffle, pose dans la colonne de gauche, sous Contact,
-     aligne sur la ligne du bas de l'image d'accueil */
+  /* Emoji souffle : pose sur le flanc gauche de la colline de
+     gauche de la photo d'accueil (la colline cote menu, celle ou
+     le texte et les sections de la photo se posent). Il vit dans
+     le cadre de la photo pour rester colle a elle dans toutes les
+     tailles d'ecran. Les valeurs left/bottom ci-dessous
+     l'ajustent sur la pente : les affiner si besoin. */
   .figure-accueil {
     position: relative;
   }
@@ -224,8 +226,8 @@
   .bouton-vent {
     position: absolute;
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
-    left: calc(-1 * var(--largeur-menu));
-    bottom: 0;
+    left: 44px;
+    bottom: 35%;
     padding: 0;
     margin: 0;
     border: none;
@@ -239,9 +241,24 @@
   }
 
   /* Emoji de rafraichissement de la photo d'accueil : tire une
-     NOUVELLE photo au hasard sans recharger la page. Invisible sur
-     grand ecran ; il n'apparait que sur mobile (regle plus bas). */
-  .bouton-rafraichir { display: none; }
+     NOUVELLE photo au hasard sans recharger la page. Pose juste a
+     GAUCHE de l'emoji souffle, sur le meme flanc de colline. */
+  .bouton-rafraichir {
+    position: absolute;
+    z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
+    left: 8px;
+    bottom: 35%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    font-size: 30px;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
 
   .zone-interactive-conteneur {
     position: relative;
@@ -581,14 +598,18 @@
        photo). La bande d'espace reservee au-dessus de la photo
        disparait. */
     .bouton-vent { left: auto; right: 0; top: auto; bottom: calc(100% + var(--marge)); margin: 0; }
-    /* Emoji rafraichissement : en haut a droite, sur la ligne du
-       nom du site. Le haut du texte du nom est a var(--marge) du
-       haut de la colonne ; +3px pour centrer l'emoji sur la hauteur
-       de la ligne. Le bouton defile avec la page : il reste cale
-       sur le nom, pas sur l'ecran. */
+    /* Emoji rafraichissement : il vit desormais dans le cadre de
+       la photo (il y est pose a cote de l'emoji souffle sur grand
+       ecran) ; en position: fixed il reste cale sur la ligne du
+       nom du site, en haut a droite de l'ecran, et reste visible
+       meme quand la page defile. Le haut du texte du nom est a
+       var(--marge) du haut de l'ecran ; +3px pour centrer l'emoji
+       sur la hauteur de la ligne. */
     .bouton-rafraichir {
       display: block;
-      position: absolute;
+      position: fixed;
+      left: auto;           /* annule le flanc de colline du grand ecran */
+      bottom: auto;
       top: calc(var(--marge) + 3px);
       right: var(--marge);
       padding: 0;
@@ -829,11 +850,19 @@
     // Le chien qui dort n'est plus qu'un div planche : afficher le
     // retire a chaque changement de page ; arreterChienDort()
     // nettoie en plus son calque laser et restaure le pointeur
-    // detruit s'il l'etait. Plus bas, afficher() le recree sur
-    // chaque page de serie (jamais l'accueil, jamais le contact,
-    // jamais sur mobile).
+    // detruit s'il l'etait. Puis il est recree tout de suite :
+    // il vit sur TOUTES les pages (accueil, series, contact),
+    // sauf sur mobile (garde ci-dessous).
     document.querySelectorAll(".chien-dort").forEach(function (el) { el.remove(); });
     arreterChienDort();
+    // La planche est posee sur le body, en bas a gauche, au-dessus
+    // du contenu, quelle que soit la page. Jamais sur mobile : meme
+    // seuil que le CSS (max-width: 760px), une planche fixe de
+    // 96 px empieterait sur les series en plein ecran.
+    if (!window.matchMedia ||
+        !window.matchMedia("(max-width: 760px)").matches) {
+      creerChienDort();
+    }
     if (typeof reinitialiserPhysique === "function") reinitialiserPhysique();
     arreterJeu();
     arreterChien();
@@ -875,18 +904,6 @@
       if (g.enfants.indexOf(serie.dossier) !== -1) basculer(g.bouton, g.liste, true);
     });
     contenu.replaceChildren();
-
-    // Chien qui dort : il vit sur TOUTES les pages de series, pas
-    // seulement le Carnaval. L'accueil et le contact sont partis
-    // plus haut (return) : ils n'arrivent jamais ici. La planche
-    // est posee sur le body, en bas a gauche, au-dessus du contenu
-    // quelle que soit la serie affichee. Jamais sur mobile : meme
-    // seuil que le CSS (max-width: 760px), une planche fixe de
-    // 96 px empieterait sur les series en plein ecran.
-    if (!window.matchMedia ||
-        !window.matchMedia("(max-width: 760px)").matches) {
-      creerChienDort();
-    }
 
     const nomDossier = serie.dossier.toUpperCase();
     if (nomDossier === "PAO") {
@@ -1742,10 +1759,11 @@
     canvas.addEventListener("pointerup", stopperGomme);
     canvas.addEventListener("pointercancel", stopperGomme);
 
-    // Emoji qui souffle : colonne de gauche (sous Contact) sur grand
-    // ecran, sur la ligne du menu ou se trouve Contact sur mobile,
-    // aligne sur le bord droit de l'image. Il vit dans le cadre de la
-    // photo pour rester colle a elle dans toutes les tailles d'ecran.
+    // Emoji qui souffle : pose sur le flanc gauche de la colline
+    // de gauche de la photo d'accueil (regle CSS .bouton-vent) --
+    // la colline cote menu, celle ou se posent le texte et les
+    // sections de la photo. Il vit dans le cadre de la photo pour
+    // rester colle a elle dans toutes les tailles d'ecran.
     // Le micro n'est active qu'apres ce clic (permission navigateur),
     // jamais automatiquement.
     const boutonVent = document.createElement("button");
@@ -1759,12 +1777,13 @@
     });
     cadre.appendChild(boutonVent);
 
-    // Emoji rafraichissement (l'affichage mobile uniquement est
-    // regle en CSS) : tire une NOUVELLE photo d'accueil au hasard,
-    // SANS recharger la page. Meme regle anti-repetition, photo de
-    // dessous retiree a nouveau, grattage et monticule remis a
-    // zero. Il vit dans la colonne du menu pour rester aligne sur
-    // le nom du site, et defile donc avec la page.
+    // Emoji rafraichissement : tire une NOUVELLE photo d'accueil
+    // au hasard, SANS recharger la page. Meme regle
+    // anti-repetition, photo de dessous retiree a nouveau,
+    // grattage et monticule remis a zero. Pose JUSTE A GAUCHE de
+    // l'emoji souffle, sur le meme flanc de colline (regle CSS
+    // .bouton-rafraichir). Sur mobile, la regle CSS le passe en
+    // position: fixed, cale sur la ligne du nom du site.
     function rafraichirImageAccueil() {
       reinitialiserPhysique();
       photoSale = true;
@@ -1784,7 +1803,7 @@
     boutonRafraichir.title = "Changer la photo";
     boutonRafraichir.setAttribute("aria-label", "Changer la photo d'accueil");
     boutonRafraichir.addEventListener("click", rafraichirImageAccueil);
-    nom.parentNode.appendChild(boutonRafraichir);
+    cadre.appendChild(boutonRafraichir);
   }
 
   /* --- SÃRIES CLASSIQUES --- */
@@ -1935,14 +1954,14 @@
     montrer(0);
   }
 
-  /* --- CHIEN QUI DORT (toutes les pages de series) : section
-     ANIMATION_CHIEN ---
+  /* --- CHIEN QUI DORT (toutes les pages, jamais sur mobile) :
+     section ANIMATION_CHIEN ---
      Machine a etats du chien qui dort en bas a gauche de chaque
-     page de serie (jamais l'accueil, jamais le contact, jamais
-     sur mobile), anime par une seule planche (sprite sheet) :
-     "dog sprite/SPRITE SHEET DOG.png", 17 sprites de 32px cote a
-     cote. TOUS les reglages sont dans l'objet ANIMATION_CHIEN
-     ci-dessous : sequences, durees de chaque sprite, comportement.
+     page (accueil, series, contact), anime par une seule planche
+     (sprite sheet) : "dog sprite/SPRITE SHEET DOG.png", 17 sprites
+     de 32px cote a cote. TOUS les reglages sont dans l'objet
+     ANIMATION_CHIEN ci-dessous : sequences, durees de chaque
+     sprite, comportement.
 
      Cycle : il dort (sprites 1 et 2) ; 3 clics le reveillent (il
      tremble a chaque clic) ; eveille (sprite 6), il se rendort au
@@ -1950,12 +1969,20 @@
      parler (sprites 6 et 7), un autre le rend eveille ; 10 clics
      de suite le reveillent en cyclope (sprites 8 et 9) : son oeil
      rouge suit le pointeur (sprites 10 a 17 : N, NE, E, SE, S,
-     SO, O, NO) pendant 10 s, puis tire un laser casse dessus :
-     ondes en pixels rouge, bleu et vert depuis l'oeil, et quand
-     le trait touche le pointeur, celui-ci s'arrete, TREMBLE et
-     se desagrege pendant 3 s pendant que quelques gouttes de
-     pixels rouge, bleu et jaune coulent de lui. Un clic
-     n'importe ou le fait reapparaitre. Puis le chien se rendort.
+     SO, O, NO) pendant 10 s, puis TIRE : les deux premiers traits
+     RATENT le pointeur de peu, le troisieme le touche. Chaque tir
+     part de l'oeil avec de COURTES ondes de pixels rouge, bleu et
+     vert (courtes dans le temps et dans l'espace : quelques
+     centaines de carres au plus). Le trait qui touche : le
+     pointeur s'arrete, TREMBLE et se desagrege pendant 3 s
+     pendant que quelques gouttes de pixels rouge, bleu et jaune
+     coulent de lui ; un clic n'importe ou le fait reapparaitre,
+     puis le chien se rendort. En passant, le laser BRULE les
+     images de la page qu'il croise : trous estompes et
+     irreguliers, au bord noirci, sans monticule de pixels. Sur la
+     page contact, si THE FLY KING (le boss) est vivant au moment
+     du tir, le chien vise LA GROSSE MOUCHE a la place du
+     pointeur, la suit en direct, et la tue d'un seul coup.
   ----------------------------------------------------------------- */
   const ANIMATION_CHIEN = {
     // La planche : une seule image, tous les sprites cote a cote,
@@ -2009,6 +2036,32 @@
     laserGouttes: 0.35,    // part des pixels qui coulent en gouttes,
                            // les autres s'effacent juste sur place
     laserFonduPlaceMs: 500,// un pixel sur place met ce delai a partir
+    // ---- Tirs rates et boss ----
+    laserRatres: 2,        // les N premiers tirs RATENT le pointeur
+                           // (de peu : il passe a cote), le suivant
+                           // touche
+    laserRatEcart: 70,     // distance mini-maxi du point vise par un
+                           // tir rate (24 a 24+70 px du pointeur)
+    laserRatTenueMs: 450,  // un tir rate reste pose a cote du
+                           // pointeur pendant ce delai...
+    laserRatFonduMs: 350,  // ... puis son trait s'eteint doucement
+    laserPauseMs: 550,     // pause entre deux tirs consecutifs
+    laserBossTenueMs: 700, // tir sur le boss (page contact) : le
+                           // trait reste pose sur lui pendant ce delai
+                           // avant de s'eteindre (laserRatFonduMs)
+    // ---- Ondes de l'oeil ----
+    ondeVitesse: 0.12,     // vitesse des ondes (px/ms). Faible :
+                           // elles s'etendent PEU (rayon maxi =
+                           // ondeVitesse * ondeDureeMs = 108 px)
+    ondeDureeMs: 900,      // les ondes vivent ce delai, pas plus :
+                           // courtes et peu nombreuses, le laser
+                           // reste tres bon marche en CPU
+    // ---- Brulure des images ----
+    laserBrulurePas: 50,   // en avancant, le trait grave un trou
+                           // brule tous ces px dans les images
+                           // qu'il croise
+    laserBrulureRayon: 13, // rayon d'un trou brule dans une image
+                           // (l'impact du tir qui touche : x1.7)
     ondes: ["#ff1744", "#2979ff", "#00e676"],  // ondes qui partent de l'oeil
     poudre: ["#ff1744", "#2979ff", "#ffea00"],  // gouttes rouge, bleu, jaune
     oeilDecalX: 0,         // decalage de l'oeil (px) par rapport au
@@ -2026,6 +2079,8 @@
   let chienPointeur = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   let chienPointeurDetruit = false;
   let chienLaserCanvas = null;
+  let chienLaserNumero = 0;    // combien de tirs ont deja ete tires
+                               // (les laserRatres premiers ratent)
 
   function chienAfficherSprite(n) {
     // Montre le sprite numero n (1 = premier a gauche)
@@ -2130,6 +2185,8 @@
 
   function chienSuivre() {
     chienDortEtat = "suivi";
+    chienLaserNumero = 0;  // la serie de tirs repart du debut :
+                           // les deux premiers rateront
     chienRegarder();  // tout de suite la bonne direction
     chienMinuteur = setTimeout(chienTirerLaser, ANIMATION_CHIEN.suiviMs);
   }
@@ -2168,6 +2225,118 @@
       const py = Math.round((cy + Math.sin(a) * r) / taille) * taille;
       ctx.fillRect(px, py, taille, taille);
     }
+  }
+
+  function chienImagesBrulables() {
+    // Les images que le laser peut bruler sur la page courante :
+    // toutes les <img> du contenu (hors photo de dessous de
+    // l'accueil, celle que le grattage revele : jamais brulee) et
+    // le canvas de grattage de l'accueil. Les images plus petites
+    // que 20 px sont ignorees : le laser passerait trop vite pour
+    // que la brulure se voie.
+    const liste = [];
+    const imgs = contenu.querySelectorAll("img");
+    for (let i = 0; i < imgs.length; i++) {
+      const img = imgs[i];
+      if (img.classList.contains("photo-dessous")) continue;
+      const r = img.getBoundingClientRect();
+      if (r.width >= 20 && r.height >= 20) {
+        liste.push({ el: img, rect: r, canvas: false });
+      }
+    }
+    const cv = document.getElementById("canvas-accueil");
+    if (cv) {
+      const r = cv.getBoundingClientRect();
+      if (r.width >= 20 && r.height >= 20) {
+        liste.push({ el: cv, rect: r, canvas: true });
+      }
+    }
+    return liste;
+  }
+
+  function chienCalqueBrulure(cible) {
+    // Le calque ou graver la brulure d'une image. Le canvas de
+    // grattage de l'accueil EST deja un calque : on grave dedans
+    // (le trou y efface la couche sale et revele la photo propre
+    // de dessous, comme un grattage brule). Toute autre image
+    // recoit un canvas transparent pose par-dessus, aux
+    // dimensions exactes de l'image, qui defile avec elle. Le
+    // calque est cree une seule fois puis cache sur l'image
+    // (_chienBrulure) : les brulures successives s'y ajoutent.
+    if (cible.canvas) return cible.el;
+    if (cible.el._chienBrulure) return cible.el._chienBrulure;
+    const parent = cible.el.parentNode;
+    if (parent && getComputedStyle(parent).position === "static") {
+      parent.style.position = "relative";  // point d'ancrage du calque
+    }
+    const cv = document.createElement("canvas");
+    cv.className = "chien-brulure";
+    cv.width = Math.max(1, Math.round(cible.rect.width));
+    cv.height = Math.max(1, Math.round(cible.rect.height));
+    cv.style.position = "absolute";
+    cv.style.left = cible.el.offsetLeft + "px";
+    cv.style.top = cible.el.offsetTop + "px";
+    cv.style.pointerEvents = "none";
+    cv.style.zIndex = "2";
+    parent.appendChild(cv);
+    cible.el._chienBrulure = cv;
+    return cv;
+  }
+
+  function chienGraverTrou(cible, vx, vy, rayon, graine) {
+    // Grave un trou BRULE dans une image, a la position ecran
+    // (vx, vy) : PAS un rond parfait, PAS de courbe lisse. Une
+    // grille de petits carres de 3 px, le rayon ONDULE avec
+    // l'angle, le fond du trou est ESTOMPE (carres
+    // demi-transparents tires au hasard) et le bord est un
+    // liseret NOIR irregulier et discontinu, comme du papier
+    // cere brule. Aucune explosion, aucun monticule : juste la
+    // trace, gravee pour de bon dans l'image.
+    const calque = chienCalqueBrulure(cible);
+    const g = calque.getContext("2d");
+    const r = cible.rect;
+    const cx = Math.round(vx - r.left);
+    const cy = Math.round(vy - r.top);
+    const pas = 3;  // taille d'un carre de brulure (px)
+    const ray = Math.max(pas, Math.round(rayon / pas) * pas);
+    // 1) Le fond du trou, ESTOMPE : carres demi-transparents
+    //    (alpha tire au hasard entre 0.35 et 0.85), le rayon
+    //    ondulant selon l'angle. Sur le canvas de grattage de
+    //    l'accueil, chaque carre EFFACE la couche sale
+    //    (destination-out) : la photo propre de dessous parait,
+    //    comme un grattage brule. Sur une autre image, le calque
+    //    pose dessus l'assombrit a moitie : trace estompee.
+    g.globalCompositeOperation =
+      cible.canvas ? "destination-out" : "source-over";
+    g.fillStyle = "#111111";  // ignore par destination-out
+    for (let py = cy - ray; py <= cy + ray; py += pas) {
+      for (let px = cx - ray; px <= cx + ray; px += pas) {
+        const dx = px - cx;
+        const dy = py - cy;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const ang = Math.round(Math.atan2(dy, dx) * 14);
+        const ond = ray * (0.85 + chienBruit(graine, ang, 62) * 0.3);
+        if (d > ond - pas) continue;  // on s'arrete AVANT le bord
+        g.globalAlpha = 0.35 + chienBruit(graine, px + 3, py + 5) * 0.5;
+        g.fillRect(px, py, pas, pas);
+      }
+    }
+    // 2) Le bord BRULE : carres noirs opaques poses sur le bord
+    //    ondulant, avec des trous tires au hasard : le liseret
+    //    n'est jamais un cercle net ni continu.
+    g.globalCompositeOperation = "source-over";
+    g.globalAlpha = 1;
+    const nb = Math.max(12, Math.round((Math.PI * 2 * ray) / pas));
+    for (let i = 0; i < nb; i++) {
+      const a = (Math.PI * 2 * i) / nb;
+      const ang = Math.round(a * 14);
+      const rr = ray * (0.85 + chienBruit(graine, ang, 62) * 0.3);
+      const px = Math.round((cx + Math.cos(a) * rr) / pas) * pas;
+      const py = Math.round((cy + Math.sin(a) * rr) / pas) * pas;
+      if (chienBruit(graine, px + 7, py + 7) < 0.25) continue;
+      g.fillRect(px, py, pas, pas);
+    }
+    g.globalAlpha = 1;
   }
 
   function chienPixelsPointeur() {
@@ -2209,7 +2378,11 @@
   }
 
   function chienTirerLaser() {
-    // Le laser vise la derniere position connue du pointeur.
+    // Un tir de laser. Les DEUX PREMIERS tirs RATENT le pointeur
+    // de peu (le trait passe a cote de lui) ; le TROISIEME le
+    // touche et le fait fondre. Sur la page contact, si THE FLY
+    // KING est vivant au moment du tir, le chien vise LA GROSSE
+    // MOUCHE a la place du pointeur et la tue d'un seul coup.
     chienDortEtat = "laser";
     const gen = chienDortGen;
     // Calque plein ecran, meme principe que #canvas-explosion :
@@ -2228,80 +2401,137 @@
       x: rect.left + rect.width / 2 + ANIMATION_CHIEN.oeilDecalX,
       y: rect.top + rect.height / 2 + ANIMATION_CHIEN.oeilDecalY
     };
-    const cible = { x: chienPointeur.x, y: chienPointeur.y };
     // 1 pixel du chien (32x32 affiches en 96x96) = 3 px ecran
     const epaisseur = Math.max(1, Math.round(rect.width / 32));
-    // Les pixels du pointeur, prets a fondre : quand l'onde de
-    // fonte l'atteint, chacun se detache (depuis la pointe du
-    // curseur, la ou le laser le touche) et coule en goutte ou
-    // s'efface sur place. Le grain pseudo-aleatoire donne une
-    // fonte organique, goutte a goutte.
+    // Le boss de la page contact : les variables du jeu sont
+    // declarees PLUS BAS dans ce meme script, donc elles
+    // n'existent pas encore quand cette fonction est DEFINIE --
+    // mais elle ne TOURNE qu'apres des clics, longtemps apres la
+    // fin du script : elles existent alors. Le boss vivant (pas
+    // en chute, pas au sol) : le chien le vise au lieu du
+    // pointeur.
+    const bossVivant = !!conteneurJeu && !!bossEl && !bossChute && !bossAuSol;
+    // Les laserRatres premiers tirs ratent (sauf contre le boss).
+    const rate = !bossVivant && chienLaserNumero < ANIMATION_CHIEN.laserRatres;
+    const touche = !bossVivant && !rate;  // celui-la fond le pointeur
+    // La cible : le boss (poursuivi en direct, il vole), ou le
+    // pointeur -- exact pour le tir qui touche, decale d'un angle
+    // et d'une distance tires au hasard pour un tir rate (il
+    // passe A COTE, jamais loin), clampes a 8 px des bords.
+    let cible;
+    if (bossVivant) {
+      cible = { x: bossX, y: bossY, boss: true };
+    } else if (rate) {
+      const ang = chienBruit(chienLaserNumero, 5, 20) * Math.PI * 2;
+      const dst = 24 + chienBruit(chienLaserNumero, 6, 21) *
+                        ANIMATION_CHIEN.laserRatEcart;
+      cible = {
+        x: Math.max(8, Math.min(window.innerWidth - 8,
+                 chienPointeur.x + Math.cos(ang) * dst)),
+        y: Math.max(8, Math.min(window.innerHeight - 8,
+                 chienPointeur.y + Math.sin(ang) * dst))
+      };
+    } else {
+      cible = { x: chienPointeur.x, y: chienPointeur.y };
+    }
+    // Seul le tir qui TOUCHE fond le pointeur : ses pixels sont
+    // prets a se detacher. Quand l'onde de fonte l'atteint,
+    // chacun se detache (depuis la pointe du curseur, la ou le
+    // laser le touche) et coule en goutte ou s'efface sur place.
+    // Le grain pseudo-aleatoire donne une fonte organique.
     const fondu = ANIMATION_CHIEN.laserFonduMs;
-    const pixels = chienPixelsPointeur();
-    // Fonte depuis la POINTE du curseur (0,0), la ou le laser le
-    // touche. Premiere passe : relever la distance maxi (le pixel
-    // le plus loin de la pointe) AVANT de calculer les t0, sinon
-    // les premiers pixels sont compares a un distMax encore
-    // presque nul et fondent beaucoup trop tard.
-    let distMax = 1;
-    for (let i = 0; i < pixels.length; i++) {
-      const dx = pixels[i].x + 0.5;
-      const dy = pixels[i].y + 0.5;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > distMax) distMax = dist;
-    }
-    // Deuxieme passe : chaque pixel se detache quand l'onde de
-    // fonte l'atteint, au prorata de sa distance a la pointe.
     const eclats = [];
-    for (let i = 0; i < pixels.length; i++) {
-      const p = pixels[i];
-      const dx = p.x + 0.5;
-      const dy = p.y + 0.5;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      eclats.push({
-        x: p.x, y: p.y, c0: p.c,
-        t0: Math.min(fondu * 0.75,
-                     (dist / distMax) * fondu * 0.75 *
-                     (0.85 + chienBruit(i, 1, 6) * 0.3)),
-        vx: 0, vy: 0, c: ""
-      });
-    }
-    for (let i = 0; i < eclats.length; i++) {
-      const e = eclats[i];
-      // Une part des pixels devient des GOUTTES qui COULENT du
-      // curseur : rouge, bleu ou jaune, elles descendent le long
-      // du trait en suintant. Les autres s'effacent juste sur
-      // place : pas d'explosion, le curseur fond et degoutte.
-      e.goutte = chienBruit(i, 2, 7) < ANIMATION_CHIEN.laserGouttes;
-      if (e.goutte) {
-        e.vx = (chienBruit(i, 3, 8) - 0.5) * 0.015;  // derive laterale minime
-        e.vy = 0.03 + chienBruit(i, 4, 9) * 0.04;   // la goutte descend lentement
-        e.c = ANIMATION_CHIEN.poudre[i % ANIMATION_CHIEN.poudre.length];
+    if (touche) {
+      const pixels = chienPixelsPointeur();
+      // Fonte depuis la POINTE du curseur (0,0), la ou le laser le
+      // touche. Premiere passe : relever la distance maxi (le
+      // pixel le plus loin de la pointe) AVANT de calculer les
+      // t0, sinon les premiers pixels sont compares a un distMax
+      // encore presque nul et fondent beaucoup trop tard.
+      let distMax = 1;
+      for (let i = 0; i < pixels.length; i++) {
+        const dx = pixels[i].x + 0.5;
+        const dy = pixels[i].y + 0.5;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > distMax) distMax = dist;
+      }
+      // Deuxieme passe : chaque pixel se detache quand l'onde de
+      // fonte l'atteint, au prorata de sa distance a la pointe.
+      for (let i = 0; i < pixels.length; i++) {
+        const p = pixels[i];
+        const dx = p.x + 0.5;
+        const dy = p.y + 0.5;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        eclats.push({
+          x: p.x, y: p.y, c0: p.c,
+          t0: Math.min(fondu * 0.75,
+                       (dist / distMax) * fondu * 0.75 *
+                       (0.85 + chienBruit(i, 1, 6) * 0.3)),
+          vx: 0, vy: 0, c: ""
+        });
+      }
+      for (let i = 0; i < eclats.length; i++) {
+        const e = eclats[i];
+        // Une part des pixels devient des GOUTTES qui COULENT du
+        // curseur : rouge, bleu ou jaune, elles descendent le
+        // long du trait en suintant. Les autres s'effacent juste
+        // sur place : pas d'explosion, le curseur fond et
+        // degoutte.
+        e.goutte = chienBruit(i, 2, 7) < ANIMATION_CHIEN.laserGouttes;
+        if (e.goutte) {
+          e.vx = (chienBruit(i, 3, 8) - 0.5) * 0.015;  // derive laterale minime
+          e.vy = 0.03 + chienBruit(i, 4, 9) * 0.04;   // la goutte descend lentement
+          e.c = ANIMATION_CHIEN.poudre[i % ANIMATION_CHIEN.poudre.length];
+        }
       }
     }
+    // Les images de la page que le trait peut BRULER en passant.
+    // Aucune contre le boss : le jeu a deja sa propre
+    // pyrotechnie, et la cible bouge sans cesse.
+    const brulables = bossVivant ? [] : chienImagesBrulables();
+    // La duree du tir : montee rapide, puis le trait reste pose
+    // sur sa cible (tenue), puis s'eteint doucement -- sauf le
+    // tir qui touche, qui reste pose sur le pointeur pendant
+    // TOUTE sa fonte (3 s) : le laser ne le lache qu'a la fin.
+    const montee = ANIMATION_CHIEN.laserMonteeMs;
+    const extinction = bossVivant || rate ?
+      ANIMATION_CHIEN.laserRatFonduMs : 0;
+    const tenue = bossVivant ? ANIMATION_CHIEN.laserBossTenueMs
+                             : rate ? ANIMATION_CHIEN.laserRatTenueMs
+                                    : fondu;
+    const total = montee + tenue + extinction;
     let ecoule = 0;
     let dernierT = null;
+    let grave = 0;           // distance de trait deja brulee
+    let coupBossDonne = false;   // le boss n'est frappe qu'UNE fois
+    let impactBrule = false;     // le gros trou d'impact, idem
     const dessiner = function (t) {
       if (gen !== chienDortGen) return;  // annule (page changee)
       if (dernierT === null) dernierT = t;
       ecoule += t - dernierT;
       dernierT = t;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const montee = ANIMATION_CHIEN.laserMonteeMs;
-      const total = montee + fondu;
+      // Le boss vole : le trait le POURSUIT en direct.
+      if (bossVivant) { cible.x = bossX; cible.y = bossY; }
+      const avance = Math.min(1, ecoule / montee);
+      const dxT = cible.x - oeil.x;
+      const dyT = cible.y - oeil.y;
+      const lgT = Math.sqrt(dxT * dxT + dyT * dyT);
+      const ux = lgT > 0 ? dxT / lgT : 0;
+      const uy = lgT > 0 ? dyT / lgT : 0;
       if (ecoule < total) {
         // Trait CASSE : pas une belle ligne droite, un rayon en
         // petits segments de pixels avec des trous et un zigzag,
         // re-tires a chaque frame : il fourmille, il vit. Fin
-        // (2 px), il FONCE de l'oeil vers le pointeur (montee
-        // rapide), puis reste pose dessus pendant toute la fonte,
-        // comme s'il le faisait fondre.
-        const avance = Math.min(1, ecoule / montee);
-        const dxT = cible.x - oeil.x;
-        const dyT = cible.y - oeil.y;
-        const lgT = Math.sqrt(dxT * dxT + dyT * dyT);
-        const ux = lgT > 0 ? dxT / lgT : 0;
-        const uy = lgT > 0 ? dyT / lgT : 0;
+        // (2 px), il FONCE de l'oeil vers sa cible (montee
+        // rapide), puis reste pose dessus, comme s'il la
+        // faisait fondre. Les tirs rates et le tir sur le boss
+        // s'eteignent doucement a la fin ; le tir qui touche
+        // garde son trait plein jusqu'au bout.
+        const reste = total - ecoule;
+        if (extinction > 0 && reste < extinction) {
+          ctx.globalAlpha = Math.max(0, reste / extinction);
+        }
         ctx.fillStyle = "#ff1744";
         const traitPx = ANIMATION_CHIEN.laserEpaisseur;
         const pasSeg = ANIMATION_CHIEN.laserPas;
@@ -2312,62 +2542,125 @@
                        Math.round(oeil.y + uy * s + ux * zig),
                        traitPx, traitPx);
         }
-        // Ondes en pixels rouge, bleu et vert qui partent de l'oeil
-        // au moment du tir, chacune declalee de 120 ms.
+        ctx.globalAlpha = 1;
+        // Ondes en pixels rouge, bleu et vert qui partent de
+        // l'oeil au moment du tir, chacune declalee de 120 ms.
+        // COURTES : elles ne vivent que ondeDureeMs et ne
+        // s'etendent qu'a ondeVitesse px/ms (rayon maxi ~108
+        // px). Quelques centaines de carres au plus : le laser
+        // reste tres leger en CPU.
         for (let i = 0; i < ANIMATION_CHIEN.ondes.length; i++) {
           const ondeT = ecoule - i * 120;
-          if (ondeT <= 0) continue;
-          ctx.globalAlpha = Math.max(0, 1 - ecoule / total);
-          chienPixelAnneau(ctx, oeil.x, oeil.y, ondeT * 0.3,
+          if (ondeT <= 0 || ondeT > ANIMATION_CHIEN.ondeDureeMs) continue;
+          ctx.globalAlpha =
+            Math.max(0, 1 - ondeT / ANIMATION_CHIEN.ondeDureeMs);
+          chienPixelAnneau(ctx, oeil.x, oeil.y,
+                           ondeT * ANIMATION_CHIEN.ondeVitesse,
                            epaisseur, ANIMATION_CHIEN.ondes[i]);
         }
         ctx.globalAlpha = 1;
-      }
-      if (ecoule >= montee && ecoule < total) {
-        // Impact : le laser touche la pointe du pointeur. Le
-        // curseur reel disparait : le pointeur s'arrete et se
-        // fige, puis TREMBLE pendant qu'il se desagrege, mange
-        // depuis la pointe par l'onde de fonte, et quelques
-        // gouttes rouge, bleu et jaune COULENT de lui.
-        if (!chienPointeurDetruit) chienDetruirePointeur();
-        const dans = ecoule - montee;
-        const tremble = ANIMATION_CHIEN.laserTremble;
-        for (let i = 0; i < eclats.length; i++) {
-          const e = eclats[i];
-          // Tremblement du pointeur : chaque pixel vacille
-          const jx = Math.round((chienBruit(i, t, 12) - 0.5) * 2 * tremble);
-          const jy = Math.round((chienBruit(i, t, 13) - 0.5) * 2 * tremble);
-          if (dans < e.t0) {
-            // Pixel encore en place, mais il tremble
-            ctx.fillStyle = e.c0;
-            ctx.fillRect(cible.x + e.x + jx, cible.y + e.y + jy, 1, 1);
-          } else if (e.goutte) {
-            // Goutte rouge, bleu ou jaune qui COULE du curseur
-            const age = dans - e.t0;
-            ctx.globalAlpha = Math.max(0, 1 - age / (fondu - e.t0));
-            ctx.fillStyle = e.c;
-            ctx.fillRect(Math.round(cible.x + e.x + e.vx * age),
-                         Math.round(cible.y + e.y + e.vy * age),
-                         2, 2);
-          } else {
-            // Pixel qui s'efface juste sur place (pas d'explosion)
-            const age = dans - e.t0;
-            ctx.globalAlpha = Math.max(0,
-              1 - age / ANIMATION_CHIEN.laserFonduPlaceMs);
-            ctx.fillStyle = e.c0;
-            ctx.fillRect(cible.x + e.x + jx, cible.y + e.y + jy, 1, 1);
+        // Brulure en passant : pendant la montee, tous les
+        // laserBrulurePas px, le trait grave un trou brule dans
+        // chaque image qu'il croise. La trace reste gravee pour
+        // de bon dans l'image quand le laser est fini.
+        if (brulables.length) {
+          while (grave + ANIMATION_CHIEN.laserBrulurePas < lgT * avance) {
+            grave += ANIMATION_CHIEN.laserBrulurePas;
+            const bx = oeil.x + ux * grave;
+            const by = oeil.y + uy * grave;
+            for (let b = 0; b < brulables.length; b++) {
+              const rb = brulables[b].rect;
+              if (bx >= rb.left && bx <= rb.right &&
+                  by >= rb.top && by <= rb.bottom) {
+                chienGraverTrou(brulables[b], bx, by,
+                                ANIMATION_CHIEN.laserBrulureRayon, grave);
+              }
+            }
           }
         }
-        ctx.globalAlpha = 1;
+      }
+      if (ecoule >= montee && ecoule < total) {
+        if (bossVivant) {
+          // Impact sur THE FLY KING : le chien le tue d'UN SEUL
+          // COUP. frapperBoss(PV_BOSS) vide tous ses points de
+          // vie d'un coup et declenche sa chute. (Si le joueur
+          // l'a abattu pendant la montee du trait, on ne frappe
+          // pas un cadavre.)
+          if (!coupBossDonne) {
+            coupBossDonne = true;
+            if (!bossChute && !bossAuSol) frapperBoss(PV_BOSS);
+          }
+        } else if (touche) {
+          // Impact : le laser touche la pointe du pointeur. Le
+          // curseur reel disparait : le pointeur s'arrete et se
+          // fige, puis TREMBLE pendant qu'il se desagrege, mange
+          // depuis la pointe par l'onde de fonte, et quelques
+          // gouttes rouge, bleu et jaune COULENT de lui.
+          if (!chienPointeurDetruit) chienDetruirePointeur();
+          // Et si l'impact tombe dans une image : un GROS trou
+          // brule a l'endroit exact ou le laser a mordu.
+          if (!impactBrule && brulables.length) {
+            impactBrule = true;
+            for (let b = 0; b < brulables.length; b++) {
+              const rb = brulables[b].rect;
+              if (cible.x >= rb.left && cible.x <= rb.right &&
+                  cible.y >= rb.top && cible.y <= rb.bottom) {
+                chienGraverTrou(brulables[b], cible.x, cible.y,
+                                ANIMATION_CHIEN.laserBrulureRayon * 1.7, 999);
+              }
+            }
+          }
+          const dans = ecoule - montee;
+          const tremble = ANIMATION_CHIEN.laserTremble;
+          for (let i = 0; i < eclats.length; i++) {
+            const e = eclats[i];
+            // Tremblement du pointeur : chaque pixel vacille
+            const jx = Math.round((chienBruit(i, t, 12) - 0.5) * 2 * tremble);
+            const jy = Math.round((chienBruit(i, t, 13) - 0.5) * 2 * tremble);
+            if (dans < e.t0) {
+              // Pixel encore en place, mais il tremble
+              ctx.fillStyle = e.c0;
+              ctx.fillRect(cible.x + e.x + jx, cible.y + e.y + jy, 1, 1);
+            } else if (e.goutte) {
+              // Goutte rouge, bleu ou jaune qui COULE du curseur
+              const age = dans - e.t0;
+              ctx.globalAlpha = Math.max(0, 1 - age / (fondu - e.t0));
+              ctx.fillStyle = e.c;
+              ctx.fillRect(Math.round(cible.x + e.x + e.vx * age),
+                           Math.round(cible.y + e.y + e.vy * age),
+                           2, 2);
+            } else {
+              // Pixel qui s'efface juste sur place (pas d'explosion)
+              const age = dans - e.t0;
+              ctx.globalAlpha = Math.max(0,
+                1 - age / ANIMATION_CHIEN.laserFonduPlaceMs);
+              ctx.fillStyle = e.c0;
+              ctx.fillRect(cible.x + e.x + jx, cible.y + e.y + jy, 1, 1);
+            }
+          }
+          ctx.globalAlpha = 1;
+        }
       }
       if (ecoule < total) {
         window.requestAnimationFrame(dessiner);
       } else {
-        // Fin du laser : le chien se rendort, le pointeur reste
-        // detruit jusqu'au prochain clic (n'importe ou).
+        // Fin du tir : le calque part. Un tir rate en appelle un
+        // autre apres une courte pause (les DEUX PREMIERS
+        // ratent, le TROISIEME touche). Le tir qui touche, et le
+        // tir sur le boss, rendorment le chien. Le pointeur
+        // touche reste detruit jusqu'au prochain clic
+        // (n'importe ou).
         canvas.remove();
         if (chienLaserCanvas === canvas) chienLaserCanvas = null;
-        chienSEndormir();
+        if (rate) {
+          chienLaserNumero++;
+          chienMinuteur = setTimeout(function () {
+            if (gen !== chienDortGen) return;  // page changee entre-temps
+            chienTirerLaser();
+          }, ANIMATION_CHIEN.laserPauseMs);
+        } else {
+          chienSEndormir();
+        }
       }
     };
     window.requestAnimationFrame(dessiner);
@@ -2604,7 +2897,7 @@
     contenu.appendChild(fig);
     montrerDuo(0);
     // (Le chien qui dort est cree par afficher() : il vit sur
-    // toutes les pages de series, pas seulement le Carnaval.)
+    // toutes les pages, pas seulement le Carnaval.)
   }
 
   /* --- SÃRIE PAO --- */
