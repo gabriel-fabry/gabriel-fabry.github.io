@@ -830,7 +830,8 @@
     // retire a chaque changement de page ; arreterChienDort()
     // nettoie en plus son calque laser et restaure le pointeur
     // detruit s'il l'etait. Plus bas, afficher() le recree sur
-    // chaque page de serie (jamais l'accueil, jamais le contact).
+    // chaque page de serie (jamais l'accueil, jamais le contact,
+    // jamais sur mobile).
     document.querySelectorAll(".chien-dort").forEach(function (el) { el.remove(); });
     arreterChienDort();
     if (typeof reinitialiserPhysique === "function") reinitialiserPhysique();
@@ -879,8 +880,13 @@
     // seulement le Carnaval. L'accueil et le contact sont partis
     // plus haut (return) : ils n'arrivent jamais ici. La planche
     // est posee sur le body, en bas a gauche, au-dessus du contenu
-    // quelle que soit la serie affichee.
-    creerChienDort();
+    // quelle que soit la serie affichee. Jamais sur mobile : meme
+    // seuil que le CSS (max-width: 760px), une planche fixe de
+    // 96 px empieterait sur les series en plein ecran.
+    if (!window.matchMedia ||
+        !window.matchMedia("(max-width: 760px)").matches) {
+      creerChienDort();
+    }
 
     const nomDossier = serie.dossier.toUpperCase();
     if (nomDossier === "PAO") {
@@ -1932,8 +1938,8 @@
   /* --- CHIEN QUI DORT (toutes les pages de series) : section
      ANIMATION_CHIEN ---
      Machine a etats du chien qui dort en bas a gauche de chaque
-     page de serie (jamais l'accueil, jamais le contact), anime
-     par une seule planche (sprite sheet) :
+     page de serie (jamais l'accueil, jamais le contact, jamais
+     sur mobile), anime par une seule planche (sprite sheet) :
      "dog sprite/SPRITE SHEET DOG.png", 17 sprites de 32px cote a
      cote. TOUS les reglages sont dans l'objet ANIMATION_CHIEN
      ci-dessous : sequences, durees de chaque sprite, comportement.
