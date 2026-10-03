@@ -633,6 +633,12 @@
        bas du menu, var(--marge), separe cette ligne du haut de la
        photo). */
     .bouton-vent { position: absolute; left: auto; right: 0; top: auto; bottom: calc(100% + var(--marge)); margin: 0; }
+    /* Icones souffle et rafraichir 40 % plus petites sur mobile
+       (34 px -> 20 px) : elles debordaient du petit ecran. */
+    .bouton-vent img, .bouton-rafraichir img {
+      width: 20px;
+      height: 20px;
+    }
     /* Emoji rafraichissement : il vit desormais dans le cadre de
        la photo (il y est pose a cote de l'emoji souffle sur grand
        ecran) ; en position: fixed il reste cale sur la ligne du
