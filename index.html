@@ -185,10 +185,12 @@
     60% { transform: translateX(-2px); }
     80% { transform: translateX(2px); }
   }
-  /* Mode suivi : planche de 9 frames de 32px cote a cote (288px de
-     large au total). Le fond est etire a 900% (9 x 96px) et la
-     frame est choisie par la position horizontale, que le
-     JavaScript regle en pourcentage (12,5% par frame). */
+  /* Planches (sprite sheets) du chien : toutes les frames d'une
+     animation cote a cote dans une seule image (ex : les 9 frames
+     du mode suivi, 288px de large au total). Le fond est etire a
+     900% (9 x 96px) pour la planche de suivi ; le JavaScript regle
+     la taille et la position horizontale en pourcentage pour
+     chaque planche de la section ANIMATION_CHIEN. */
   .chien-dort.chien-suiv {
     display: none;
     background-repeat: no-repeat;
@@ -1907,176 +1909,349 @@
   }
 
   /* --- SÃRIE CARNAVAL --- */
-  /* --- CHIEN QUI DORT (page Carnaval) --- */
-  // Cycle : il dort ; 3 clics le reveillent (il tremble a chaque
-  // clic) ; eveille, il se rendort apres 5 s sans clic ; un clic le
-  // fait parler, un autre clic le ramene a l'etat eveille ; 10 clics
-  // de suite (moins de 3 s entre chacun) declenchent le mode suivi :
-  // son oeil rouge suit le pointeur. Tous les delais et nombres se
-  // reglent dans les constantes CHIEN_ ci-dessous (chercher CHIEN_
-  // dans le code). Les GIF ne peuvent pas etre figes sur une frame
-  // par un navigateur : l'etat eveille utilise un fichier image
-  // seul, et le mode suivi une planche de 9 frames cote a cote.
-  const CHIEN_SRC = {
-    dort: "dog%20sprite/dog%20sprite%20sleep.gif",
-    reveil: "dog%20sprite/waking%20up%20dog.gif",
-    eveille: "dog%20sprite/dog%20awake.png",        // frame fixe de l'etat eveille
-    eveilleSecours: "dog%20sprite/dog%20awake.gif", // essaye si le PNG manque
-    parle: "dog%20sprite/talking%20dog.gif",
-    planche: "dog%20sprite/dog%20follow%20strip.png" // 9 frames cote a cote (288x32)
+  /* --- CHIEN QUI DORT (page Carnaval) : section ANIMATION_CHIEN ---
+     Machine a etats du chien qui dort en bas a gauche de la page
+     Carnaval. TOUS ses reglages sont dans l'objet ANIMATION_CHIEN
+     ci-dessous : fichiers, duree de chaque frame, comportement.
+     C'est la seule section a modifier pour animer le chien.
+
+     Cycle : il dort ; clicsReveil clics le reveillent (il tremble
+     a chaque clic) ; eveille, il se rendort apres eveilMs sans
+     clic ; un clic le fait parler, un autre clic le ramene eveille ;
+     clicsSuivi clics de suite (moins de suiteMs d'ecart) declenchent
+     le mode suivi : son oeil rouge suit le pointeur.
+
+     Pourquoi des PLANCHES : un navigateur ne peut ni figer un GIF
+     anime sur une frame, ni choisir une frame a la demande, ni
+     regler sa vitesse. Une planche (sprite sheet : toutes les
+     frames cote a cote dans une seule image) permet tout ca, y
+     compris de donner a CHAQUE frame sa propre duree. Tant que
+     planche vaut null, le gif de secours est joue tel quel par
+     le navigateur (comportement actuel du site).
+  ----------------------------------------------------------------- */
+  const ANIMATION_CHIEN = {
+    // Dossier des fichiers du chien (chemin relatif, %20 = espace)
+    dossier: "dog%20sprite/",
+
+    // ---- Les animations, frame par frame ----
+    //   planche : fichier contenant toutes les frames cote a cote,
+    //             ou null pour utiliser le gif de secours.
+    //   frames  : nombre de frames de la planche.
+    //   temps   : duree d'affichage de chaque frame EN
+    //             MILLISECONDES, dans l'ordre :
+    //             - une valeur par frame : chacune la sienne
+    //               (ex : [200, 200, 600, 100] pour 4 frames) ;
+    //             - une seule valeur : la meme partout ;
+    //             - moins de valeurs que de frames : la derniere
+    //               valeur est repetee pour les frames restantes.
+    //   boucle  : true = repete en boucle (dodo, il parle) ;
+    //             false = joue une fois puis reste fige sur la
+    //             DERNIERE frame (reveil).
+    //   gif     : gif de secours joue tel quel si planche = null.
+    dort: {
+      planche: null,            // ex : "chien dort planche.png"
+      frames: 0,
+      temps: [400],
+      boucle: true,
+      gif: "dog%20sprite%20sleep.gif"
+    },
+    reveil: {
+      planche: null,           // ex : "chien reveil planche.png"
+      frames: 0,
+      temps: [80],
+      boucle: false,
+      gif: "waking%20up%20dog.gif",
+      frameEveille: 0           // frame ou rester une fois eveille
+    },
+    parle: {
+      planche: null,           // ex : "chien parle planche.png"
+      frames: 0,
+      temps: [120],
+      boucle: true,
+      gif: "talking%20dog.gif"
+    },
+    // Mode suivi : planche de frames dans l'ordre centre, N, NE,
+    // E, SE, S, SO, O, NO (9 frames si l'ordre ci-dessus est
+    // respecte). La frame est choisie par la direction du
+    // pointeur, pas par le temps.
+    suivi: {
+      planche: null,           // ex : "chien suivi planche.png"
+      frames: 9
+    },
+    // Etat eveille SANS planche : image fixe PNG d'abord, gif en
+    // replique, et sinon le gif de reveil reste affiche (fige sur
+    // sa derniere frame s'il est exporte en lecture unique).
+    eveillePng: "dog%20awake.png",
+    eveilleGif: "dog%20awake.gif",
+
+    // ---- Comportement (clics et delais) ----
+    clicsReveil: 3,     // clics pour le reveiller
+    gifReveilMs: 2000,  // duree du gif de reveil (secours, a ajuster)
+    eveilMs: 5000,      // delai avant rendormissement
+    clicsSuivi: 10,     // clics de suite pour le mode suivi
+    suiteMs: 3000       // ecart maxi entre deux clics "de suite"
   };
-  const CHIEN_CLICS_REVEIL = 3;   // clics pour le reveiller
-  const CHIEN_REVEIL_MS = 2000;   // duree du gif de reveil (a ajuster)
-  const CHIEN_EVEIL_MS = 5000;    // delai avant rendormissement
-  const CHIEN_SUITE_CIBLE = 10;   // clics de suite pour le mode suivi
-  const CHIEN_SUITE_MS = 3000;   // ecart maxi entre deux clics "de suite"
-  let chienImg = null;            // <img> : les etats en GIF
-  let chienSuivEl = null;         // <div> : mode suivi (planche de frames)
-  let chienEtat = "dort";         // dort | reveil | eveille | parle | suis
+
+  let chienImg = null;         // <img> : etats en GIF
+  let chienSuivEl = null;      // <div> : etats en planche (frames)
+  let chienDortEtat = "dort";  // dort | reveil | eveille | parle | suis
   let chienClicsReveil = 0;
   let chienClicsSuite = 0;
   let chienDernierClic = 0;
   let chienCharge = false;
   let chienMinuteurDodo = null;
   let chienMinuteurReveil = null;
+  let chienMinuteurFrame = null;  // frame suivante d'une planche
+  let chienDortGen = 0;           // annule les animations obsoletes
+  const chienPlanchesCharge = {}; // chemin -> Image chargee (ou null)
+
+  function chienTempsFrame(anim, i) {
+    // Duree de la frame i de l'animation anim (voir ANIMATION_CHIEN)
+    if (!anim.temps || anim.temps.length === 0) return 100;
+    if (i < anim.temps.length) return anim.temps[i];
+    return anim.temps[anim.temps.length - 1];
+  }
+
+  function chienPlancheExiste(anim, trouve, absent) {
+    // Charge la planche de anim ; appelle trouve(img) si elle
+    // existe, absent() sinon. Resultats memorises : la planche
+    // n'est chargee qu'une fois par visite de la page.
+    if (!anim || !anim.planche || !(anim.frames >= 1)) {
+      if (absent) absent();
+      return;
+    }
+    const chemin = ANIMATION_CHIEN.dossier + anim.planche;
+    const deja = chienPlanchesCharge[chemin];
+    if (deja === null) { if (absent) absent(); return; }
+    if (deja) { trouve(deja); return; }
+    const img = new Image();
+    img.onload = function () { chienPlanchesCharge[chemin] = img; trouve(img); };
+    img.onerror = function () {
+      chienPlanchesCharge[chemin] = null;
+      if (absent) absent();
+    };
+    img.src = chemin;
+  }
+
+  function chienAssurerEl() {
+    // Le <div> des planches : cree une seule fois, il remplace le
+    // <img> des gifs quand une planche est jouee.
+    if (!chienSuivEl) {
+      chienSuivEl = document.createElement("div");
+      chienSuivEl.className = "chien-dort chien-suiv";
+      chienSuivEl.title = "Chien";
+      chienSuivEl.addEventListener("click", chienCliquer);
+      document.body.appendChild(chienSuivEl);
+    }
+    return chienSuivEl;
+  }
+
+  function chienAfficherFrame(anim, i) {
+    // Montre la frame i (0 = premiere) de la planche de anim
+    const el = chienAssurerEl();
+    el.style.backgroundImage =
+      "url(" + ANIMATION_CHIEN.dossier + anim.planche + ")";
+    el.style.backgroundSize = (anim.frames * 100) + "% 100%";
+    el.style.backgroundPositionX =
+      (anim.frames > 1 ? (i / (anim.frames - 1)) * 100 : 0) + "%";
+  }
 
   function chienMontrerImg(visible) {
     if (chienImg) chienImg.style.display = visible ? "block" : "none";
     if (chienSuivEl) chienSuivEl.style.display = visible ? "none" : "block";
   }
 
+  function chienJouerPlanche(nom, finPlanche, finGif) {
+    // Joue l'animation nom (cle de ANIMATION_CHIEN) :
+    // - planche presente : frame par frame selon "temps" ; quand
+    //   une animation sans boucle atteint sa derniere frame,
+    //   finPlanche() est appele ;
+    // - planche absente : le gif de secours est affiche tel quel
+    //   et finGif() est appele immediatement (c'est a l'appelant
+    //   de regler ses minuteurs, le navigateur gere le gif).
+    const gen = chienDortGen;
+    const anim = ANIMATION_CHIEN[nom];
+    chienPlancheExiste(anim, function () {
+      if (gen !== chienDortGen) return;
+      let i = 0;
+      const avancer = function () {
+        if (gen !== chienDortGen) return;
+        chienAfficherFrame(anim, i);
+        chienMontrerImg(false);
+        const dernier = i >= anim.frames - 1;
+        if (chienMinuteurFrame) clearTimeout(chienMinuteurFrame);
+        chienMinuteurFrame = setTimeout(function () {
+          if (gen !== chienDortGen) return;
+          if (dernier && !anim.boucle) {
+            if (finPlanche) finPlanche();
+            return;
+          }
+          i = dernier ? 0 : i + 1;
+          avancer();
+        }, chienTempsFrame(anim, i));
+      };
+      avancer();
+    }, function () {
+      if (gen !== chienDortGen) return;
+      chienMontrerImg(true);
+      if (chienImg) {
+        const el = chienImg;
+        el.onerror = null;
+        el.src = ANIMATION_CHIEN.dossier + anim.gif;
+      }
+      if (finGif) finGif();
+    });
+  }
+
   function chienTrembler() {
-    if (!chienImg) return;
-    chienImg.classList.remove("tremble");
-    void chienImg.offsetWidth;  // relance l'animation CSS a chaque clic
-    chienImg.classList.add("tremble");
+    // Fait trembler l'element visible (planche ou gif)
+    const el = (chienSuivEl && chienSuivEl.style.display === "block")
+      ? chienSuivEl : chienImg;
+    if (!el) return;
+    el.classList.remove("tremble");
+    void el.offsetWidth;  // relance l'animation CSS a chaque clic
+    el.classList.add("tremble");
+  }
+
+  function chienStopMinuteurs() {
+    if (chienMinuteurDodo) { clearTimeout(chienMinuteurDodo); chienMinuteurDodo = null; }
+    if (chienMinuteurReveil) { clearTimeout(chienMinuteurReveil); chienMinuteurReveil = null; }
+    if (chienMinuteurFrame) { clearTimeout(chienMinuteurFrame); chienMinuteurFrame = null; }
   }
 
   function chienRendormir() {
-    if (chienMinuteurDodo) { clearTimeout(chienMinuteurDodo); chienMinuteurDodo = null; }
-    if (chienMinuteurReveil) { clearTimeout(chienMinuteurReveil); chienMinuteurReveil = null; }
-    chienEtat = "dort";
+    chienDortGen++;  // annule l'animation en cours
+    chienStopMinuteurs();
+    chienDortEtat = "dort";
     chienClicsReveil = 0;
-    if (chienImg) {
-      chienImg.onerror = null;
-      chienImg.src = CHIEN_SRC.dort;
-    }
-    chienMontrerImg(true);
+    chienJouerPlanche("dort", null, null);
   }
 
   function chienEveille() {
-    // Etat eveille : frame FIXE (chien sans point d'interrogation),
-    // puis rendormissement apres CHIEN_EVEIL_MS sans clic.
-    chienEtat = "eveille";
-    chienMontrerImg(true);
-    if (chienMinuteurDodo) clearTimeout(chienMinuteurDodo);
-    chienMinuteurDodo = setTimeout(chienRendormir, CHIEN_EVEIL_MS);
-    // PNG de la frame d'abord, replique .gif ensuite, et si les deux
-    // manquent : le gif de reveil reste affiche (fige sur sa
-    // derniere frame s'il est exporte en lecture unique).
-    chienImg.onerror = function () {
-      chienImg.onerror = function () {
-        chienImg.onerror = null;
-        chienImg.src = CHIEN_SRC.reveil;
+    // Etat eveille : frame FIXE. Avec la planche de reveil :
+    // frame frameEveille. Sans planche : PNG fixe puis gif puis
+    // gif de reveil fige (exporte en lecture unique). Puis
+    // rendormissement apres ANIMATION_CHIEN.eveilMs sans clic.
+    chienDortGen++;
+    chienStopMinuteurs();
+    chienDortEtat = "eveille";
+    chienMinuteurDodo = setTimeout(chienRendormir, ANIMATION_CHIEN.eveilMs);
+    const gen = chienDortGen;
+    const anim = ANIMATION_CHIEN.reveil;
+    chienPlancheExiste(anim, function () {
+      if (gen !== chienDortGen) return;
+      chienAfficherFrame(anim, Math.min(anim.frameEveille, anim.frames - 1));
+      chienMontrerImg(false);
+    }, function () {
+      if (gen !== chienDortGen) return;
+      chienMontrerImg(true);
+      if (!chienImg) return;
+      // L'element est capture dans el : meme si l'utilisateur
+      // change de page avant la fin des repliques, rien ne casse.
+      const el = chienImg;
+      el.onerror = function () {
+        el.onerror = function () {
+          el.onerror = null;
+          el.src = ANIMATION_CHIEN.dossier + ANIMATION_CHIEN.reveil.gif;
+        };
+        el.src = ANIMATION_CHIEN.dossier + ANIMATION_CHIEN.eveilleGif;
       };
-      chienImg.src = CHIEN_SRC.eveilleSecours;
-    };
-    chienImg.src = CHIEN_SRC.eveille;
+      el.src = ANIMATION_CHIEN.dossier + ANIMATION_CHIEN.eveillePng;
+    });
   }
 
   function chienReveiller() {
-    chienEtat = "reveil";
-    chienMontrerImg(true);
-    if (chienMinuteurReveil) clearTimeout(chienMinuteurReveil);
-    chienMinuteurReveil = setTimeout(chienEveille, CHIEN_REVEIL_MS);
-    chienImg.onerror = null;
-    chienImg.src = CHIEN_SRC.reveil;
+    chienDortGen++;
+    chienStopMinuteurs();
+    chienDortEtat = "reveil";
+    // Avec la planche : le passage a l'etat eveille se declenche
+    // tout seul quand la derniere frame est atteinte. Avec le gif
+    // de secours : apres gifReveilMs (duree du gif, a ajuster).
+    chienJouerPlanche("reveil", chienEveille, function () {
+      chienMinuteurReveil = setTimeout(chienEveille, ANIMATION_CHIEN.gifReveilMs);
+    });
   }
 
   function chienParler() {
-    chienEtat = "parle";
-    if (chienMinuteurDodo) { clearTimeout(chienMinuteurDodo); chienMinuteurDodo = null; }
-    chienMontrerImg(true);
-    chienImg.onerror = null;
-    chienImg.src = CHIEN_SRC.parle;
+    chienDortGen++;
+    chienStopMinuteurs();
+    chienDortEtat = "parle";
+    chienJouerPlanche("parle", null, null);
   }
 
   function chienSuivre() {
-    // Le suivi exige de choisir une frame precise : impossible dans
-    // un GIF anime, on passe par une planche de 9 frames. Si la
-    // planche manque, le chien reste simplement a l'etat ou il etait.
-    const essai = new Image();
-    essai.onload = function () {
-      chienEtat = "suis";
-      if (chienMinuteurDodo) { clearTimeout(chienMinuteurDodo); chienMinuteurDodo = null; }
-      if (!chienSuivEl) {
-        chienSuivEl = document.createElement("div");
-        chienSuivEl.className = "chien-dort chien-suiv";
-        chienSuivEl.title = "Chien qui vous suit du regard";
-        chienSuivEl.addEventListener("click", chienCliquer);
-        document.body.appendChild(chienSuivEl);
-      }
-      chienSuivEl.style.backgroundImage = "url(" + CHIEN_SRC.planche + ")";
-      chienSuivEl.style.backgroundPositionX = "0%";  // oeil rouge au centre
+    // Le suivi exige de choisir une frame precise : impossible
+    // dans un gif anime, il FAUT la planche de suivi. Si elle
+    // manque, le chien reste a son etat courant, rien ne casse
+    // (on ne touche a ses minuteurs que quand la planche existe).
+    const gen = chienDortGen;
+    chienPlancheExiste(ANIMATION_CHIEN.suivi, function () {
+      if (gen !== chienDortGen) return;
+      chienDortGen++;  // prend la main sur l'animation en cours
+      chienStopMinuteurs();
+      chienDortEtat = "suis";
+      chienAfficherFrame(ANIMATION_CHIEN.suivi, 0);  // oeil au centre
       chienMontrerImg(false);
-    };
-    essai.src = CHIEN_SRC.planche;
+    }, null);
   }
 
   function chienCliquer() {
     const maintenant = Date.now();
     // Clics "de suite" : au moindre ecart trop grand, le compte
     // repart de zero.
-    if (maintenant - chienDernierClic > CHIEN_SUITE_MS) chienClicsSuite = 0;
+    if (maintenant - chienDernierClic > ANIMATION_CHIEN.suiteMs) chienClicsSuite = 0;
     chienDernierClic = maintenant;
-    if (chienEtat === "suis") {
+    if (chienDortEtat === "suis") {
       // Un clic le sort du mode suivi : retour a l'etat eveille,
       // puis rendormissement s'il ne se passe rien.
       chienEveille();
       return;
     }
     chienClicsSuite++;
-    if (chienClicsSuite >= CHIEN_SUITE_CIBLE) {
+    if (chienClicsSuite >= ANIMATION_CHIEN.clicsSuivi) {
       chienClicsSuite = 0;
       chienSuivre();
       return;
     }
-    if (chienEtat === "dort") {
+    if (chienDortEtat === "dort") {
       chienClicsReveil++;
       chienTrembler();
-      if (chienClicsReveil >= CHIEN_CLICS_REVEIL) {
+      if (chienClicsReveil >= ANIMATION_CHIEN.clicsReveil) {
         chienClicsReveil = 0;
         chienReveiller();
       }
       return;
     }
-    if (chienEtat === "eveille") { chienParler(); return; }
-    if (chienEtat === "parle") { chienEveille(); return; }
-    // Pendant le reveil, les clics ne changent pas l'etat : ils sont
-    // deja comptes pour le mode suivi ci-dessus.
+    if (chienDortEtat === "eveille") { chienParler(); return; }
+    if (chienDortEtat === "parle") { chienEveille(); return; }
+    // Pendant le reveil, les clics ne changent pas l'etat : ils
+    // sont deja comptes pour le mode suivi ci-dessus.
   }
 
   function chienOeilSuivre(e) {
-    if (chienEtat !== "suis" || !chienSuivEl) return;
+    if (chienDortEtat !== "suis" || !chienSuivEl) return;
+    const anim = ANIMATION_CHIEN.suivi;
+    const frames = Math.max(2, anim.frames);
     const rect = chienSuivEl.getBoundingClientRect();
     const dx = e.clientX - (rect.left + rect.width / 2);
     const dy = e.clientY - (rect.top + rect.height / 2);
-    // Pointeur sur le chien : l'oeil rouge reste au centre (frame 1)
+    // Pointeur sur le chien : l'oeil rouge reste au centre
     if (Math.abs(dx) < rect.width / 2 && Math.abs(dy) < rect.height / 2) {
       chienSuivEl.style.backgroundPositionX = "0%";
       return;
     }
     // Angle depuis le Nord, sens horaire : N=0, NE=45, E=90, SE=135,
-    // S=180, SO=225, O=270, NO=315. Les frames 2 a 9 de la planche
-    // suivent cet ordre : 12,5% de position par frame.
+    // S=180, SO=225, O=270, NO=315. Frame 0 = centre, frames 1 a 8
+    // dans cet ordre.
     const angle = Math.atan2(dx, -dy) * 180 / Math.PI;
     const secteur = ((Math.round(angle / 45) % 8) + 8) % 8;
-    chienSuivEl.style.backgroundPositionX = (secteur + 1) * 12.5 + "%";
+    chienSuivEl.style.backgroundPositionX =
+      ((secteur + 1) * 100 / (frames - 1)) + "%";
   }
   window.addEventListener("pointermove", chienOeilSuivre);
 
   function creerChienDort() {
-    chienEtat = "dort";
+    chienDortEtat = "dort";
     chienClicsReveil = 0;
     chienClicsSuite = 0;
     chienCharge = false;
@@ -2087,10 +2262,11 @@
     chienImg.decoding = "async";
     chienImg.addEventListener("load", function () { chienCharge = true; });
     chienImg.addEventListener("error", function () {
-      // Le gif de dodo est introuvable : pas de chien du tout, jamais
-      // d'icone cassee. Les erreurs des autres etats sont gerees par
-      // les repliques de chienEveille et ne passent plus ici une fois
-      // le premier gif charge.
+      // Fichier de dodo introuvable : si une planche de dodo
+      // existe elle prend le relais, sinon pas de chien du tout,
+      // jamais d'icone cassee. Les erreurs des autres etats sont
+      // gerees par les repliques de chienEveille et ne passent
+      // plus ici une fois le premier gif charge.
       if (!chienCharge) {
         chienImg.remove();
         chienImg = null;
@@ -2098,15 +2274,18 @@
     });
     chienImg.addEventListener("click", chienCliquer);
     document.body.appendChild(chienImg);
-    chienImg.src = CHIEN_SRC.dort;
+    chienRendormir();  // demarre l'etat dort (planche ou gif)
   }
 
   function arreterChienDort() {
-    chienRendormir();  // stoppe les minuteurs
+    chienDortGen++;  // fige toute animation en cours
+    chienStopMinuteurs();
+    chienDortEtat = "dort";
+    chienClicsReveil = 0;
+    chienClicsSuite = 0;
     chienImg = null;
     chienSuivEl = null;
   }
-
   function dessinerCarnaval(serie) {
     document.title = serie.titre + " - " + SITE.nom;
 
