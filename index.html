@@ -1419,6 +1419,13 @@
     // rapide, surtout sur telephone.
     const RESOLUTION_MAX = 1600; // cote le plus long du canvas
 
+    // TAILLE DU PINCEAU DE GRATTAGE : fraction du petit cote de la
+    // photo affichee (0.04 = 4 pour cent par defaut). Plus petit =
+    // grattage fin, plus grand = grosse eponge. Plage conseillee :
+    // de 0.02 (tres fin) a 0.12 (large). Pour la retrouver :
+    // chercher le mot PINCEAU_TAILLE dans le code.
+    const PINCEAU_TAILLE = 0.02;
+
     function chargerEtDessiner() {
       const plusLong = Math.max(photo.naturalWidth, photo.naturalHeight);
       const k = plusLong > RESOLUTION_MAX ? RESOLUTION_MAX / plusLong : 1;
@@ -1542,7 +1549,7 @@
       const x = (clientX - rect.left) * echelleX;
       const y = (clientY - rect.top) * echelleY;
 
-      const rayonPinceau = Math.min(canvas.width, canvas.height) * 0.04;
+      const rayonPinceau = Math.min(canvas.width, canvas.height) * PINCEAU_TAILLE;
 
       if (photoData) {
         const pBuffer = photoData.data;
