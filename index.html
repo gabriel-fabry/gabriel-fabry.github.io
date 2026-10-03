@@ -1078,7 +1078,7 @@
   // Peut recevoir un AudioContext deja ouvert (le creer pendant le clic
   // est obligatoire sur iPhone : un contexte cree plus tard, hors geste,
   // reste muet).
-  function jouerClicVent(audioDejaOuvert) {
+  function jouerClicVent(audioDejaOuvert, sens) {
     try {
       let audio = audioDejaOuvert || null;
       let fermerApres = false;
@@ -1088,19 +1088,36 @@
         audio = new Ctx();
         fermerApres = true;
       }
-      const osc = audio.createOscillator();
-      const vol = audio.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(220, audio.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(140, audio.currentTime + 0.05);
-      vol.gain.setValueAtTime(0.05, audio.currentTime);
-      vol.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.07);
-      osc.connect(vol);
-      vol.connect(audio.destination);
-      osc.start();
-      osc.stop(audio.currentTime + 0.08);
-      if (fermerApres) {
-        osc.onended = function () {
+      // Son d'interrupteur, sec : deux notes carrees tres courtes,
+      // grave puis aigu quand le souffle s'allume, aigu puis grave
+      // quand il s'eteint. Onde carree, attaque immediate et decay
+      // rapide : un clic net de commutateur, rien de rond ni de
+      // trainant.
+      const t = audio.currentTime;
+      const grave = 220;
+      const aigu = 440;
+      const notes = (sens === "off") ? [aigu, grave] : [grave, aigu];
+      const dureeNote = 0.04;   // 40ms par note : sec, pas de trainee
+      const pause = 0.035;      // entre les deux notes
+      let dernier = null;
+      notes.forEach(function (freq, i) {
+        const debut = t + i * (dureeNote + pause);
+        const osc = audio.createOscillator();
+        const vol = audio.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(freq, debut);
+        vol.gain.setValueAtTime(0.07, debut);
+        vol.gain.exponentialRampToValueAtTime(0.0001, debut + dureeNote);
+        osc.connect(vol);
+        vol.connect(audio.destination);
+        osc.start(debut);
+        osc.stop(debut + dureeNote + 0.005);
+        dernier = osc;
+      });
+      // Le contexte temporaire ne se ferme qu'a la fin de la SECONDE
+      // note : fermer a la fin de la premiere couperait la deuxieme.
+      if (fermerApres && dernier) {
+        dernier.onended = function () {
           try { audio.close(); } catch (e) { /* deja ferme */ }
         };
       }
@@ -1158,7 +1175,7 @@
     if (ventActif) {
       arreterMicroVent();
       majBoutonVent(bouton, false);
-      jouerClicVent();
+      jouerClicVent(null, "off");
       return;
     }
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1171,7 +1188,8 @@
     ventAudio.resume();
     // Le clic d'activation part tout de suite, pendant le geste : sur
     // iPhone, le jouer apres la reponse du micro resterait muet.
-    jouerClicVent(ventAudio);
+    // Sens "on" : note grave puis note aigu, comme un interrupteur.
+    jouerClicVent(ventAudio, "on");
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flux) {
       ventFlux = flux;
       if (ventAudio && ventAudio.state === "suspended") ventAudio.resume();
