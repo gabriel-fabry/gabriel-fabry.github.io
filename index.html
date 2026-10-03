@@ -269,6 +269,16 @@
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
+  /* Les icones des deux boutons sont des PNG du dossier "PNG"
+     (blow.png pour le souffle, reload.png pour le rafraichir).
+     image-rendering: pixelated : le petit PNG est agrandi au
+     pixel pres -- le pixel art reste net, sans fondre. */
+  .bouton-vent img, .bouton-rafraichir img {
+    display: block;
+    width: 34px;
+    height: 34px;
+    image-rendering: pixelated;
+  }
 
   .zone-interactive-conteneur {
     position: relative;
@@ -741,6 +751,16 @@
     const a = document.createElement("a");
     a.href = "#" + serie.dossier;
     a.textContent = serie.titre;
+    // Cliquer sur la section où l'on est DÉJÀ recharge la page :
+    // on revoit la série depuis le début, photo et grille
+    // refaites à neuf (même principe que le nom du site,
+    // qui recharge l'accueil quand on y est déjà).
+    a.addEventListener("click", function (e) {
+      if (location.hash === "#" + serie.dossier) {
+        e.preventDefault();
+        window.location.reload();
+      }
+    });
     liens[serie.dossier] = a;
     return a;
   }
@@ -1159,15 +1179,31 @@
   let ventIntervalle = null;
   let particulesVent = [];   // Pixels arraches par le souffle, en vol
 
-  // Emojis ecrits en sequences d'echappement Unicode : le fichier reste
-  // entierement ASCII, le navigateur affache lui-meme le bon caractere.
-  const EMOJI_VENT = "\uD83C\uDF2C\uFE0F";  // visage qui souffle du vent
-  const EMOJI_REFUS = "\uD83D\uDEAB";       // micro refuse ou indisponible
-  const EMOJI_RAFRAICHIR = "\uD83D\uDD04"; // fleches circulaires : nouvelle photo
+  // Icones des deux boutons : des PNG poses par l'utilisateur
+  // dans le dossier "PNG" (blow.png pour le souffle, reload.png
+  // pour le rafraichissement). Si le micro est refuse ou
+  // indisponible, on ne change RIEN a l'ecran : le petit clic
+  // d'interrupteur (jouerClicVent, sens "off") suffit a prevenir.
+  const ICONE_VENT = "PNG/blow.png";      // l'icone du souffle
+  const ICONE_RELOAD = "PNG/reload.png";  // l'icone du rafraichissement
 
+  // Pose l'icone du souffle (blow.png) dans le bouton, sur le
+  // modele d'imgReload pour le rafraichir. Jamais remplacee :
+  // refus ou panne de micro n'ont AUCUNE consequence visuelle.
+  function iconeVent(bouton) {
+    if (!bouton) return;
+    bouton.textContent = "";
+    const img = document.createElement("img");
+    img.src = ICONE_VENT;
+    img.alt = "";
+    img.decoding = "async";
+    bouton.appendChild(img);
+  }
+
+  // L'icone ne change JAMAIS (toujours blow.png) : seul le titre
+  // du bouton suit l'etat du micro.
   function majBoutonVent(bouton, actif) {
     if (!bouton) return;
-    bouton.textContent = EMOJI_VENT;
     bouton.title = actif ? "Souffle pour nettoyer !" : "Nettoyer en soufflant dans le micro";
   }
 
@@ -1279,7 +1315,10 @@
     }
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !Ctx) {
-      bouton.textContent = EMOJI_REFUS;
+      // Micro indisponible : RIEN a l'ecran (l'icone reste
+      // blow.png), juste le petit clic "off" -- l'interrupteur
+      // n'a pas pris.
+      jouerClicVent(null, "off");
       return;
     }
     // iOS/Safari : l'AudioContext doit etre cree pendant le clic
@@ -1305,9 +1344,16 @@
       majBoutonVent(bouton, true);
       ventIntervalle = setInterval(analyserSouffle, 50);
     }).catch(function () {
-      bouton.textContent = EMOJI_REFUS;
+      // Micro refuse : AUCUN changement a l'ecran (pas de panneau
+      // d'interdiction, l'icone reste blow.png) -- le petit clic
+      // "off" suffit a prevenir. Le contexte ferme APRES le son
+      // (300 ms), sinon on couperait le clic en plein milieu.
       if (ventAudio) {
-        try { ventAudio.close(); } catch (e) { /* deja ferme */ }
+        const audioRefus = ventAudio;
+        jouerClicVent(audioRefus, "off");
+        setTimeout(function () {
+          try { audioRefus.close(); } catch (e) { /* deja ferme */ }
+        }, 300);
         ventAudio = null;
       }
     });
@@ -1771,7 +1817,8 @@
     canvas.addEventListener("pointerup", stopperGomme);
     canvas.addEventListener("pointercancel", stopperGomme);
 
-    // Emoji qui souffle : pose tout en bas de la photo d'accueil,
+    // Bouton souffle (PNG/blow.png) : pose tout en bas de la photo
+    // d'accueil,
     // sur le flanc gauche de la colline de gauche, ALIGNÉ PAR LE
     // BAS sur la meme ligne que le chien qui dort (regle CSS
     // .bouton-vent, position fixe comme lui). Le micro n'est
@@ -1780,7 +1827,7 @@
     const boutonVent = document.createElement("button");
     boutonVent.type = "button";
     boutonVent.className = "bouton-vent";
-    boutonVent.textContent = EMOJI_VENT;
+    iconeVent(boutonVent);
     boutonVent.title = "Nettoyer en soufflant dans le micro";
     boutonVent.setAttribute("aria-label", "Nettoyer en soufflant dans le micro");
     boutonVent.addEventListener("click", function () {
@@ -1810,7 +1857,11 @@
     const boutonRafraichir = document.createElement("button");
     boutonRafraichir.type = "button";
     boutonRafraichir.className = "bouton-rafraichir";
-    boutonRafraichir.textContent = EMOJI_RAFRAICHIR;
+    const imgReload = document.createElement("img");
+    imgReload.src = ICONE_RELOAD;
+    imgReload.alt = "";
+    imgReload.decoding = "async";
+    boutonRafraichir.appendChild(imgReload);
     boutonRafraichir.title = "Changer la photo";
     boutonRafraichir.setAttribute("aria-label", "Changer la photo d'accueil");
     boutonRafraichir.addEventListener("click", rafraichirImageAccueil);
@@ -1936,6 +1987,12 @@
       const appliquer = function () {
         if (fait) return;
         fait = true;
+        // La photo change : les brulures du laser gravees sur
+        // l'ancienne partent avec elle (calque chien-brulure).
+        if (img._chienBrulure) {
+          img._chienBrulure.remove();
+          img._chienBrulure = null;
+        }
         img.alt = SITE.nom + ", " + serie.titre + ", image " + (i + 1);
         if (!ancienSrc || mouvementReduit.matches) {
           img.src = src;
@@ -1992,14 +2049,17 @@
      coulent de lui ; un clic n'importe ou le fait reapparaitre,
      puis le chien se rendort. Contre le boss, le troisieme tir
      le tue d'un seul coup et il tombe sur la ligne du chien. En
-     passant, le laser grave dans les images qu'il croise une
-     LIGNE fine et bien noire, a peine plus large que son trait,
-     la MEME pour tous les tirs, SANS monticule de pixels. Et a
-     l'IMPACT -- sur TOUS les tirs, les deux rates comme celui
-     qui touche -- un GROS TROU ROND brule, qui tranche avec le
-     trait fin : c'est LA que le laser gratte vraiment l'image.
-     Sur l'accueil, ligne et impact decouvrent la PHOTO PROPRE
-     de dessous, comme un grattage au doigt. Un clic rend le
+     Le chemin de son trait ne marque RIEN : ni les images, ni
+     la page. Seul l'IMPACT -- sur TOUS les tirs, les deux rates
+     comme celui qui touche -- un GROS TROU ROND brule, AU RAYON
+     RAGOTE : deux bruits superposes font onduler son bord d'un
+     carre a l'autre, et son liseret noir saute pres d'une fois
+     sur deux -- c'est LA que le laser gratte vraiment l'image.
+     Sur l'accueil, l'impact decouvre la PHOTO PROPRE de
+     dessous, comme un grattage au doigt. Sur les autres pages,
+     il gratte jusqu'au FOND BLANC du site : il n'y a rien
+     derriere l'image, le grattage la peint en blanc. Un clic
+     rend le
      pointeur : il revient NOIR, tout sale de sa fonte, se
      SECOUE tout seul en projetant des pixels noirs autour de
      lui, puis REPREND SA COULEUR, la pointe d'abord, et le
@@ -2084,21 +2144,14 @@
     ondeDureeMs: 900,      // les ondes vivent ce delai, pas plus :
                            // courtes et peu nombreuses, le laser
                            // reste tres bon marche en CPU
-    // ---- Brulure des images ----
-    laserBrulurePas: 50,   // cran d'avance de la LIGNE brulee :
-                           // le trait grave dans les images par
-                           // segments de cette longueur en px,
-                           // raccordes en une seule ligne continue
-    laserBrulureRayon: 3,  // demi-largeur de la ligne brulee :
-                           // a peine plus large que le trait du
-                           // laser (2 px), une trace fine, LA
-                           // MEME pour tous les tirs, rates ou non
-    laserImpactRayon: 60,  // L'IMPACT : un GROS trou rond, bien
-                           // plus grand que la ligne fine -- c'est
-                           // LA que le laser gratte vraiment
-                           // l'image. Tous les tirs en produisent
-                           // un, la ou la pointe se plante, les
-                           // rates compris.
+    // ---- Impact des images ----
+    laserImpactRayon: 120, // L'IMPACT : un TRES GROS trou rond,
+                           // bien irregulier -- c'est LA que le
+                           // laser gratte vraiment l'image. Tous
+                           // les tirs en produisent un, la ou la
+                           // pointe se plante, les rates compris.
+                           // Le chemin du trait, lui, ne marque
+                           // RIEN.
     ondes: ["#ff1744", "#2979ff", "#00e676"],  // ondes qui partent de l'oeil
     poudre: ["#ff1744", "#2979ff", "#ffea00"],  // gouttes rouge, bleu, jaune
     oeilDecalX: 0,         // decalage de l'oeil (px) par rapport au
@@ -2116,16 +2169,24 @@
   let chienDortGen = 0;         // annule sequences et effets obsoletes
   let chienPointeur = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   let chienPointeurDetruit = false;
+  let chienDernierSprite = -1;     // sprite affiche (evite de reecrire)
+  let chienVueFrame = null;       // frame en attente du regard du chien
   let chienLaserCanvas = null;
   let chienNettoyageCanvas = null;  // calque du nettoyage du pointeur au retour
   let chienLaserNumero = 0;    // combien de tirs ont deja ete tires
                                // (les laserRatres premiers ratent)
 
   function chienAfficherSprite(n) {
-    // Montre le sprite numero n (1 = premier a gauche)
+    // Montre le sprite numero n (1 = premier a gauche). Le sprite
+    // affiche est RETENU : reecrire la meme position de fond a
+    // chaque deplacement du pointeur ne faisait que forcer le
+    // navigateur a recalculer le calque du chien -- c'est ce qui
+    // faisait clignoter le pointeur quand l'oeil suit la souris.
     if (!chienPlancheEl) return;
     const f = ANIMATION_CHIEN.frames;
     const i = Math.max(1, Math.min(f, n)) - 1;
+    if (i === chienDernierSprite) return;   // deja affiche : rien a faire
+    chienDernierSprite = i;
     chienPlancheEl.style.backgroundPositionX = (i / (f - 1)) * 100 + "%";
   }
 
@@ -2404,12 +2465,13 @@
   }
 
   function chienImagesBrulables() {
-    // Les images que le laser peut bruler sur la page courante :
-    // toutes les <img> du contenu (hors photo de dessous de
-    // l'accueil, celle que le grattage revele : jamais brulee) et
-    // le canvas de grattage de l'accueil. Les images plus petites
-    // que 20 px sont ignorees : le laser passerait trop vite pour
-    // que la brulure se voie.
+    // Les images que l'impact du laser peut graver sur la page
+    // courante : toutes les <img> du contenu (hors photo de
+    // dessous de l'accueil, celle que le grattage revele :
+    // jamais touchee) et le canvas de grattage de l'accueil.
+    // Les images plus petites que 20 px sont ignorees : le trou
+    // d'impact n'y paraitrait pas. Le chemin du trait, lui, ne
+    // marque plus rien du tout.
     const liste = [];
     const imgs = contenu.querySelectorAll("img");
     for (let i = 0; i < imgs.length; i++) {
@@ -2480,12 +2542,17 @@
   function chienGraverTrou(cible, vx, vy, rayon, graine) {
     // Grave un trou BRULE dans une image, a la position ecran
     // (vx, vy) : PAS un rond parfait, PAS de courbe lisse. Une
-    // grille de petits carres (~3 px), le rayon ONDULE avec
-    // l'angle, le fond du trou est ESTOMPE (carres
-    // demi-transparents tires au hasard) et le bord est un
-    // liseret NOIR irregulier et discontinu, comme du papier
-    // cere brule. Aucune explosion, aucun monticule : juste la
-    // trace, gravee pour de bon dans l'image.
+    // grille de petits carres (~3 px), le rayon RAGOTE -- deux
+    // bruits superposes, la grande vague selon l'angle et les
+    // creux et bosses d'un carre a l'autre -- le fond du trou
+    // est ESTOMPE (carres demi-transparents tires au hasard) et
+    // le bord est un liseret NOIR tres irregulier et tres
+    // discontinu, comme du papier cere brule a la va-vite.
+    // C'est un GRATTAGE : sur l'accueil il EFFACE la couche
+    // sale (photo de dessous), sur les autres pages il peint le
+    // BLANC du site, il n'y a rien derriere l'image. Aucune
+    // explosion, aucun monticule : juste la trace de l'impact,
+    // gravee pour de bon dans l'image.
     const calque = chienCalqueBrulure(cible);
     const g = calque.getContext("2d");
     // Rect TOUT FRAIS, relu a CHAQUE gravure : la page a pu bouger
@@ -2507,188 +2574,57 @@
     const pas = Math.max(2, Math.round(3 * kx));  // carre de brulure
     const ray = Math.max(pas, Math.round((rayon * kx) / pas) * pas);
     // 1) Le fond du trou, ESTOMPE : carres demi-transparents
-    //    (alpha tire au hasard entre 0.35 et 0.85), le rayon
-    //    ondulant selon l'angle. Sur le canvas de grattage de
-    //    l'accueil, chaque carre EFFACE la couche sale
-    //    (destination-out) : la photo propre de dessous parait,
-    //    comme un grattage brule. Sur une autre image, le calque
-    //    pose dessus l'assombrit a moitie : trace estompee.
+    //    (alpha tire au hasard), le rayon ONDULANT selon l'angle.
+    //    Sur le canvas de grattage de l'accueil, chaque carre
+    //    EFFACE la couche sale (destination-out) : la photo
+    //    propre de dessous parait, comme un grattage brule. Sur
+    //    une autre image, le calque pose dessus peint du BLANC
+    //    du site : comme il n'y a rien derriere l'image, le
+    //    grattage va jusqu'au fond blanc de la page.
     g.globalCompositeOperation =
       cible.canvas ? "destination-out" : "source-over";
-    g.fillStyle = "#111111";  // ignore par destination-out
+    g.fillStyle = cible.canvas ? "#111111" : "#ffffff";  // ignore par destination-out
     for (let py = cy - ray; py <= cy + ray; py += pas) {
       for (let px = cx - ray; px <= cx + ray; px += pas) {
         const dx = px - cx;
         const dy = py - cy;
         const d = Math.sqrt(dx * dx + dy * dy);
         const ang = Math.round(Math.atan2(dy, dx) * 14);
-        const ond = ray * (0.85 + chienBruit(graine, ang, 62) * 0.3);
+        // Bord RAGOTE : le rayon de ce carre ondule selon SON
+        // ANGLE (grande vague) ET selon sa PLACE (petits
+        // creux et bosses d'un carre a l'autre) -- deux bruits
+        // superposes, le bord n'est jamais deux fois pareil.
+        const ond = ray * (0.62 + chienBruit(graine, ang, 62) * 0.3 +
+                           chienBruit(graine, px, py) * 0.3);
         if (d > ond - pas) continue;  // on s'arrete AVANT le bord
-        g.globalAlpha = 0.6 + chienBruit(graine, px + 3, py + 5) * 0.4;
+        g.globalAlpha = 0.55 + chienBruit(graine, px + 3, py + 5) * 0.45;
         g.fillRect(px, py, pas, pas);
       }
     }
     // 2) Le bord BRULE : carres noirs opaques poses sur le bord
-    //    ondulant, avec des trous tires au hasard : le liseret
-    //    n'est jamais un cercle net ni continu.
+    //    ondulant, TRES discontinus (pres d'un carre sur deux
+    //    saute) : le liseret n'est jamais un cercle net ni
+    //    continu. Le rayon de chaque carre ondule comme le fond
+    //    (l'angle ET sa place) : les deux se rejoignent, meme
+    //    bord ronge. (Le noir est retabli ici : l'interieur est
+    //    blanc sur les autres pages, le liseret reste BRULE.)
     g.globalCompositeOperation = "source-over";
     g.globalAlpha = 1;
+    g.fillStyle = "#111111";
     const nb = Math.max(12, Math.round((Math.PI * 2 * ray) / pas));
     for (let i = 0; i < nb; i++) {
       const a = (Math.PI * 2 * i) / nb;
       const ang = Math.round(a * 14);
-      const rr = ray * (0.85 + chienBruit(graine, ang, 62) * 0.3);
-      const px = Math.round((cx + Math.cos(a) * rr) / pas) * pas;
-      const py = Math.round((cy + Math.sin(a) * rr) / pas) * pas;
-      if (chienBruit(graine, px + 7, py + 7) < 0.25) continue;
-      g.fillRect(px, py, pas, pas);
+      const px = Math.round((cx + Math.cos(a) * ray) / pas) * pas;
+      const py = Math.round((cy + Math.sin(a) * ray) / pas) * pas;
+      const rr = ray * (0.62 + chienBruit(graine, ang, 62) * 0.3 +
+                        chienBruit(graine, px + 7, py + 7) * 0.3);
+      const bx2 = Math.round((cx + Math.cos(a) * rr) / pas) * pas;
+      const by2 = Math.round((cy + Math.sin(a) * rr) / pas) * pas;
+      if (chienBruit(graine, bx2 + 7, by2 + 7) < 0.4) continue;
+      g.fillRect(bx2, by2, pas, pas);
     }
     g.globalAlpha = 1;
-  }
-
-  function chienBordRect(ax, ay, bx, by, rect) {
-    // Le point exact ou le segment (ax,ay)-(bx,by) CROISE le
-    // bord du rect, trouve par DICHOTOMIE : dix partages suffisent
-    // (le point fini a moins d'un millieme du segment du bord).
-    // Les deux extremites sont censees etre de part et d'autre
-    // du bord ; si elles sont du meme cote, le point retourne
-    // reste sagement sur le segment : inoffensif.
-    const dedans = function (x, y) {
-      return x >= rect.left && x <= rect.right &&
-             y >= rect.top && y <= rect.bottom;
-    };
-    let lo = 0;   // cote de (ax,ay)
-    let hi = 1;   // cote de (bx,by)
-    const va = dedans(ax, ay);
-    for (let i = 0; i < 10; i++) {
-      const m = (lo + hi) / 2;
-      if (dedans(ax + (bx - ax) * m, ay + (by - ay) * m) === va) {
-        lo = m;
-      } else {
-        hi = m;
-      }
-    }
-    const f = (lo + hi) / 2;
-    return { x: ax + (bx - ax) * f, y: ay + (by - ay) * f };
-  }
-
-  function chienGraverTrait(cible, x1, y1, x2, y2, demi, graine, debut) {
-    // Grave une LIGNE BRULEE dans une image, le long du segment
-    // (x1,y1)-(x2,y2) en coordonnees ECRAN : PAS une suite de
-    // ronds, une BANDE de demi-largeur "demi". Comme le trou :
-    // des carres snappes a la grille, l'interieur BIEN NOIR
-    // (carres denses tires au hasard, presque sans trous)
-    // et DEUX LISSERETS NOIRS irreguliers et discontinus, un de
-    // chaque cote, sur un bord qui ONDULE le long du trait. Le
-    // grain depend de la distance ABSOLUE depuis l'oeil
-    // (s + debut) : deux segments qui se suivent se raccordent
-    // sans couture, une seule ligne continue. Sur le canvas de
-    // grattage de l'accueil, l'interieur EFFACE la couche sale
-    // (destination-out) : la photo propre de dessous parait,
-    // exactement comme un grattage du doigt.
-    const calque = chienCalqueBrulure(cible);
-    const g = calque.getContext("2d");
-    // Rect TOUT FRAIS, relu a CHAQUE gravure (la page a pu bouger
-    // depuis le debut du tir : photo remplacee, defilement pendant
-    // la fonte) -- sinon la ligne tombe ailleurs que sur le chemin
-    // du laser. Echelles X et Y separees, comme le grattage au
-    // doigt ; sur les calques des autres images elles valent 1.
-    const r = cible.el.getBoundingClientRect();
-    const kx = calque.width / Math.max(1, r.width);
-    const ky = calque.height / Math.max(1, r.height);
-    const ax = (x1 - r.left) * kx;
-    const ay = (y1 - r.top) * ky;
-    const bx = (x2 - r.left) * kx;
-    const by = (y2 - r.top) * ky;
-    const dx = bx - ax;
-    const dy = by - ay;
-    const L = Math.sqrt(dx * dx + dy * dy);
-    if (L < 1) return;
-    const ux = dx / L;
-    const uy = dy / L;
-    const nx = -uy;   // normale : la largeur de la bande
-    const ny = ux;
-    const pas = Math.max(2, Math.round(3 * kx));
-    const demiL = Math.max(pas, Math.round((demi * kx) / pas) * pas);
-    const d0 = debut * kx;   // distance absolue, dans l'espace du calque
-    const snape = function (v) { return Math.round(v / pas) * pas; };
-    // Le bord ondulant d'un cote (c = -1 ou 1), jamais plus
-    // large que la demi-largeur : le meme calcul pour l'interieur
-    // estompe et pour le liseret noir du cote, ils se rejoignent.
-    const bordCote = function (s, c) {
-      const b = demiL * (0.8 + chienBruit(graine, s + d0, 50 + c) * 0.3);
-      return b > demiL ? demiL : b;
-    };
-    // 1) L'interieur, BIEN NOIR : carres denses (alpha tire au
-    //    hasard entre 0.65 et 1, un sur seize saute seulement),
-    //    jusqu'au bord ondulant de chaque cote. Sur l'accueil,
-    //    chaque carre EFFACE la couche sale : la photo propre
-    //    de dessous parait, comme un grattage.
-    g.globalCompositeOperation =
-      cible.canvas ? "destination-out" : "source-over";
-    g.fillStyle = "#111111";  // ignore par destination-out
-    for (let s = 0; s <= L; s += pas) {
-      const cx = ax + ux * s;
-      const cy = ay + uy * s;
-      for (let w = -demiL; w <= demiL; w += pas) {
-        const c = w < 0 ? -1 : 1;
-        if (Math.abs(w) > bordCote(s, c) - pas) continue;  // AVANT le bord
-        if (chienBruit(graine, s + d0 + 3, w + 9) < 0.06) continue;  // trou
-        const wx = snape(cx + nx * w);
-        const wy = snape(cy + ny * w);
-        g.globalAlpha = 0.65 + chienBruit(graine, wx + 3, wy + 5) * 0.35;
-        g.fillRect(wx, wy, pas, pas);
-      }
-    }
-    // 2) Les DEUX LISSERETS NOIRS, poses sur le bord ondulant de
-    //    chaque cote : carres opaques discontinus (un sur sept
-    //    saute seulement), jamais deux lignes droites nettes.
-    g.globalCompositeOperation = "source-over";
-    g.globalAlpha = 1;
-    for (let s = 0; s <= L; s += pas) {
-      for (let c = -1; c <= 1; c += 2) {
-        if (chienBruit(graine, s + d0 + 11, c) < 0.15) continue;  // discontinu
-        const cx = ax + ux * s;
-        const cy = ay + uy * s;
-        const b = bordCote(s, c);
-        g.fillRect(snape(cx + nx * b * c), snape(cy + ny * b * c),
-                   pas, pas);
-      }
-    }
-    g.globalAlpha = 1;
-  }
-
-  function chienTracerBrulure(brulables, px, py, qx, qy, demi, graine, debut) {
-    // Etend la ligne brulee du point (px,py) au point (qx,qy),
-    // dans chaque image croisee. Le trait ENTRE et SORT des
-    // images : on ne grave que la partie DEDANS. Le point de
-    // sortie est retenu sur l'image (img.trace) pour que le
-    // segment suivant reparte exactement de la ou la trace
-    // s'etait arretee : une seule ligne continue, sans trou ni
-    // doublon aux bords des images. Les rects sont relus TOUT
-    // FRAIS a chaque segment : la page a pu bouger depuis le
-    // debut du tir.
-    for (let b = 0; b < brulables.length; b++) {
-      const img = brulables[b];
-      const r = img.el.getBoundingClientRect();
-      const finDedans =
-        qx >= r.left && qx <= r.right &&
-        qy >= r.top && qy <= r.bottom;
-      if (finDedans) {
-        if (!img.trace) {
-          const e = chienBordRect(px, py, qx, qy, r);
-          img.trace = { x: e.x, y: e.y };
-        }
-        chienGraverTrait(img, img.trace.x, img.trace.y, qx, qy,
-                         demi, graine, debut);
-        img.trace = { x: qx, y: qy };
-      } else if (img.trace) {
-        const s = chienBordRect(img.trace.x, img.trace.y, qx, qy, r);
-        chienGraverTrait(img, img.trace.x, img.trace.y, s.x, s.y,
-                         demi, graine, debut);
-        img.trace = null;
-      }
-    }
   }
 
   function chienPixelsPointeur() {
@@ -2909,13 +2845,11 @@
         }
       }
     }
-    // Les images de la page que le trait peut BRULER en passant.
-    // Aucune contre le boss : le jeu a deja sa propre
-    // pyrotechnie, et la cible bouge sans cesse.
+    // Les images que le tir peut TOUCHER de son impact. Aucune
+    // contre le boss : le jeu a deja sa propre pyrotechnie, et
+    // la cible bouge sans cesse. Le chemin du trait ne marque
+    // RIEN : seul l'IMPACT grave l'image.
     const brulables = bossVivant ? [] : chienImagesBrulables();
-    // La ligne brulee a la MEME demi-largeur pour tous les
-    // tirs, rates ou non : une seule trace fine.
-    const brulureRayon = ANIMATION_CHIEN.laserBrulureRayon;
     // La duree du tir : montee rapide, puis le trait reste pose
     // sur sa cible (tenue), puis s'eteint doucement -- sauf le
     // tir qui touche, qui reste pose sur le pointeur pendant
@@ -2929,8 +2863,6 @@
     const total = montee + tenue + extinction;
     let ecoule = 0;
     let dernierT = null;
-    let grave = 0;           // distance de trait deja brulee
-    let traceFinie = false;  // le dernier segment, jusqu'a la pointe
     let coupBossDonne = false;   // le boss n'est frappe qu'UNE fois
     let impactBrule = false;     // le gros trou d'impact, idem
     const dessiner = function (t) {
@@ -2993,43 +2925,22 @@
                            epaisseur, ANIMATION_CHIEN.ondes[i]);
         }
         ctx.globalAlpha = 1;
-        // Brulure en passant : pendant la montee, par crans de
-        // laserBrulurePas px, le trait grave une LIGNE brulee
-        // CONTINUE dans chaque image qu'il croise (les segments
-        // se raccordent : pas une suite de ronds). La pointe
-        // n'est pas grillee ici : c'est le TROU ROND de
-        // l'impact qui la couvre. La trace reste gravee pour de
-        // bon dans l'image quand le laser est fini.
-        if (brulables.length) {
-          while (grave + ANIMATION_CHIEN.laserBrulurePas < lgT * avance) {
-            const vieux = grave;
-            grave += ANIMATION_CHIEN.laserBrulurePas;
-            chienTracerBrulure(brulables,
-                               oeil.x + ux * vieux, oeil.y + uy * vieux,
-                               oeil.x + ux * grave, oeil.y + uy * grave,
-                               brulureRayon, gen, vieux);
-          }
-          // Montee finie : le dernier segment, du cran en cours
-          // jusqu'a la POINTE exacte du trait.
-          if (avance >= 1 && !traceFinie) {
-            traceFinie = true;
-            chienTracerBrulure(brulables,
-                               oeil.x + ux * grave, oeil.y + uy * grave,
-                               oeil.x + ux * lgT, oeil.y + uy * lgT,
-                               brulureRayon, gen, grave);
-            grave = lgT;
-          }
-        }
+        // Le chemin du trait ne marque RIEN : ni les images, ni
+        // la page. Seul l'IMPACT -- juste apres, des que la
+        // pointe se plante -- grave l'image croisee.
       }
       if (ecoule >= montee && ecoule < total) {
         // L'IMPACT, pour TOUS les tirs -- les deux rates comme
         // celui qui touche -- des que la pointe du trait se
         // plante (a cote de la cible pour un tir rate) : un GROS
-        // trou brule, bien plus grand que la fine ligne du
-        // passage, pour trancher avec le trait fin. C'est LA que
-        // le laser GRATTE vraiment l'image ; sur l'accueil, il
-        // decouvre la photo de dessous, comme un gros grattage du
-        // doigt. Rect relu frais : la page a pu bouger depuis le
+        // trou brule, au rayon RAGOTE (deux bruits superposes)
+        // et au liseret noir tres discontinu. C'est LA, et LA
+        // SEULE, que le laser gratte l'image ; sur l'accueil,
+        // il decouvre la photo de dessous, comme un gros
+        // grattage du doigt ; sur les autres pages, il gratte
+        // jusqu'au FOND BLANC du site (rien derriere
+        // l'image). Rect relu frais :
+        // la page a pu bouger depuis le
         // debut du tir. (Rien contre le boss : brulables est vide
         // pendant le combat.)
         if (!impactBrule && brulables.length) {
@@ -3153,10 +3064,20 @@
   }
 
   // Position du pointeur : cible du regard cyclope et du laser.
+  // Le regard n'est mis a jour qu'UNE FOIS PAR IMAGE AFFICHEE au
+  // plus (requestAnimationFrame) : le pointeur bouge souvent bien
+  // plus vite que l'ecran ne se rafraichit, et recalculer la
+  // direction de l'oeil a chaque evenement ne charge que le
+  // navigateur -- c'est de la que venait le clignotement.
   window.addEventListener("pointermove", function (e) {
     chienPointeur.x = e.clientX;
     chienPointeur.y = e.clientY;
-    if (chienDortEtat === "suivi") chienRegarder();
+    if (chienDortEtat === "suivi" && chienVueFrame === null) {
+      chienVueFrame = window.requestAnimationFrame(function () {
+        chienVueFrame = null;
+        if (chienDortEtat === "suivi") chienRegarder();
+      });
+    }
   });
   // Pointeur detruit par le laser : un clic, n'importe ou, le
   // fait reaparaitre -- NOIR et tout sale d'abord : il se
@@ -3171,6 +3092,8 @@
     chienClicsReveil = 0;
     chienClicsSuite = 0;
     chienDortGen++;
+    chienDernierSprite = -1;  // nouvelle planche : le cache du
+                              // sprite affiche repart de zero
     chienStopMinuteurs();
     chienPlancheEl = document.createElement("div");
     chienPlancheEl.className = "chien-dort chien-planche";
@@ -3299,6 +3222,12 @@
         return;
       }
       imgEl.style.display = "block";
+      // La photo change : les brûlures du laser gravées sur
+      // l'ancienne partent avec elle (calque chien-brulure).
+      if (imgEl._chienBrulure) {
+        imgEl._chienBrulure.remove();
+        imgEl._chienBrulure = null;
+      }
       const ancienSrc = imgEl.getAttribute("src");
       if (!ancienSrc || mouvementReduit.matches) {
         imgEl.src = nouvelleSrc;
@@ -3310,11 +3239,11 @@
       const appliquer = function () {
         if (fait) return;
         fait = true;
-        
+
         const calque = imgEl.cloneNode();
         calque.className = "superpose";
         cadre.appendChild(calque);
-        
+
         imgEl.src = nouvelleSrc;
         imgEl.alt = altTexte;
 
@@ -3453,6 +3382,12 @@
     }
 
     function remplacerFondu(cadre, imgEl, nouvelleSrc, altTexte) {
+      // La photo change : les brûlures du laser gravées sur
+      // l'ancienne partent avec elle (calque chien-brulure).
+      if (imgEl._chienBrulure) {
+        imgEl._chienBrulure.remove();
+        imgEl._chienBrulure = null;
+      }
       const ancienSrc = imgEl.getAttribute("src");
       if (!ancienSrc || mouvementReduit.matches) {
         imgEl.src = nouvelleSrc;
@@ -4082,11 +4017,21 @@
     });
   }
 
+  let zoneTapetteActive = null;  // dernier etat de la classe zone-tapette
+
   function gererSurvolSource(e) {
     // Une fois la première mouche tuée (jeu démarré), le curseur
-    // est toujours une tapette, sauf sur le menu de gauche (aside / nav)
+    // est toujours une tapette, sauf sur le menu de gauche (aside / nav).
+    // La classe n'est retouchée que si l'état CHANGE : réécrire la
+    // classe de <html> à chaque déplacement du pointeur forçait le
+    // navigateur à recalculer le curseur sans arrêt -- c'est ce qui
+    // le faisait clignoter.
     const surMenu = !!(e.target && e.target.closest && e.target.closest("aside"));
-    document.documentElement.classList.toggle("zone-tapette", jeuCommence && !surMenu);
+    const actif = jeuCommence && !surMenu;
+    if (actif !== zoneTapetteActive) {
+      zoneTapetteActive = actif;
+      document.documentElement.classList.toggle("zone-tapette", actif);
+    }
 
     // La barre de coup chargé et la tapette animée suivent le curseur
     if (barreChargeEl) positionnerBarreCharge(e.clientX, e.clientY);
