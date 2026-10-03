@@ -145,6 +145,19 @@
     object-fit: cover;
   }
 
+  /* Canvas du monticule, pose DANS le cadre de la photo : Safari
+     clippe les calques fixes a la zone visible au-dessus de sa
+     barre du bas, mais le contenu pose dans la page s'affiche
+     derriere la barre translucide, exactement comme la photo. La
+     position et la taille (left, width, height) sont reglees en
+     JavaScript au moment du premier grattage. */
+  .tas-affichage {
+    position: absolute;
+    top: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+
   /* Emoji souffle, pose dans la colonne de gauche, sous Contact,
      aligne sur la ligne du bas de l'image d'accueil */
   .figure-accueil {
@@ -160,7 +173,7 @@
   }
   .bouton-vent {
     position: absolute;
-    z-index: 2;             /* au-dessus de la photo et du canvas */
+    z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
     left: calc(-1 * var(--largeur-menu));
     bottom: 0;
     padding: 0;
@@ -835,6 +848,8 @@
                         // espace blanc visible sous le tas)
   let tasCanvas = null;   // Canvas offscreen où le monticule est dessiné de façon permanente
   let tasCtx = null;
+  let tasVue = null;      // Canvas d'affichage du monticule, pose DANS le cadre de la photo
+  let tasVueCtx = null;
   let tasElement = null;  // L'image d'accueil : ancre du monticule (suit le scroll de la page)
   let tasDebord = 0;        // Largeur de débord de chaque côté de l'image (px)
   let tasLargeurImage = 0;  // Largeur affichée de l'image
@@ -845,39 +860,28 @@
 
   function redimensionnerCanvasExp() {
     if (!canvasExp) return;
-    // Grande zone d'affichage (barre d'adresse repliee), et jamais
-    // moins que la zone visible : les pixels du monticule poses
-    // derriere la barre du bas de Safari existent deja dans le
-    // calque. Quand la barre se replie au scroll, ils apparaissent
-    // immediatement, sans attendre l'evenement resize (qui n'arrive
-    // qu'une fois la barre entierement repliee).
     // Taille CSS en pixels EXACTS : la surface doit mesurer
-    // precisement ce que dessine le code, sinon le calque est etire
-    // et le sol du monticule glisse sous le bas de l'image.
-    const w = Math.max(window.innerWidth, document.documentElement.clientWidth || 0);
-    const h = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
-    canvasExp.width = w;
-    canvasExp.height = h;
-    canvasExp.style.width = w + "px";
-    canvasExp.style.height = h + "px";
+    // precisement ce que dessine le code. Ce calque n'accueille plus
+    // que les effets ephemeres (tapette, vent) : le monticule vit
+    // desormais dans la page, dans le cadre de la photo, sur son
+    // propre canvas.
+    canvasExp.width = window.innerWidth;
+    canvasExp.height = window.innerHeight;
+    canvasExp.style.width = window.innerWidth + "px";
+    canvasExp.style.height = window.innerHeight + "px";
     reveillerCadre();
   }
   window.addEventListener("resize", redimensionnerCanvasExp);
   redimensionnerCanvasExp();
 
-  // Monticule au repos : on le redessine une fois (au scroll ou au
-  // redimensionnement), pas 60 fois par seconde. La boucle d'animation
-  // ne tourne que quand il y a vraiment des pixels en mouvement.
+  // Monticule au repos : une fois les pixels poses, le dessin est
+  // statique. Son canvas vit dans la page, dans le cadre de la photo :
+  // il defile avec elle, aucun redessin n'est utile au scroll. Seul un
+  // redimensionnement de la fenetre le relance.
   function dessinerCadreStatique() {
-    if (!ctxExp) return;
-    ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
-    if (tasActif && tasCanvas && tasElement) {
-      const rect = tasElement.getBoundingClientRect();
-      // Meme blit exact que dans animerExp : taille fractionnaire
-      // reelle de l'image, base du monticule sur la vraie ligne du bas.
-      const kx = tasLargeurImage ? rect.width / tasLargeurImage : 1;
-      ctxExp.drawImage(tasCanvas, rect.left - tasDebord * kx, rect.top, tasCanvas.width * kx, rect.height);
-    }
+    if (!tasVueCtx || !tasCanvas) return;
+    tasVueCtx.clearRect(0, 0, tasVue.width, tasVue.height);
+    tasVueCtx.drawImage(tasCanvas, 0, 0);
   }
 
   function reveillerCadre() {
@@ -889,7 +893,6 @@
     }
     dessinerCadreStatique();
   }
-  window.addEventListener("scroll", reveillerCadre, { passive: true });
 
   function creerPixelPhysique(x, y, couleur) {
     if (!ctxExp) return;
@@ -946,6 +949,25 @@
     tasCanvas.height = tasHauteurImage;
     tasCtx = tasCanvas.getContext("2d");
     tasCtx.clearRect(0, 0, tasCanvas.width, tasCanvas.height);
+    // Canvas d'affichage pose DANS LA PAGE, dans le cadre de la
+    // photo (CSS .tas-affichage). Safari clippe les calques fixes a
+    // la zone visible au-dessus de sa barre du bas : la photo, elle,
+    // s'affiche derriere la barre translucide. En posant le
+    // monticule dans la page, ses pixels profitent du meme
+    // traitement. Taille CSS fractionnaire EXACTE : le navigateur
+    // aligne la base du monticule au pixel pres sur le bas de
+    // l'image, quelle que soit la taille reelle de la photo.
+    if (!tasVue) {
+      tasVue = document.createElement("canvas");
+      tasVue.className = "tas-affichage";
+      element.parentNode.appendChild(tasVue);
+    }
+    tasVue.width = tasCanvas.width;
+    tasVue.height = tasCanvas.height;
+    tasVue.style.left = -tasDebord + "px";
+    tasVue.style.width = rect.width + tasDebord * 2 + "px";
+    tasVue.style.height = rect.height + "px";
+    tasVueCtx = tasVue.getContext("2d");
     tasHauteurs = new Array(Math.ceil(tasCanvas.width / TAS_BIN)).fill(0);
     particulesTas = [];
     tasActif = true;
@@ -964,16 +986,13 @@
     if (!animExpId) animerExp();
   }
 
-  function actualiserTas(rect) {
+  function actualiserTas() {
     const solLocal = tasCanvas.height - TAS_SOL;
-    // Echelle exacte : le bitmap du tas mesure des tailles ARRONDIES
-    // de l'image, mais l'image affichee a des tailles FRACTIONNAIRES
-    // (ex. 787,4px). Un arrondi de 0,5px reste parfaitement visible
-    // comme un pixel d'ecran sur Retina. Les pixels en chute subissent
-    // la meme transformation exacte que le blit du monticule : tout
-    // atterrit sur la vraie ligne du bas de l'image.
-    const kx = tasLargeurImage ? rect.width / tasLargeurImage : 1;
-    const ky = tasHauteurImage ? rect.height / tasHauteurImage : 1;
+    // Dessin direct dans le canvas du monticule, pose dans la page :
+    // coordonnees locales du bitmap, sans transformation. C'est la
+    // taille CSS fractionnaire exacte du canvas (reglee dans
+    // initialiserTas) qui aligne le bas du monticule sur le bas de
+    // l'image, au pixel pres.
 
     for (let i = particulesTas.length - 1; i >= 0; i--) {
       const p = particulesTas[i];
@@ -1021,8 +1040,8 @@
       }
 
       // Dessin en coordonnées page (suit le scroll, débord compris)
-      ctxExp.fillStyle = p.couleur;
-      ctxExp.fillRect(Math.round(rect.left - tasDebord * kx + p.x * kx - TAS_TAILLE / 2), Math.round(rect.top + p.y * ky), TAS_TAILLE, TAS_TAILLE);
+      tasVueCtx.fillStyle = p.couleur;
+      tasVueCtx.fillRect(Math.round(p.x - TAS_TAILLE / 2), Math.round(p.y), TAS_TAILLE, TAS_TAILLE);
     }
   }
 
@@ -1228,21 +1247,18 @@
     ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
 
     // 1. Le monticule, ancré au bas de l'image (suit le scroll de la page)
-    if (tasActif && tasCanvas && tasElement) {
+    if (tasActif && tasCanvas && tasElement && tasVueCtx) {
       const rect = tasElement.getBoundingClientRect();
       if (Math.round(rect.width) !== tasLargeurImage || Math.round(rect.height) !== tasHauteurImage) {
-        // L'image a été redimensionnée : on repart d'un monticule vierge
         initialiserTas(tasElement);
       } else {
-        actualiserTas(rect);
-        // Le canvas du tas est plus large que l'image (débord des deux
-        // côtés). Il est dessine ETIRE a la taille fractionnaire exacte
-        // de l'image : le bitmap a des tailles arrondies, et son arrondi
-        // (jusqu'a 0,5px) se voyait comme un pixel de decalage sur un
-        // ecran Retina. Etire au pixel pres, la base du monticule tombe
-        // exactement sur la ligne du bas de l'image.
-        const kx = tasLargeurImage ? rect.width / tasLargeurImage : 1;
-        ctxExp.drawImage(tasCanvas, rect.left - tasDebord * kx, rect.top, tasCanvas.width * kx, rect.height);
+        tasVueCtx.clearRect(0, 0, tasVue.width, tasVue.height);
+        tasVueCtx.drawImage(tasCanvas, 0, 0);
+        actualiserTas();
+        // Le bitmap est colle tel quel sur le canvas d'affichage pose
+        // dans la page : c'est sa taille CSS fractionnaire exacte
+        // (reglee dans initialiserTas) qui aligne la base du monticule
+        // au pixel pres sur le bas de l'image.
       }
     }
 
@@ -1324,6 +1340,7 @@
     particulesVent = [];
     tasCanvas = null;
     tasCtx = null;
+    if (tasVue) { tasVue.remove(); tasVue = null; tasVueCtx = null; }
     tasHauteurs = [];
     tasActif = false;
     tasElement = null;
