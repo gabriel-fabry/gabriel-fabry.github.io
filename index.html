@@ -206,12 +206,13 @@
   html.chien-pointeur-detruit,
   html.chien-pointeur-detruit * { cursor: none !important; }
 
-  /* Emoji souffle : pose sur le flanc gauche de la colline de
-     gauche de la photo d'accueil (la colline cote menu, celle ou
-     le texte et les sections de la photo se posent). Il vit dans
-     le cadre de la photo pour rester colle a elle dans toutes les
-     tailles d'ecran. Les valeurs left/bottom ci-dessous
-     l'ajustent sur la pente : les affiner si besoin. */
+  /* Emoji souffle : pose tout en BAS de la photo d'accueil, sur
+     le flanc gauche de la colline de gauche, ALIGNÉ PAR LE BAS sur
+     la meme ligne que le chien qui dort (lui aussi fixe, a
+     --marge du bas de l'ecran) : meme bottom: var(--marge).
+     Position fixe : l'alignement avec le chien tient quel que
+     soit le defilement ou la hauteur de la photo. Ajuster left
+     pour le poser exactement sur la pente. */
   .figure-accueil {
     position: relative;
   }
@@ -224,10 +225,10 @@
     vertical-align: bottom;
   }
   .bouton-vent {
-    position: absolute;
+    position: fixed;
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
-    left: 44px;
-    bottom: 35%;
+    left: calc(var(--largeur-menu) + var(--marge) + 44px);
+    bottom: var(--marge);
     padding: 0;
     margin: 0;
     border: none;
@@ -241,13 +242,13 @@
   }
 
   /* Emoji de rafraichissement de la photo d'accueil : tire une
-     NOUVELLE photo au hasard sans recharger la page. Pose juste a
-     GAUCHE de l'emoji souffle, sur le meme flanc de colline. */
+     NOUVELLE photo au hasard sans recharger la page. Pose JUSTE A
+     GAUCHE de l'emoji souffle, sur la meme ligne que le chien. */
   .bouton-rafraichir {
-    position: absolute;
+    position: fixed;
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
-    left: 8px;
-    bottom: 35%;
+    left: calc(var(--largeur-menu) + var(--marge) + 4px);
+    bottom: var(--marge);
     padding: 0;
     margin: 0;
     border: none;
@@ -591,13 +592,13 @@
     .pao-duo { flex-direction: column; gap: 20px; }
     .pao-cadre { width: 100%; }
     .pao-cadre img { max-height: none; }
-    /* Sur mobile, l'emoji se pose sur la ligne du menu ou se trouve
-       Contact : a droite, aligne sur le bord droit de l'image, le bas
-       de l'emoji affleure le bas de la ligne de Contact (le padding
+    /* Sur mobile, l'emoji revient DANS le cadre de la photo (position
+       absolue, plus fixe) : sur la ligne du menu ou se trouve
+       Contact, a droite, aligne sur le bord droit de l'image, le bas
+       de l'emoji affleurant le bas de la ligne de Contact (le padding
        bas du menu, var(--marge), separe cette ligne du haut de la
-       photo). La bande d'espace reservee au-dessus de la photo
-       disparait. */
-    .bouton-vent { left: auto; right: 0; top: auto; bottom: calc(100% + var(--marge)); margin: 0; }
+       photo). */
+    .bouton-vent { position: absolute; left: auto; right: 0; top: auto; bottom: calc(100% + var(--marge)); margin: 0; }
     /* Emoji rafraichissement : il vit desormais dans le cadre de
        la photo (il y est pose a cote de l'emoji souffle sur grand
        ecran) ; en position: fixed il reste cale sur la ligne du
@@ -1759,12 +1760,11 @@
     canvas.addEventListener("pointerup", stopperGomme);
     canvas.addEventListener("pointercancel", stopperGomme);
 
-    // Emoji qui souffle : pose sur le flanc gauche de la colline
-    // de gauche de la photo d'accueil (regle CSS .bouton-vent) --
-    // la colline cote menu, celle ou se posent le texte et les
-    // sections de la photo. Il vit dans le cadre de la photo pour
-    // rester colle a elle dans toutes les tailles d'ecran.
-    // Le micro n'est active qu'apres ce clic (permission navigateur),
+    // Emoji qui souffle : pose tout en bas de la photo d'accueil,
+    // sur le flanc gauche de la colline de gauche, ALIGNÉ PAR LE
+    // BAS sur la meme ligne que le chien qui dort (regle CSS
+    // .bouton-vent, position fixe comme lui). Le micro n'est
+    // active qu'apres ce clic (permission navigateur),
     // jamais automatiquement.
     const boutonVent = document.createElement("button");
     boutonVent.type = "button";
@@ -1781,9 +1781,9 @@
     // au hasard, SANS recharger la page. Meme regle
     // anti-repetition, photo de dessous retiree a nouveau,
     // grattage et monticule remis a zero. Pose JUSTE A GAUCHE de
-    // l'emoji souffle, sur le meme flanc de colline (regle CSS
-    // .bouton-rafraichir). Sur mobile, la regle CSS le passe en
-    // position: fixed, cale sur la ligne du nom du site.
+    // l'emoji souffle, sur la meme ligne que le chien (regle CSS
+    // .bouton-rafraichir). Sur mobile, la regle CSS le cale sur
+    // la ligne du nom du site, en haut a droite.
     function rafraichirImageAccueil() {
       reinitialiserPhysique();
       photoSale = true;
@@ -1969,20 +1969,22 @@
      parler (sprites 6 et 7), un autre le rend eveille ; 10 clics
      de suite le reveillent en cyclope (sprites 8 et 9) : son oeil
      rouge suit le pointeur (sprites 10 a 17 : N, NE, E, SE, S,
-     SO, O, NO) pendant 10 s, puis TIRE : les deux premiers traits
-     RATENT le pointeur de peu, le troisieme le touche. Chaque tir
+     SO, O, NO) pendant 10 s -- la GROSSE MOUCHE s'il est en
+     plein combat contre THE FLY KING : son oeil la suit, elle,
+     pas le pointeur -- puis TIRE : les deux premiers traits
+     RATENT la cible de peu, le troisieme la touche. Chaque tir
      part de l'oeil avec de COURTES ondes de pixels rouge, bleu et
      vert (courtes dans le temps et dans l'espace : quelques
      centaines de carres au plus). Le trait qui touche : le
      pointeur s'arrete, TREMBLE et se desagrege pendant 3 s
      pendant que quelques gouttes de pixels rouge, bleu et jaune
      coulent de lui ; un clic n'importe ou le fait reapparaitre,
-     puis le chien se rendort. En passant, le laser BRULE les
-     images de la page qu'il croise : trous estompes et
-     irreguliers, au bord noirci, sans monticule de pixels. Sur la
-     page contact, si THE FLY KING (le boss) est vivant au moment
-     du tir, le chien vise LA GROSSE MOUCHE a la place du
-     pointeur, la suit en direct, et la tue d'un seul coup.
+     puis le chien se rendort. Contre le boss, le troisieme tir
+     le tue d'un seul coup et il tombe sur la ligne du chien. En
+     passant, le laser BRULE les images de la page qu'il croise :
+     trous estompes et irreguliers, au bord noirci, sans
+     monticule de pixels -- LARGE (4x) sur les tirs rates, plus
+     fin sur celui qui touche.
   ----------------------------------------------------------------- */
   const ANIMATION_CHIEN = {
     // La planche : une seule image, tous les sprites cote a cote,
@@ -2037,14 +2039,15 @@
                            // les autres s'effacent juste sur place
     laserFonduPlaceMs: 500,// un pixel sur place met ce delai a partir
     // ---- Tirs rates et boss ----
-    laserRatres: 2,        // les N premiers tirs RATENT le pointeur
-                           // (de peu : il passe a cote), le suivant
-                           // touche
+    laserRatres: 2,        // les N premiers tirs RATENT leur cible
+                           // (le pointeur, ou la grosse mouche
+                           // pendant le combat) de peu : ils
+                           // passent a cote ; le suivant touche
     laserRatEcart: 70,     // distance mini-maxi du point vise par un
-                           // tir rate (24 a 24+70 px du pointeur)
-    laserRatTenueMs: 450,  // un tir rate reste pose a cote du
-                           // pointeur pendant ce delai...
-    laserRatFonduMs: 350,  // ... puis son trait s'eteint doucement
+                           // tir rate (24 a 24+70 px de la cible)
+    laserRatTenueMs: 200,  // un tir rate reste pose a cote de sa
+                           // cible pendant ce delai (COURT)...
+    laserRatFonduMs: 150,  // ... puis son trait s'eteint vite
     laserPauseMs: 550,     // pause entre deux tirs consecutifs
     laserBossTenueMs: 700, // tir sur le boss (page contact) : le
                            // trait reste pose sur lui pendant ce delai
@@ -2060,8 +2063,11 @@
     laserBrulurePas: 50,   // en avancant, le trait grave un trou
                            // brule tous ces px dans les images
                            // qu'il croise
-    laserBrulureRayon: 13, // rayon d'un trou brule dans une image
-                           // (l'impact du tir qui touche : x1.7)
+    laserBrulureRayon: 13, // rayon d'un trou brule par le tir qui
+                           // TOUCHE (l'impact : x1.7)
+    laserBrulureRayonRate: 52, // tirs rates : rayon 4x plus large,
+                           // les trous se recouvrent en une large
+                           // bande grattee le long du trait
     ondes: ["#ff1744", "#2979ff", "#00e676"],  // ondes qui partent de l'oeil
     poudre: ["#ff1744", "#2979ff", "#ffea00"],  // gouttes rouge, bleu, jaune
     oeilDecalX: 0,         // decalage de l'oeil (px) par rapport au
@@ -2075,6 +2081,7 @@
   let chienDernierClic = 0;
   let chienMinuteur = null;     // minuteur d'etat (endormissement, fin du suivi)
   let chienMinuteurFrame = null;  // frame suivante d'une sequence
+  let chienMinuteurOeil = null;  // intervalle de regard pendant le combat
   let chienDortGen = 0;         // annule sequences et effets obsoletes
   let chienPointeur = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   let chienPointeurDetruit = false;
@@ -2121,6 +2128,7 @@
   function chienStopMinuteurs() {
     if (chienMinuteur) { clearTimeout(chienMinuteur); chienMinuteur = null; }
     if (chienMinuteurFrame) { clearTimeout(chienMinuteurFrame); chienMinuteurFrame = null; }
+    if (chienMinuteurOeil) { clearInterval(chienMinuteurOeil); chienMinuteurOeil = null; }
   }
 
   function chienDodo() {
@@ -2169,15 +2177,23 @@
   }
 
   function chienRegarder() {
-    // Choisis le sprite du regard selon la direction du pointeur.
+    // Choisis le sprite du regard selon la direction de la cible.
     // Angle depuis le Nord, sens horaire : N=0, NE=45, E=90, SE=135,
-    // S=180, SO=225, O=270, NO=315 (sprites 10 a 17).
+    // S=180, SO=225, O=270, NO=315 (sprites 10 a 17). Pendant le
+    // combat contre THE FLY KING (page contact), l'oeil suit
+    // LA MOUCHE, pas le pointeur : elle bouge toute seule, c'est
+    // elle la cible. (Les variables du jeu sont declarees plus bas
+    // dans ce script : elles n'existent pas quand cette fonction
+    // est definie, mais existent quand elle tourne.)
     if (!chienPlancheEl) return;
     const rect = chienPlancheEl.getBoundingClientRect();
     const oeilX = rect.left + rect.width / 2 + ANIMATION_CHIEN.oeilDecalX;
     const oeilY = rect.top + rect.height / 2 + ANIMATION_CHIEN.oeilDecalY;
-    const dx = chienPointeur.x - oeilX;
-    const dy = chienPointeur.y - oeilY;
+    const bossVivant = !!conteneurJeu && !!bossEl && !bossChute && !bossAuSol;
+    const cibleX = bossVivant ? bossX : chienPointeur.x;
+    const cibleY = bossVivant ? bossY : chienPointeur.y;
+    const dx = cibleX - oeilX;
+    const dy = cibleY - oeilY;
     const angle = Math.atan2(dx, -dy) * 180 / Math.PI;
     const secteur = ((Math.round(angle / 45) % 8) + 8) % 8;
     chienAfficherSprite(ANIMATION_CHIEN.suiviPremier + secteur);
@@ -2188,6 +2204,12 @@
     chienLaserNumero = 0;  // la serie de tirs repart du debut :
                            // les deux premiers rateront
     chienRegarder();  // tout de suite la bonne direction
+    // Pendant le combat, la mouche vole sans arret : l'oeil doit
+    // la suivre meme quand le pointeur ne bouge pas. L'intervalle
+    // vit dans chienMinuteurOeil, nettoye par chienStopMinuteurs.
+    if (!!conteneurJeu && !!bossEl && !bossChute && !bossAuSol) {
+      chienMinuteurOeil = setInterval(chienRegarder, 100);
+    }
     chienMinuteur = setTimeout(chienTirerLaser, ANIMATION_CHIEN.suiviMs);
   }
 
@@ -2378,11 +2400,13 @@
   }
 
   function chienTirerLaser() {
-    // Un tir de laser. Les DEUX PREMIERS tirs RATENT le pointeur
-    // de peu (le trait passe a cote de lui) ; le TROISIEME le
-    // touche et le fait fondre. Sur la page contact, si THE FLY
-    // KING est vivant au moment du tir, le chien vise LA GROSSE
-    // MOUCHE a la place du pointeur et la tue d'un seul coup.
+    // Un tir de laser. Les DEUX PREMIERS tirs RATENT leur cible
+    // de peu (le trait passe a cote) ; le TROISIEME touche. La
+    // cible : le pointeur... sauf sur la page contact pendant le
+    // combat contre THE FLY KING -- alors le chien vise LA GROSSE
+    // MOUCHE (les deux rates passent pres d'ELLE, et le
+    // troisieme la tue d'un seul coup), son oeil la suit, et le
+    // pointeur n'est pas touche.
     chienDortEtat = "laser";
     const gen = chienDortGen;
     // Calque plein ecran, meme principe que #canvas-explosion :
@@ -2411,28 +2435,31 @@
     // en chute, pas au sol) : le chien le vise au lieu du
     // pointeur.
     const bossVivant = !!conteneurJeu && !!bossEl && !bossChute && !bossAuSol;
-    // Les laserRatres premiers tirs ratent (sauf contre le boss).
-    const rate = !bossVivant && chienLaserNumero < ANIMATION_CHIEN.laserRatres;
-    const touche = !bossVivant && !rate;  // celui-la fond le pointeur
-    // La cible : le boss (poursuivi en direct, il vole), ou le
-    // pointeur -- exact pour le tir qui touche, decale d'un angle
-    // et d'une distance tires au hasard pour un tir rate (il
-    // passe A COTE, jamais loin), clampes a 8 px des bords.
+    // Les laserRatres premiers tirs ratent -- la mouche pendant
+    // le combat, le pointeur sinon. Le tir suivant touche.
+    const rate = chienLaserNumero < ANIMATION_CHIEN.laserRatres;
+    const touche = !rate && !bossVivant;  // celui-la fond le pointeur
+    // La cible : le boss s'il vit (poursuivi en direct, il vole),
+    // sinon le pointeur. Un tir rate vise A COTE d'elle : un
+    // angle et une distance tires au hasard, le trait passe A
+    // COTE, jamais loin ; contre le boss, le point decale suit
+    // la mouche en direct, lui aussi. Clampes a 8 px des bords.
     let cible;
-    if (bossVivant) {
-      cible = { x: bossX, y: bossY, boss: true };
-    } else if (rate) {
+    if (rate) {
       const ang = chienBruit(chienLaserNumero, 5, 20) * Math.PI * 2;
       const dst = 24 + chienBruit(chienLaserNumero, 6, 21) *
                         ANIMATION_CHIEN.laserRatEcart;
       cible = {
-        x: Math.max(8, Math.min(window.innerWidth - 8,
-                 chienPointeur.x + Math.cos(ang) * dst)),
-        y: Math.max(8, Math.min(window.innerHeight - 8,
-                 chienPointeur.y + Math.sin(ang) * dst))
+        ox: Math.cos(ang) * dst,
+        oy: Math.sin(ang) * dst,
+        suit: bossVivant
       };
     } else {
-      cible = { x: chienPointeur.x, y: chienPointeur.y };
+      cible = { ox: 0, oy: 0, suit: bossVivant };
+    }
+    if (!cible.suit) {
+      cible.x = chienPointeur.x + cible.ox;
+      cible.y = chienPointeur.y + cible.oy;
     }
     // Seul le tir qui TOUCHE fond le pointeur : ses pixels sont
     // prets a se detacher. Quand l'onde de fonte l'atteint,
@@ -2489,6 +2516,11 @@
     // Aucune contre le boss : le jeu a deja sa propre
     // pyrotechnie, et la cible bouge sans cesse.
     const brulables = bossVivant ? [] : chienImagesBrulables();
+    // Les tirs rates grattent LARGE (rayon 4x), le tir qui
+    // touche grave fin : la brulure s'adapte au tir.
+    const brulureRayon = rate ?
+      ANIMATION_CHIEN.laserBrulureRayonRate :
+      ANIMATION_CHIEN.laserBrulureRayon;
     // La duree du tir : montee rapide, puis le trait reste pose
     // sur sa cible (tenue), puis s'eteint doucement -- sauf le
     // tir qui touche, qui reste pose sur le pointeur pendant
@@ -2511,8 +2543,14 @@
       ecoule += t - dernierT;
       dernierT = t;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Le boss vole : le trait le POURSUIT en direct.
-      if (bossVivant) { cible.x = bossX; cible.y = bossY; }
+      // Le boss vole : le trait POURSUIT sa cible en direct (le
+      // point decale d'un tir rate la suit aussi), et l'oeil du
+      // chien reste colle a la mouche pendant tout le combat.
+      if (cible.suit) {
+        cible.x = Math.max(8, Math.min(window.innerWidth - 8, bossX + cible.ox));
+        cible.y = Math.max(8, Math.min(window.innerHeight - 8, bossY + cible.oy));
+        chienRegarder();
+      }
       const avance = Math.min(1, ecoule / montee);
       const dxT = cible.x - oeil.x;
       const dyT = cible.y - oeil.y;
@@ -2572,15 +2610,18 @@
               const rb = brulables[b].rect;
               if (bx >= rb.left && bx <= rb.right &&
                   by >= rb.top && by <= rb.bottom) {
-                chienGraverTrou(brulables[b], bx, by,
-                                ANIMATION_CHIEN.laserBrulureRayon, grave);
+                chienGraverTrou(brulables[b], bx, by, brulureRayon, grave);
               }
             }
           }
         }
       }
       if (ecoule >= montee && ecoule < total) {
-        if (bossVivant) {
+        if (rate) {
+          // Tir rate : le trait passe A COTE de sa cible, il ne
+          // se passe rien du tout (juste la brulure des images
+          // croisees, gravee pendant la montee).
+        } else if (bossVivant) {
           // Impact sur THE FLY KING : le chien le tue d'UN SEUL
           // COUP. frapperBoss(PV_BOSS) vide tous ses points de
           // vie d'un coup et declenche sa chute. (Si le joueur
@@ -3507,7 +3548,11 @@
 
   function updateChuteBoss() {
     // Chute lente, façon feuille morte : le boss retombe sur le dos
-    const sol = window.innerHeight - 25; // Même sol invisible que les petites mouches
+    // Le sol du boss : il repose sur la MEME LIGNE que le chien qui
+    // dort (fixe en bas a gauche, a --marge = 32 px du bas de
+    // l'ecran). Le BAS du boss affleure le bas de la planche du
+    // chien : 32 px (la marge) + 21 px (la moitie du boss, 42 px).
+    const sol = window.innerHeight - 32 - 21;
 
     if (bossY >= sol) {
       // Une fois au sol : le boss se pose sur le dos, pattes en l'air,
