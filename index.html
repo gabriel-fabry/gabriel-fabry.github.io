@@ -17,9 +17,17 @@
     --bleu: #2979ff;
   }
   * { box-sizing: border-box; }
-  html { 
+  html {
     -webkit-text-size-adjust: 100%;
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><polygon points='0,0 0,18 4.5,13.5 8,21 11,19.5 7.5,12 13.5,12' fill='%232979ff' stroke='%23ffffff' stroke-width='1.5'/></svg>") 0 0, auto;
+    /* Fleche bleue du site, en SVG inline. Le SVG est encode en
+       %XX dans son INTEGRALITE (espaces, crochets, guillemets) :
+       les caracteres bruts (< > et espaces) dans un data URI
+       font echouer son decodage par intermittence sur certains
+       navigateurs -- le curseur retombait alors sur la fleche
+       BLANCHE du systeme des qu'il s'arretait, et clignotait au
+       moindre mouvement. Encode, le decodage est deterministe :
+       plus de blanc, plus de clignotement. */
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cpolygon%20points='0,0%200,18%204.5,13.5%208,21%2011,19.5%207.5,12%2013.5,12'%20fill='%232979ff'%20stroke='%23ffffff'%20stroke-width='1.5'/%3E%3C/svg%3E") 0 0, auto;
   }
   body {
     margin: 0;
@@ -300,13 +308,18 @@
     padding: 0; margin: 0;
     -webkit-tap-highlight-color: transparent;
   }
-  .zone-clic.gauche { 
-    left: 0; 
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text x='16' y='24' font-size='28' font-family='Helvetica, Arial, sans-serif' font-weight='bold' fill='%23ff1744' text-anchor='middle'>%E2%80%B9</text></svg>") 16 16, pointer;
+  .zone-clic.gauche {
+    left: 0;
+    /* Chevron rouge, SVG integrement encode en %XX : un data URI
+       avec des caracteres bruts (< > et espaces) echoue par
+       intermittence sur certains navigateurs et fait clignoter
+       le curseur. */
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='32'%20height='32'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%23ff1744'%20text-anchor='middle'%3E%E2%80%B9%3C/text%3E%3C/svg%3E") 16 16, pointer;
   }
-  .zone-clic.droite { 
-    right: 0; 
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text x='16' y='24' font-size='28' font-family='Helvetica, Arial, sans-serif' font-weight='bold' fill='%2300e676' text-anchor='middle'>%E2%80%BA</text></svg>") 16 16, pointer;
+  .zone-clic.droite {
+    right: 0;
+    /* Chevron vert, meme encodage integral. */
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='32'%20height='32'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%2300e676'%20text-anchor='middle'%3E%E2%80%BA%3C/text%3E%3C/svg%3E") 16 16, pointer;
   }
 
   .vitrine { position: relative; display: block; max-width: 100%; }
@@ -575,10 +588,12 @@
     40%, 60% { transform: translate3d(12px, -6px, 0); }
   }
 
-  /* Le curseur devient une tapette (plus grande, inclinÃ©e) dans la zone de vol */
+  /* Le curseur devient une tapette (plus grande, inclinÃ©e) dans la zone de vol.
+     SVG integrement encode en %XX, comme les autres curseurs : les
+     caracteres bruts d'un data URI font clignoter le curseur. */
   html.zone-tapette,
   html.zone-tapette * {
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><g transform='rotate(-28 20 20)'><rect x='14' y='3' width='12' height='13' fill='%23808080' stroke='%23000000' stroke-width='1.5' stroke-dasharray='2.5,2.5'/><rect x='18' y='17' width='4' height='21' fill='%23000000'/><rect x='13' y='1' width='14' height='2' fill='%23000000'/><rect x='13' y='16' width='14' height='2' fill='%23000000'/></g></svg>") 15 11, crosshair !important;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='40'%20height='40'%20viewBox='0%200%2040%2040'%3E%3Cg%20transform='rotate(-28%2020%2020)'%3E%3Crect%20x='14'%20y='3'%20width='12'%20height='13'%20fill='%23808080'%20stroke='%23000000'%20stroke-width='1.5'%20stroke-dasharray='2.5,2.5'/%3E%3Crect%20x='18'%20y='17'%20width='4'%20height='21'%20fill='%23000000'/%3E%3Crect%20x='13'%20y='1'%20width='14'%20height='2'%20fill='%23000000'/%3E%3Crect%20x='13'%20y='16'%20width='14'%20height='2'%20fill='%23000000'/%3E%3C/g%3E%3C/svg%3E") 15 11, crosshair !important;
   }
 
   @media (max-width: 760px) {
