@@ -1420,11 +1420,14 @@
     const RESOLUTION_MAX = 1600; // cote le plus long du canvas
 
     // TAILLE DU PINCEAU DE GRATTAGE : fraction du petit cote de la
-    // photo affichee (0.04 = 4 pour cent par defaut). Plus petit =
-    // grattage fin, plus grand = grosse eponge. Plage conseillee :
-    // de 0.02 (tres fin) a 0.12 (large). Pour la retrouver :
-    // chercher le mot PINCEAU_TAILLE dans le code.
-    const PINCEAU_TAILLE = 0.02;
+    // photo affichee. Deux valeurs reglees INDEPENDAMMENT : une pour
+    // grand ecran (desktop), une pour la version mobile. La frontiere
+    // est la meme que la mise en page : 760px de large d'ecran.
+    // Plus petit = grattage fin, plus grand = grosse eponge.
+    // Plage conseillee : de 0.02 (tres fin) a 0.12 (large).
+    // Pour les retrouver : chercher PINCEAU_TAILLE dans le code.
+    const PINCEAU_TAILLE_DESKTOP = 0.03; // pinceau sur grand ecran
+    const PINCEAU_TAILLE_MOBILE = 0.04;  // pinceau sur la version mobile
 
     function chargerEtDessiner() {
       const plusLong = Math.max(photo.naturalWidth, photo.naturalHeight);
@@ -1549,7 +1552,13 @@
       const x = (clientX - rect.left) * echelleX;
       const y = (clientY - rect.top) * echelleY;
 
-      const rayonPinceau = Math.min(canvas.width, canvas.height) * PINCEAU_TAILLE;
+      // Version mobile ou desktop : meme frontiere que la mise en
+      // page (max-width: 760px), evaluee a chaque geste pour suivre
+      // une rotation d'ecran ou un redimensionnement de fenetre.
+      const taillePinceau = (window.matchMedia && window.matchMedia("(max-width: 760px)").matches)
+        ? PINCEAU_TAILLE_MOBILE
+        : PINCEAU_TAILLE_DESKTOP;
+      const rayonPinceau = Math.min(canvas.width, canvas.height) * taillePinceau;
 
       if (photoData) {
         const pBuffer = photoData.data;
