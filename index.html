@@ -205,14 +205,21 @@
      part, jusqu'au prochain clic (n'importe ou). */
   html.chien-pointeur-detruit,
   html.chien-pointeur-detruit * { cursor: none !important; }
+  /* Le canvas d'accueil met cursor: grab !important avec un
+     selecteur d'ID, plus fort que la regle du dessus : sans ce
+     rappel, le curseur detruit par le laser restait visible sur
+     la photo de garde. */
+  html.chien-pointeur-detruit #canvas-accueil,
+  html.chien-pointeur-detruit #canvas-accueil:active { cursor: none !important; }
 
-  /* Emoji souffle : pose tout en BAS de la photo d'accueil, sur
-     le flanc gauche de la colline de gauche, ALIGNÉ PAR LE BAS sur
-     la meme ligne que le chien qui dort (lui aussi fixe, a
-     --marge du bas de l'ecran) : meme bottom: var(--marge).
-     Position fixe : l'alignement avec le chien tient quel que
-     soit le defilement ou la hauteur de la photo. Ajuster left
-     pour le poser exactement sur la pente. */
+  /* Emoji souffle : DANS LA COLONNE DE GAUCHE, a droite du chien
+     qui dort (qui occupe deja le flanc gauche de la colonne),
+     ALIGNÉ SUR LA HAUTEUR VISUELLE du chien : son sprite a une
+     zone vide transparente autour de lui, ses pattes sont en
+     realite ~9 px plus HAUT que sa ligne CSS (bottom:
+     var(--marge)) -- on remonte les icones d'autant pour qu'elles
+     tiennent sur la meme ligne que lui. Position fixe :
+     l'alignement tient quel que soit le defilement. */
   .figure-accueil {
     position: relative;
   }
@@ -227,8 +234,8 @@
   .bouton-vent {
     position: fixed;
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
-    left: calc(var(--largeur-menu) + var(--marge) + 44px);
-    bottom: var(--marge);
+    left: calc(var(--largeur-menu) - 44px);
+    bottom: calc(var(--marge) + 9px);
     padding: 0;
     margin: 0;
     border: none;
@@ -243,12 +250,14 @@
 
   /* Emoji de rafraichissement de la photo d'accueil : tire une
      NOUVELLE photo au hasard sans recharger la page. Pose JUSTE A
-     GAUCHE de l'emoji souffle, sur la meme ligne que le chien. */
+     GAUCHE de l'emoji souffle, dans la colonne de gauche, sur la
+     meme ligne VISUELLE que le chien (+9 px, zone vide du
+     sprite). */
   .bouton-rafraichir {
     position: fixed;
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
-    left: calc(var(--largeur-menu) + var(--marge) + 4px);
-    bottom: var(--marge);
+    left: calc(var(--largeur-menu) - 88px);
+    bottom: calc(var(--marge) + 9px);
     padding: 0;
     margin: 0;
     border: none;
@@ -1241,14 +1250,15 @@
       somme += v * v;
     }
     const rms = Math.sqrt(somme / ventDonnees.length);
-    // Seuil bas : meme un petit souffle declenche le vent, sans s'epuiser.
-    if (rms > 0.06) {
+    // Seuil tres bas : meme un souffle FAIBLE declenche le vent
+    // a pleine puissance, sans s'epuiser.
+    if (rms > 0.03) {
       ventRepetitions++;
       if (ventRepetitions >= 1) {
         const ancienne = ventEnergie;
-        // Plancher haut et saturation rapide : un petit souffle suffit
-        // deja a emporter beaucoup de pixels, sans s'epuiser.
-        ventEnergie = Math.min(1, Math.max(0.8, (rms - 0.06) / 0.15));
+        // Plancher haut et saturation rapide : un souffle faible
+        // suffit deja a emporter presque tout le monticule.
+        ventEnergie = Math.min(1, Math.max(0.9, (rms - 0.03) / 0.08));
         // Gros souffle brutal d'un coup : rafale qui emporte presque tout
         if (ventEnergie >= 0.7 && ancienne < 0.4) ventRafale = 20;
       }
@@ -1322,9 +1332,10 @@
 
   function soufflerSurTas(force) {
     if (!tasActif || !tasCtx || force < 0.2) return;
-    // Petit souffle = beaucoup de pixels partent deja (inutile de
-    // s'epuiser) ; gros souffle d'un coup = quasi tout le tas s'envole
-    const arrachements = Math.round(10 + force * 90 + Math.random() * 6);
+    // Petit souffle = le tas part deja en ENTIER (inutile de
+    // s'epuiser) ; gros souffle d'un coup = quasi tout le tas
+    // s'envole, et vite
+    const arrachements = Math.round(30 + force * 260 + Math.random() * 10);
     let arraches = 0;
     for (let k = 0; k < arrachements * 3 && arraches < arrachements; k++) {
       const bin = Math.floor(Math.random() * tasHauteurs.length);
@@ -1334,8 +1345,8 @@
       particulesVent.push({
         x: bin * TAS_BIN + TAS_BIN / 2,
         y: solLocal - tasHauteurs[bin] - TAS_TAILLE,
-        vx: 3 + Math.random() * 7,   // le vent les chasse vite vers la droite
-        vy: -(1 + Math.random() * 3),
+        vx: 5 + Math.random() * 9,   // le vent les chasse vite vers la droite
+        vy: -(1.5 + Math.random() * 4),
         vie: 1,
         decroissance: 0.012 + Math.random() * 0.02,
         couleur: couleur
@@ -1344,8 +1355,8 @@
     }
     // Le vent pousse aussi les pixels encore en chute libre
     for (let i = 0; i < particulesTas.length; i++) {
-      particulesTas[i].vx += 0.3 + force * 0.9;
-      particulesTas[i].vy -= force * 0.35;
+      particulesTas[i].vx += 0.5 + force * 1.4;
+      particulesTas[i].vy -= force * 0.5;
     }
   }
 
@@ -1981,10 +1992,13 @@
      coulent de lui ; un clic n'importe ou le fait reapparaitre,
      puis le chien se rendort. Contre le boss, le troisieme tir
      le tue d'un seul coup et il tombe sur la ligne du chien. En
-     passant, le laser BRULE les images de la page qu'il croise :
-     trous estompes et irreguliers, au bord noirci, sans
-     monticule de pixels -- LARGE (4x) sur les tirs rates, plus
-     fin sur celui qui touche.
+     passant, le laser grave dans les images qu'il croise une
+     LIGNE fine et bien noire, a peine plus large que son trait
+     (4x sur les tirs rates), SANS monticule de pixels. Seul
+     l'IMPACT gratte vraiment l'image : un GROS TROU ROND brule,
+     qui tranche avec le trait fin. Sur l'accueil, ligne et
+     impact decouvrent la PHOTO PROPRE de dessous, comme un
+     grattage au doigt.
   ----------------------------------------------------------------- */
   const ANIMATION_CHIEN = {
     // La planche : une seule image, tous les sprites cote a cote,
@@ -2060,14 +2074,17 @@
                            // courtes et peu nombreuses, le laser
                            // reste tres bon marche en CPU
     // ---- Brulure des images ----
-    laserBrulurePas: 50,   // en avancant, le trait grave un trou
-                           // brule tous ces px dans les images
-                           // qu'il croise
-    laserBrulureRayon: 13, // rayon d'un trou brule par le tir qui
-                           // TOUCHE (l'impact : x1.7)
-    laserBrulureRayonRate: 52, // tirs rates : rayon 4x plus large,
-                           // les trous se recouvrent en une large
-                           // bande grattee le long du trait
+    laserBrulurePas: 50,   // cran d'avance de la LIGNE brulee :
+                           // le trait grave dans les images par
+                           // segments de cette longueur en px,
+                           // raccordes en une seule ligne continue
+    laserBrulureRayon: 3,  // demi-largeur de la ligne brulee :
+                           // a peine plus large que le trait du
+                           // laser (2 px), une trace fine
+    laserBrulureRayonRate: 12, // tirs rates : ligne 4x plus large
+    laserImpactRayon: 60,  // L'IMPACT : un GROS trou rond, bien
+                           // plus grand que la ligne fine -- c'est
+                           // LA que le laser gratte vraiment l'image
     ondes: ["#ff1744", "#2979ff", "#00e676"],  // ondes qui partent de l'oeil
     poudre: ["#ff1744", "#2979ff", "#ffea00"],  // gouttes rouge, bleu, jaune
     oeilDecalX: 0,         // decalage de l'oeil (px) par rapport au
@@ -2285,16 +2302,34 @@
     // dimensions exactes de l'image, qui defile avec elle. Le
     // calque est cree une seule fois puis cache sur l'image
     // (_chienBrulure) : les brulures successives s'y ajoutent.
+    // La page peut BOUGER entre deux gravures (photo remplacee,
+    // fenetre redimensionnee, defilement pendant la fonte) : on
+    // RECALE le calque sur la position courante de l'image avant
+    // de graver, sinon la brulure tombe ailleurs que sur le
+    // trait du laser.
     if (cible.canvas) return cible.el;
-    if (cible.el._chienBrulure) return cible.el._chienBrulure;
+    if (cible.el._chienBrulure) {
+      const vieux = cible.el._chienBrulure;
+      vieux.style.left = cible.el.offsetLeft + "px";
+      vieux.style.top = cible.el.offsetTop + "px";
+      const r = cible.el.getBoundingClientRect();
+      const l = Math.max(1, Math.round(r.width));
+      const h = Math.max(1, Math.round(r.height));
+      if (vieux.width !== l || vieux.height !== h) {
+        vieux.width = l;    // l'image a change de taille : on
+        vieux.height = h;   // repart de zero (brulures perdues)
+      }
+      return vieux;
+    }
     const parent = cible.el.parentNode;
     if (parent && getComputedStyle(parent).position === "static") {
       parent.style.position = "relative";  // point d'ancrage du calque
     }
+    const r = cible.el.getBoundingClientRect();
     const cv = document.createElement("canvas");
     cv.className = "chien-brulure";
-    cv.width = Math.max(1, Math.round(cible.rect.width));
-    cv.height = Math.max(1, Math.round(cible.rect.height));
+    cv.width = Math.max(1, Math.round(r.width));
+    cv.height = Math.max(1, Math.round(r.height));
     cv.style.position = "absolute";
     cv.style.left = cible.el.offsetLeft + "px";
     cv.style.top = cible.el.offsetTop + "px";
@@ -2308,7 +2343,7 @@
   function chienGraverTrou(cible, vx, vy, rayon, graine) {
     // Grave un trou BRULE dans une image, a la position ecran
     // (vx, vy) : PAS un rond parfait, PAS de courbe lisse. Une
-    // grille de petits carres de 3 px, le rayon ONDULE avec
+    // grille de petits carres (~3 px), le rayon ONDULE avec
     // l'angle, le fond du trou est ESTOMPE (carres
     // demi-transparents tires au hasard) et le bord est un
     // liseret NOIR irregulier et discontinu, comme du papier
@@ -2316,11 +2351,24 @@
     // trace, gravee pour de bon dans l'image.
     const calque = chienCalqueBrulure(cible);
     const g = calque.getContext("2d");
-    const r = cible.rect;
-    const cx = Math.round(vx - r.left);
-    const cy = Math.round(vy - r.top);
-    const pas = 3;  // taille d'un carre de brulure (px)
-    const ray = Math.max(pas, Math.round(rayon / pas) * pas);
+    // Rect TOUT FRAIS, relu a CHAQUE gravure : la page a pu bouger
+    // depuis le debut du tir (photo remplacee, defilement pendant
+    // la fonte de 3 s) -- une position capturee d'avance fait
+    // tomber la trace ailleurs que sur le trait du laser.
+    const r = cible.el.getBoundingClientRect();
+    // Le canvas de grattage de l'accueil travaille en resolution
+    // INTERNE (cote le plus long plafonne a 1600 px), pas en
+    // pixels ecran : sans ce facteur d'echelle, le trou tombait
+    // au mauvais endroit et a la mauvaise taille sur l'accueil.
+    // Echelles separees en X et Y, comme le grattage au doigt.
+    // Les calques des autres images ont exactement la taille
+    // affichee : elles valent 1.
+    const kx = calque.width / Math.max(1, r.width);
+    const ky = calque.height / Math.max(1, r.height);
+    const cx = Math.round((vx - r.left) * kx);
+    const cy = Math.round((vy - r.top) * ky);
+    const pas = Math.max(2, Math.round(3 * kx));  // carre de brulure
+    const ray = Math.max(pas, Math.round((rayon * kx) / pas) * pas);
     // 1) Le fond du trou, ESTOMPE : carres demi-transparents
     //    (alpha tire au hasard entre 0.35 et 0.85), le rayon
     //    ondulant selon l'angle. Sur le canvas de grattage de
@@ -2339,7 +2387,7 @@
         const ang = Math.round(Math.atan2(dy, dx) * 14);
         const ond = ray * (0.85 + chienBruit(graine, ang, 62) * 0.3);
         if (d > ond - pas) continue;  // on s'arrete AVANT le bord
-        g.globalAlpha = 0.35 + chienBruit(graine, px + 3, py + 5) * 0.5;
+        g.globalAlpha = 0.6 + chienBruit(graine, px + 3, py + 5) * 0.4;
         g.fillRect(px, py, pas, pas);
       }
     }
@@ -2361,38 +2409,250 @@
     g.globalAlpha = 1;
   }
 
+  function chienBordRect(ax, ay, bx, by, rect) {
+    // Le point exact ou le segment (ax,ay)-(bx,by) CROISE le
+    // bord du rect, trouve par DICHOTOMIE : dix partages suffisent
+    // (le point fini a moins d'un millieme du segment du bord).
+    // Les deux extremites sont censees etre de part et d'autre
+    // du bord ; si elles sont du meme cote, le point retourne
+    // reste sagement sur le segment : inoffensif.
+    const dedans = function (x, y) {
+      return x >= rect.left && x <= rect.right &&
+             y >= rect.top && y <= rect.bottom;
+    };
+    let lo = 0;   // cote de (ax,ay)
+    let hi = 1;   // cote de (bx,by)
+    const va = dedans(ax, ay);
+    for (let i = 0; i < 10; i++) {
+      const m = (lo + hi) / 2;
+      if (dedans(ax + (bx - ax) * m, ay + (by - ay) * m) === va) {
+        lo = m;
+      } else {
+        hi = m;
+      }
+    }
+    const f = (lo + hi) / 2;
+    return { x: ax + (bx - ax) * f, y: ay + (by - ay) * f };
+  }
+
+  function chienGraverTrait(cible, x1, y1, x2, y2, demi, graine, debut) {
+    // Grave une LIGNE BRULEE dans une image, le long du segment
+    // (x1,y1)-(x2,y2) en coordonnees ECRAN : PAS une suite de
+    // ronds, une BANDE de demi-largeur "demi". Comme le trou :
+    // des carres snappes a la grille, l'interieur BIEN NOIR
+    // (carres denses tires au hasard, presque sans trous)
+    // et DEUX LISSERETS NOIRS irreguliers et discontinus, un de
+    // chaque cote, sur un bord qui ONDULE le long du trait. Le
+    // grain depend de la distance ABSOLUE depuis l'oeil
+    // (s + debut) : deux segments qui se suivent se raccordent
+    // sans couture, une seule ligne continue. Sur le canvas de
+    // grattage de l'accueil, l'interieur EFFACE la couche sale
+    // (destination-out) : la photo propre de dessous parait,
+    // exactement comme un grattage du doigt.
+    const calque = chienCalqueBrulure(cible);
+    const g = calque.getContext("2d");
+    // Rect TOUT FRAIS, relu a CHAQUE gravure (la page a pu bouger
+    // depuis le debut du tir : photo remplacee, defilement pendant
+    // la fonte) -- sinon la ligne tombe ailleurs que sur le chemin
+    // du laser. Echelles X et Y separees, comme le grattage au
+    // doigt ; sur les calques des autres images elles valent 1.
+    const r = cible.el.getBoundingClientRect();
+    const kx = calque.width / Math.max(1, r.width);
+    const ky = calque.height / Math.max(1, r.height);
+    const ax = (x1 - r.left) * kx;
+    const ay = (y1 - r.top) * ky;
+    const bx = (x2 - r.left) * kx;
+    const by = (y2 - r.top) * ky;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const L = Math.sqrt(dx * dx + dy * dy);
+    if (L < 1) return;
+    const ux = dx / L;
+    const uy = dy / L;
+    const nx = -uy;   // normale : la largeur de la bande
+    const ny = ux;
+    const pas = Math.max(2, Math.round(3 * kx));
+    const demiL = Math.max(pas, Math.round((demi * kx) / pas) * pas);
+    const d0 = debut * kx;   // distance absolue, dans l'espace du calque
+    const snape = function (v) { return Math.round(v / pas) * pas; };
+    // Le bord ondulant d'un cote (c = -1 ou 1), jamais plus
+    // large que la demi-largeur : le meme calcul pour l'interieur
+    // estompe et pour le liseret noir du cote, ils se rejoignent.
+    const bordCote = function (s, c) {
+      const b = demiL * (0.8 + chienBruit(graine, s + d0, 50 + c) * 0.3);
+      return b > demiL ? demiL : b;
+    };
+    // 1) L'interieur, BIEN NOIR : carres denses (alpha tire au
+    //    hasard entre 0.65 et 1, un sur seize saute seulement),
+    //    jusqu'au bord ondulant de chaque cote. Sur l'accueil,
+    //    chaque carre EFFACE la couche sale : la photo propre
+    //    de dessous parait, comme un grattage.
+    g.globalCompositeOperation =
+      cible.canvas ? "destination-out" : "source-over";
+    g.fillStyle = "#111111";  // ignore par destination-out
+    for (let s = 0; s <= L; s += pas) {
+      const cx = ax + ux * s;
+      const cy = ay + uy * s;
+      for (let w = -demiL; w <= demiL; w += pas) {
+        const c = w < 0 ? -1 : 1;
+        if (Math.abs(w) > bordCote(s, c) - pas) continue;  // AVANT le bord
+        if (chienBruit(graine, s + d0 + 3, w + 9) < 0.06) continue;  // trou
+        const wx = snape(cx + nx * w);
+        const wy = snape(cy + ny * w);
+        g.globalAlpha = 0.65 + chienBruit(graine, wx + 3, wy + 5) * 0.35;
+        g.fillRect(wx, wy, pas, pas);
+      }
+    }
+    // 2) Les DEUX LISSERETS NOIRS, poses sur le bord ondulant de
+    //    chaque cote : carres opaques discontinus (un sur sept
+    //    saute seulement), jamais deux lignes droites nettes.
+    g.globalCompositeOperation = "source-over";
+    g.globalAlpha = 1;
+    for (let s = 0; s <= L; s += pas) {
+      for (let c = -1; c <= 1; c += 2) {
+        if (chienBruit(graine, s + d0 + 11, c) < 0.15) continue;  // discontinu
+        const cx = ax + ux * s;
+        const cy = ay + uy * s;
+        const b = bordCote(s, c);
+        g.fillRect(snape(cx + nx * b * c), snape(cy + ny * b * c),
+                   pas, pas);
+      }
+    }
+    g.globalAlpha = 1;
+  }
+
+  function chienTracerBrulure(brulables, px, py, qx, qy, demi, graine, debut) {
+    // Etend la ligne brulee du point (px,py) au point (qx,qy),
+    // dans chaque image croisee. Le trait ENTRE et SORT des
+    // images : on ne grave que la partie DEDANS. Le point de
+    // sortie est retenu sur l'image (img.trace) pour que le
+    // segment suivant reparte exactement de la ou la trace
+    // s'etait arretee : une seule ligne continue, sans trou ni
+    // doublon aux bords des images. Les rects sont relus TOUT
+    // FRAIS a chaque segment : la page a pu bouger depuis le
+    // debut du tir.
+    for (let b = 0; b < brulables.length; b++) {
+      const img = brulables[b];
+      const r = img.el.getBoundingClientRect();
+      const finDedans =
+        qx >= r.left && qx <= r.right &&
+        qy >= r.top && qy <= r.bottom;
+      if (finDedans) {
+        if (!img.trace) {
+          const e = chienBordRect(px, py, qx, qy, r);
+          img.trace = { x: e.x, y: e.y };
+        }
+        chienGraverTrait(img, img.trace.x, img.trace.y, qx, qy,
+                         demi, graine, debut);
+        img.trace = { x: qx, y: qy };
+      } else if (img.trace) {
+        const s = chienBordRect(img.trace.x, img.trace.y, qx, qy, r);
+        chienGraverTrait(img, img.trace.x, img.trace.y, s.x, s.y,
+                         demi, graine, debut);
+        img.trace = null;
+      }
+    }
+  }
+
   function chienPixelsPointeur() {
-    // Le pointeur du site : le curseur SVG bleu (la petite
-    // tapette) defini dans le CSS. On le dessine en 24x24,
-    // exactement comme il s'affiche, et on releve ses pixels un a
-    // un pour pouvoir le faire fondre pixel par pixel. Si la forme
-    // du curseur change dans le CSS, mettre la meme forme ici.
+    // Le pointeur du site, pour le faire fondre pixel par pixel :
+    // on dessine le curseur ACTUELLEMENT affiche sous le
+    // pointeur, exactement comme il apparait, puis on releve ses
+    // pixels un a un. C'est la TAPETTE bleue par defaut ; la MAIN
+    // sur le canvas de grattage de l'accueil (cursor: grab /
+    // grabbing, ouverte ou fermee : on dessine la main ouverte,
+    // peu importe la situation) ; les FLECHES rouge et verte des
+    // zones de navigation (chevrons), sur les autres pages.
+    // Chaque forme est relevee DEPUIS SON POINT CHAUD (l'endroit
+    // exact que le laser touche) : la fonte part de la. Si la
+    // forme d'un curseur change dans le CSS, mettre la meme forme
+    // ici.
+    let forme = "tapette";
+    const sous = document.elementFromPoint(chienPointeur.x, chienPointeur.y);
+    if (sous) {
+      const cur = getComputedStyle(sous).cursor || "";
+      if (cur.indexOf("grab") !== -1) forme = "main";
+      else if (cur.indexOf("ff1744") !== -1) forme = "fleche-rouge";
+      else if (cur.indexOf("00e676") !== -1) forme = "fleche-verte";
+    }
     const c = document.createElement("canvas");
-    c.width = 24;
-    c.height = 24;
+    c.width = 32;
+    c.height = 32;
     const g = c.getContext("2d");
-    g.strokeStyle = "#ffffff";
-    g.lineWidth = 1.5;
-    g.fillStyle = "#2979ff";
-    g.beginPath();
-    g.moveTo(0, 0);
-    g.lineTo(0, 18);
-    g.lineTo(4.5, 13.5);
-    g.lineTo(8, 21);
-    g.lineTo(11, 19.5);
-    g.lineTo(7.5, 12);
-    g.lineTo(13.5, 12);
-    g.closePath();
-    g.fill();
-    g.stroke();
-    const d = g.getImageData(0, 0, 24, 24).data;
+    let chaudX = 0;   // le point chaud du curseur
+    let chaudY = 0;
+    if (forme === "tapette") {
+      // La petite tapette bleue du curseur par defaut (chaud : la
+      // pointe, en haut a gauche).
+      g.strokeStyle = "#ffffff";
+      g.lineWidth = 1.5;
+      g.fillStyle = "#2979ff";
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.lineTo(0, 18);
+      g.lineTo(4.5, 13.5);
+      g.lineTo(8, 21);
+      g.lineTo(11, 19.5);
+      g.lineTo(7.5, 12);
+      g.lineTo(13.5, 12);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    } else if (forme === "main") {
+      // La main ouverte du grattage : blanche au contour noir,
+      // comme la main des curseurs grab des navigateurs (chaud :
+      // le creux de la paume).
+      chaudX = 11;
+      chaudY = 14;
+      g.strokeStyle = "#000000";
+      g.lineWidth = 1.5;
+      g.fillStyle = "#ffffff";
+      g.beginPath();                    // les quatre doigts
+      g.rect(3, 7, 4, 12);
+      g.rect(8, 4, 4, 15);
+      g.rect(13, 5, 4, 14);
+      g.rect(18, 8, 4, 11);
+      g.fill();
+      g.stroke();
+      g.beginPath();                    // la paume
+      g.moveTo(3, 14);
+      g.lineTo(22, 14);
+      g.lineTo(22, 20);
+      g.quadraticCurveTo(12, 25, 3, 20);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.beginPath();                    // le pouce
+      g.moveTo(4, 16);
+      g.lineTo(0.5, 12);
+      g.lineTo(2.5, 9.5);
+      g.lineTo(6.5, 13.5);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    } else {
+      // Le chevron de navigation : rouge pour revenir, vert pour
+      // avancer, comme les curseurs des zones de clic (chaud : le
+      // centre).
+      const rouge = forme === "fleche-rouge";
+      chaudX = 16;
+      chaudY = 16;
+      g.font = "bold 28px Helvetica, Arial, sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "alphabetic";
+      g.fillStyle = rouge ? "#ff1744" : "#00e676";
+      g.fillText(rouge ? "\u2039" : "\u203A", 16, 24);
+    }
+    const d = g.getImageData(0, 0, c.width, c.height).data;
     const pixels = [];
-    for (let y = 0; y < 24; y++) {
-      for (let x = 0; x < 24; x++) {
-        const i = (y * 24 + x) * 4;
+    for (let y = 0; y < c.height; y++) {
+      for (let x = 0; x < c.width; x++) {
+        const i = (y * c.width + x) * 4;
         if (d[i + 3] > 0) {
-          pixels.push({ x: x, y: y,
-                        c: "rgb(" + d[i] + "," + d[i + 1] + "," + d[i + 2] + ")" });
+          pixels.push({
+            x: x - chaudX, y: y - chaudY,   // depuis le POINT CHAUD
+            c: "rgb(" + d[i] + "," + d[i + 1] + "," + d[i + 2] + ")"
+          });
         }
       }
     }
@@ -2516,8 +2776,8 @@
     // Aucune contre le boss : le jeu a deja sa propre
     // pyrotechnie, et la cible bouge sans cesse.
     const brulables = bossVivant ? [] : chienImagesBrulables();
-    // Les tirs rates grattent LARGE (rayon 4x), le tir qui
-    // touche grave fin : la brulure s'adapte au tir.
+    // Les tirs rates brulent LARGE (ligne 4x), le tir qui
+    // touche grave fin : la demi-largeur s'adapte au tir.
     const brulureRayon = rate ?
       ANIMATION_CHIEN.laserBrulureRayonRate :
       ANIMATION_CHIEN.laserBrulureRayon;
@@ -2535,6 +2795,7 @@
     let ecoule = 0;
     let dernierT = null;
     let grave = 0;           // distance de trait deja brulee
+    let traceFinie = false;  // le dernier segment, jusqu'a la pointe
     let coupBossDonne = false;   // le boss n'est frappe qu'UNE fois
     let impactBrule = false;     // le gros trou d'impact, idem
     const dessiner = function (t) {
@@ -2597,22 +2858,31 @@
                            epaisseur, ANIMATION_CHIEN.ondes[i]);
         }
         ctx.globalAlpha = 1;
-        // Brulure en passant : pendant la montee, tous les
-        // laserBrulurePas px, le trait grave un trou brule dans
-        // chaque image qu'il croise. La trace reste gravee pour
-        // de bon dans l'image quand le laser est fini.
+        // Brulure en passant : pendant la montee, par crans de
+        // laserBrulurePas px, le trait grave une LIGNE brulee
+        // CONTINUE dans chaque image qu'il croise (les segments
+        // se raccordent : pas une suite de ronds). La pointe
+        // n'est pas grillee ici : c'est le TROU ROND de
+        // l'impact qui la couvre. La trace reste gravee pour de
+        // bon dans l'image quand le laser est fini.
         if (brulables.length) {
           while (grave + ANIMATION_CHIEN.laserBrulurePas < lgT * avance) {
+            const vieux = grave;
             grave += ANIMATION_CHIEN.laserBrulurePas;
-            const bx = oeil.x + ux * grave;
-            const by = oeil.y + uy * grave;
-            for (let b = 0; b < brulables.length; b++) {
-              const rb = brulables[b].rect;
-              if (bx >= rb.left && bx <= rb.right &&
-                  by >= rb.top && by <= rb.bottom) {
-                chienGraverTrou(brulables[b], bx, by, brulureRayon, grave);
-              }
-            }
+            chienTracerBrulure(brulables,
+                               oeil.x + ux * vieux, oeil.y + uy * vieux,
+                               oeil.x + ux * grave, oeil.y + uy * grave,
+                               brulureRayon, gen, vieux);
+          }
+          // Montee finie : le dernier segment, du cran en cours
+          // jusqu'a la POINTE exacte du trait.
+          if (avance >= 1 && !traceFinie) {
+            traceFinie = true;
+            chienTracerBrulure(brulables,
+                               oeil.x + ux * grave, oeil.y + uy * grave,
+                               oeil.x + ux * lgT, oeil.y + uy * lgT,
+                               brulureRayon, gen, grave);
+            grave = lgT;
           }
         }
       }
@@ -2638,16 +2908,21 @@
           // depuis la pointe par l'onde de fonte, et quelques
           // gouttes rouge, bleu et jaune COULENT de lui.
           if (!chienPointeurDetruit) chienDetruirePointeur();
-          // Et si l'impact tombe dans une image : un GROS trou
-          // brule a l'endroit exact ou le laser a mordu.
+          // Et si l'impact tombe dans une image : c'est LA que
+          // le laser GRATTE vraiment -- un GROS trou brule, bien
+          // plus grand que la fine ligne du passage, pour
+          // trancher avec le trait fin. Sur l'accueil, il
+          // decouvre la photo de dessous, comme un gros grattage
+          // du doigt. Rect relu frais : la page a pu bouger
+          // depuis le debut du tir.
           if (!impactBrule && brulables.length) {
             impactBrule = true;
             for (let b = 0; b < brulables.length; b++) {
-              const rb = brulables[b].rect;
+              const rb = brulables[b].el.getBoundingClientRect();
               if (cible.x >= rb.left && cible.x <= rb.right &&
                   cible.y >= rb.top && cible.y <= rb.bottom) {
                 chienGraverTrou(brulables[b], cible.x, cible.y,
-                                ANIMATION_CHIEN.laserBrulureRayon * 1.7, 999);
+                                ANIMATION_CHIEN.laserImpactRayon, 999);
               }
             }
           }
@@ -4033,7 +4308,7 @@
       m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(${180 + Math.sin(m.tangagePhase) * 30}deg)`;
 
     } else if (m.etat === "morte") {
-      const sol = window.innerHeight - 8; // Sol invisible en bas de la page
+      const sol = window.innerHeight - 41; // Sol invisible, aligné sur la hauteur VISUELLE du chien : son sprite a du vide transparent dessous, ses pattes sont ~9 px plus haut que sa ligne CSS (--marge du bas)
 
       if (!m.reposeAuSol) {
         // Chute après impact, avec légère dérive horizontale
