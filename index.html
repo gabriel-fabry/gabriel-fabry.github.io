@@ -171,7 +171,28 @@
     height: 96px;
     image-rendering: pixelated;
     z-index: 50;
-    pointer-events: none;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Tremblement du chien a chaque clic pendant son sommeil */
+  .chien-dort.tremble { animation: tremble-chien .3s linear; }
+  @keyframes tremble-chien {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    60% { transform: translateX(-2px); }
+    80% { transform: translateX(2px); }
+  }
+  /* Mode suivi : planche de 9 frames de 32px cote a cote (288px de
+     large au total). Le fond est etire a 900% (9 x 96px) et la
+     frame est choisie par la position horizontale, que le
+     JavaScript regle en pourcentage (12,5% par frame). */
+  .chien-dort.chien-suiv {
+    display: none;
+    background-repeat: no-repeat;
+    background-size: 900% 100%;
   }
 
   /* Emoji souffle, pose dans la colonne de gauche, sous Contact,
@@ -582,6 +603,7 @@
     #barre-charge.chargee { animation: none; }
     .mouche.boss.secoue { animation: none; }
     #chien-carnaval .bulle-chien { animation: none; }
+    .chien-dort.tremble { animation: none; }
     #chien-carnaval .zzz-chien { animation: none; opacity: 0; }
   }
 </style>
@@ -791,8 +813,10 @@
     // recree en revenant).
     const ancienRafraichir = document.querySelector(".bouton-rafraichir");
     if (ancienRafraichir) ancienRafraichir.remove();
-    const ancienChienDort = document.querySelector(".chien-dort");
-    if (ancienChienDort) ancienChienDort.remove();
+    // Le chien qui dort existe en deux elements possibles (img des
+    // GIF, div du mode suivi) : on les enleve tous les deux.
+    document.querySelectorAll(".chien-dort").forEach(function (el) { el.remove(); });
+    arreterChienDort();
     if (typeof reinitialiserPhysique === "function") reinitialiserPhysique();
     arreterJeu();
     arreterChien();
@@ -1883,6 +1907,206 @@
   }
 
   /* --- SÃRIE CARNAVAL --- */
+  /* --- CHIEN QUI DORT (page Carnaval) --- */
+  // Cycle : il dort ; 3 clics le reveillent (il tremble a chaque
+  // clic) ; eveille, il se rendort apres 5 s sans clic ; un clic le
+  // fait parler, un autre clic le ramene a l'etat eveille ; 10 clics
+  // de suite (moins de 3 s entre chacun) declenchent le mode suivi :
+  // son oeil rouge suit le pointeur. Tous les delais et nombres se
+  // reglent dans les constantes CHIEN_ ci-dessous (chercher CHIEN_
+  // dans le code). Les GIF ne peuvent pas etre figes sur une frame
+  // par un navigateur : l'etat eveille utilise un fichier image
+  // seul, et le mode suivi une planche de 9 frames cote a cote.
+  const CHIEN_SRC = {
+    dort: "dog%20sprite/dog%20sprite%20sleep.gif",
+    reveil: "dog%20sprite/waking%20up%20dog.gif",
+    eveille: "dog%20sprite/dog%20awake.png",        // frame fixe de l'etat eveille
+    eveilleSecours: "dog%20sprite/dog%20awake.gif", // essaye si le PNG manque
+    parle: "dog%20sprite/talking%20dog.gif",
+    planche: "dog%20sprite/dog%20follow%20strip.png" // 9 frames cote a cote (288x32)
+  };
+  const CHIEN_CLICS_REVEIL = 3;   // clics pour le reveiller
+  const CHIEN_REVEIL_MS = 2000;   // duree du gif de reveil (a ajuster)
+  const CHIEN_EVEIL_MS = 5000;    // delai avant rendormissement
+  const CHIEN_SUITE_CIBLE = 10;   // clics de suite pour le mode suivi
+  const CHIEN_SUITE_MS = 3000;   // ecart maxi entre deux clics "de suite"
+  let chienImg = null;            // <img> : les etats en GIF
+  let chienSuivEl = null;         // <div> : mode suivi (planche de frames)
+  let chienEtat = "dort";         // dort | reveil | eveille | parle | suis
+  let chienClicsReveil = 0;
+  let chienClicsSuite = 0;
+  let chienDernierClic = 0;
+  let chienCharge = false;
+  let chienMinuteurDodo = null;
+  let chienMinuteurReveil = null;
+
+  function chienMontrerImg(visible) {
+    if (chienImg) chienImg.style.display = visible ? "block" : "none";
+    if (chienSuivEl) chienSuivEl.style.display = visible ? "none" : "block";
+  }
+
+  function chienTrembler() {
+    if (!chienImg) return;
+    chienImg.classList.remove("tremble");
+    void chienImg.offsetWidth;  // relance l'animation CSS a chaque clic
+    chienImg.classList.add("tremble");
+  }
+
+  function chienRendormir() {
+    if (chienMinuteurDodo) { clearTimeout(chienMinuteurDodo); chienMinuteurDodo = null; }
+    if (chienMinuteurReveil) { clearTimeout(chienMinuteurReveil); chienMinuteurReveil = null; }
+    chienEtat = "dort";
+    chienClicsReveil = 0;
+    if (chienImg) {
+      chienImg.onerror = null;
+      chienImg.src = CHIEN_SRC.dort;
+    }
+    chienMontrerImg(true);
+  }
+
+  function chienEveille() {
+    // Etat eveille : frame FIXE (chien sans point d'interrogation),
+    // puis rendormissement apres CHIEN_EVEIL_MS sans clic.
+    chienEtat = "eveille";
+    chienMontrerImg(true);
+    if (chienMinuteurDodo) clearTimeout(chienMinuteurDodo);
+    chienMinuteurDodo = setTimeout(chienRendormir, CHIEN_EVEIL_MS);
+    // PNG de la frame d'abord, replique .gif ensuite, et si les deux
+    // manquent : le gif de reveil reste affiche (fige sur sa
+    // derniere frame s'il est exporte en lecture unique).
+    chienImg.onerror = function () {
+      chienImg.onerror = function () {
+        chienImg.onerror = null;
+        chienImg.src = CHIEN_SRC.reveil;
+      };
+      chienImg.src = CHIEN_SRC.eveilleSecours;
+    };
+    chienImg.src = CHIEN_SRC.eveille;
+  }
+
+  function chienReveiller() {
+    chienEtat = "reveil";
+    chienMontrerImg(true);
+    if (chienMinuteurReveil) clearTimeout(chienMinuteurReveil);
+    chienMinuteurReveil = setTimeout(chienEveille, CHIEN_REVEIL_MS);
+    chienImg.onerror = null;
+    chienImg.src = CHIEN_SRC.reveil;
+  }
+
+  function chienParler() {
+    chienEtat = "parle";
+    if (chienMinuteurDodo) { clearTimeout(chienMinuteurDodo); chienMinuteurDodo = null; }
+    chienMontrerImg(true);
+    chienImg.onerror = null;
+    chienImg.src = CHIEN_SRC.parle;
+  }
+
+  function chienSuivre() {
+    // Le suivi exige de choisir une frame precise : impossible dans
+    // un GIF anime, on passe par une planche de 9 frames. Si la
+    // planche manque, le chien reste simplement a l'etat ou il etait.
+    const essai = new Image();
+    essai.onload = function () {
+      chienEtat = "suis";
+      if (chienMinuteurDodo) { clearTimeout(chienMinuteurDodo); chienMinuteurDodo = null; }
+      if (!chienSuivEl) {
+        chienSuivEl = document.createElement("div");
+        chienSuivEl.className = "chien-dort chien-suiv";
+        chienSuivEl.title = "Chien qui vous suit du regard";
+        chienSuivEl.addEventListener("click", chienCliquer);
+        document.body.appendChild(chienSuivEl);
+      }
+      chienSuivEl.style.backgroundImage = "url(" + CHIEN_SRC.planche + ")";
+      chienSuivEl.style.backgroundPositionX = "0%";  // oeil rouge au centre
+      chienMontrerImg(false);
+    };
+    essai.src = CHIEN_SRC.planche;
+  }
+
+  function chienCliquer() {
+    const maintenant = Date.now();
+    // Clics "de suite" : au moindre ecart trop grand, le compte
+    // repart de zero.
+    if (maintenant - chienDernierClic > CHIEN_SUITE_MS) chienClicsSuite = 0;
+    chienDernierClic = maintenant;
+    if (chienEtat === "suis") {
+      // Un clic le sort du mode suivi : retour a l'etat eveille,
+      // puis rendormissement s'il ne se passe rien.
+      chienEveille();
+      return;
+    }
+    chienClicsSuite++;
+    if (chienClicsSuite >= CHIEN_SUITE_CIBLE) {
+      chienClicsSuite = 0;
+      chienSuivre();
+      return;
+    }
+    if (chienEtat === "dort") {
+      chienClicsReveil++;
+      chienTrembler();
+      if (chienClicsReveil >= CHIEN_CLICS_REVEIL) {
+        chienClicsReveil = 0;
+        chienReveiller();
+      }
+      return;
+    }
+    if (chienEtat === "eveille") { chienParler(); return; }
+    if (chienEtat === "parle") { chienEveille(); return; }
+    // Pendant le reveil, les clics ne changent pas l'etat : ils sont
+    // deja comptes pour le mode suivi ci-dessus.
+  }
+
+  function chienOeilSuivre(e) {
+    if (chienEtat !== "suis" || !chienSuivEl) return;
+    const rect = chienSuivEl.getBoundingClientRect();
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    // Pointeur sur le chien : l'oeil rouge reste au centre (frame 1)
+    if (Math.abs(dx) < rect.width / 2 && Math.abs(dy) < rect.height / 2) {
+      chienSuivEl.style.backgroundPositionX = "0%";
+      return;
+    }
+    // Angle depuis le Nord, sens horaire : N=0, NE=45, E=90, SE=135,
+    // S=180, SO=225, O=270, NO=315. Les frames 2 a 9 de la planche
+    // suivent cet ordre : 12,5% de position par frame.
+    const angle = Math.atan2(dx, -dy) * 180 / Math.PI;
+    const secteur = ((Math.round(angle / 45) % 8) + 8) % 8;
+    chienSuivEl.style.backgroundPositionX = (secteur + 1) * 12.5 + "%";
+  }
+  window.addEventListener("pointermove", chienOeilSuivre);
+
+  function creerChienDort() {
+    chienEtat = "dort";
+    chienClicsReveil = 0;
+    chienClicsSuite = 0;
+    chienCharge = false;
+    chienImg = document.createElement("img");
+    chienImg.className = "chien-dort";
+    chienImg.alt = "Chien qui dort";
+    chienImg.title = "Chien qui dort";
+    chienImg.decoding = "async";
+    chienImg.addEventListener("load", function () { chienCharge = true; });
+    chienImg.addEventListener("error", function () {
+      // Le gif de dodo est introuvable : pas de chien du tout, jamais
+      // d'icone cassee. Les erreurs des autres etats sont gerees par
+      // les repliques de chienEveille et ne passent plus ici une fois
+      // le premier gif charge.
+      if (!chienCharge) {
+        chienImg.remove();
+        chienImg = null;
+      }
+    });
+    chienImg.addEventListener("click", chienCliquer);
+    document.body.appendChild(chienImg);
+    chienImg.src = CHIEN_SRC.dort;
+  }
+
+  function arreterChienDort() {
+    chienRendormir();  // stoppe les minuteurs
+    chienImg = null;
+    chienSuivEl = null;
+  }
+
   function dessinerCarnaval(serie) {
     document.title = serie.titre + " - " + SITE.nom;
 
@@ -2032,18 +2256,9 @@
     contenu.appendChild(fig);
     montrerDuo(0);
 
-    // Chien qui dort : sprite GIF 32x32 du dossier "dog sprite",
-    // agrandi x3 par le CSS, pose en bas a gauche cote colonne.
-    // Present uniquement sur la page Carnaval (retire a la
-    // navigation). Si le fichier est absent, l'image est retiree :
-    // jamais d'icone cassee a l'ecran.
-    const chienDort = document.createElement("img");
-    chienDort.className = "chien-dort";
-    chienDort.alt = "Chien qui dort";
-    chienDort.decoding = "async";
-    chienDort.addEventListener("error", function () { chienDort.remove(); });
-    chienDort.src = "dog%20sprite/dog%20sprite%20sleep.gif";
-    document.body.appendChild(chienDort);
+    // Chien qui dort : machine a etats complete (voir la section
+    // CHIEN QUI DORT ci-dessus).
+    creerChienDort();
   }
 
   /* --- SÃRIE PAO --- */
