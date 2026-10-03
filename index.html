@@ -158,6 +158,22 @@
     z-index: 2;
   }
 
+  /* Chien qui dort (sprite 32x32 pose par l'utilisateur, section
+     Carnaval) : en bas a gauche, cote colonne. Le GIF fait 32x32 :
+     il est affiche en 96x96 (agrandi x3) avec image-rendering:
+     pixelated pour garder des pixels nets, pas flous. Si le
+     fichier manque, le chien ne s'affiche pas du tout. */
+  .chien-dort {
+    position: fixed;
+    left: var(--marge);
+    bottom: var(--marge);
+    width: 96px;
+    height: 96px;
+    image-rendering: pixelated;
+    z-index: 50;
+    pointer-events: none;
+  }
+
   /* Emoji souffle, pose dans la colonne de gauche, sous Contact,
      aligne sur la ligne du bas de l'image d'accueil */
   .figure-accueil {
@@ -775,6 +791,8 @@
     // recree en revenant).
     const ancienRafraichir = document.querySelector(".bouton-rafraichir");
     if (ancienRafraichir) ancienRafraichir.remove();
+    const ancienChienDort = document.querySelector(".chien-dort");
+    if (ancienChienDort) ancienChienDort.remove();
     if (typeof reinitialiserPhysique === "function") reinitialiserPhysique();
     arreterJeu();
     arreterChien();
@@ -1426,7 +1444,7 @@
     // Plus petit = grattage fin, plus grand = grosse eponge.
     // Plage conseillee : de 0.02 (tres fin) a 0.12 (large).
     // Pour les retrouver : chercher PINCEAU_TAILLE dans le code.
-    const PINCEAU_TAILLE_DESKTOP = 0.03; // pinceau sur grand ecran
+    const PINCEAU_TAILLE_DESKTOP = 0.04; // pinceau sur grand ecran
     const PINCEAU_TAILLE_MOBILE = 0.04;  // pinceau sur la version mobile
 
     function chargerEtDessiner() {
@@ -2013,6 +2031,19 @@
 
     contenu.appendChild(fig);
     montrerDuo(0);
+
+    // Chien qui dort : sprite GIF 32x32 du dossier "dog sprite",
+    // agrandi x3 par le CSS, pose en bas a gauche cote colonne.
+    // Present uniquement sur la page Carnaval (retire a la
+    // navigation). Si le fichier est absent, l'image est retiree :
+    // jamais d'icone cassee a l'ecran.
+    const chienDort = document.createElement("img");
+    chienDort.className = "chien-dort";
+    chienDort.alt = "Chien qui dort";
+    chienDort.decoding = "async";
+    chienDort.addEventListener("error", function () { chienDort.remove(); });
+    chienDort.src = "dog%20sprite/dog%20sprite%20sleep.gif";
+    document.body.appendChild(chienDort);
   }
 
   /* --- SÃRIE PAO --- */
