@@ -19,14 +19,17 @@
   * { box-sizing: border-box; }
   html {
     -webkit-text-size-adjust: 100%;
-    /* Garde-fou lateral en doublon de celui du body : sur iOS,
-       overflow-x pose sur body SEUL n'interdit pas toujours le
-       petit pan lateral de quelques pixels. Pose aussi sur html,
-       il est respecte ; clip est plus strict que hidden (aucun pan
-       possible, meme par accident) -- les navigateurs qui ne le
-       connaissent pas gardent la ligne hidden au-dessus. */
+    /* Garde-fou lateral UNIQUEMENT ici, jamais sur body : pose
+       sur html, il monte au VIEWPORT et interdit le pan lateral
+       (les photos panoramiques debordantes restent rognees, comme
+       quand il etait sur body). Pose sur body AUSSI, il ferait de
+       body un conteneur de defilement -- or sur iOS, un element
+       position:fixed place DANS un conteneur de defilement (comme
+       l'icone reload) n'est plus fixe a l'ecran : il defile avec
+       la page. body doit rester sans overflow. Pas de overflow-x:
+       clip non plus : Safari le buggue (il rogne aussi l'axe
+       VERTICAL, bug encore vivant en 2026). */
     overflow-x: hidden;
-    overflow-x: clip;
     /* Fleche bleue du site, en SVG inline. Le SVG est encode en
        %XX dans son INTEGRALITE (espaces, crochets, guillemets) :
        les caracteres bruts (< > et espaces) dans un data URI
@@ -42,10 +45,10 @@
     background: var(--fond);
     color: var(--texte);
     font: 14px/1.55 "Helvetica Neue", Helvetica, Arial, sans-serif;
-    overflow-x: hidden;
-    overflow-x: clip;    /* plus strict que hidden : aucun pan lateral
-                            possible ; les vieux navigateurs gardent la
-                            ligne hidden juste au-dessus */
+    /* Aucun overflow-x ici : le garde-fou lateral vit sur html
+       (voir plus haut). Sur body, un overflow en ferait un
+       conteneur de defilement et casserait les elements
+       position:fixed (icone reload) sur iOS. */
     /* MOBILE : touch-action: manipulation tue le ZOOM DOUBLE-TAP
        (le site se retrecissait un peu par accident en tapotant).
        Le grattage n'est pas touche : #canvas-accueil garde son
