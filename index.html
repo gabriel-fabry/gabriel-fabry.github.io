@@ -186,10 +186,10 @@
   .chien-dort {
     position: fixed;
     left: var(--marge);
-    /* Remonte de 40 px : avec la photo d'accueil desormais haute
-       de 92 vh et les icones collees au bas de l'image, le chien
-       paraissait trop bas -- il vit desormais sur une ligne un
-       peu plus haute. Pour affiner : cette seule valeur. */
+    /* Remonte de 29 px (reglage affiné a la main) : avec la photo
+       d'accueil haute de 100 vh - 2 marges et les icones collees
+       au bas de l'image, le chien vivait trop bas sur sa ligne
+       d'avant. Pour affiner : cette seule valeur. */
     bottom: calc(var(--marge) - 11px);
     width: 96px;
     height: 96px;
@@ -657,6 +657,14 @@
       max-height: 85vh;
       max-height: 85dvh;   /* suit la barre d'adresse : la photo ne saute plus */
     }
+    /* Le cadre prend TOUTE la largeur du contenu des le premier
+       affichage. Sinon, avant le chargement de la photo, le
+       canvas vide (300 x 150 par defaut) rendait le cadre plus
+       etroit que la photo finale : l'icone souffle, calee au
+       bord DROIT du cadre, naissait trop a GAUCHE un court
+       instant, puis sautait a sa place au chargement de la
+       photo. Largeur fixe = position stable immediatement. */
+    .cadre-accueil { width: 100%; }
 
     .pao-duo { flex-direction: column; gap: 20px; }
     .pao-cadre { width: 100%; }
