@@ -171,7 +171,23 @@ const SERIES = [
           "Edition_1 9.jpg",
           "Edition_1 10.jpg"] 
       },
-      { titre: "Home", dossier: "home", images: [] },
+      { titre: "Arles", 
+	  dossier: "Arles", 
+	  images: [
+		  "Arles1.jpeg",
+		  "Arles2.jpeg",
+		  "Arles3.jpeg",
+		  "Arles4.jpeg",
+		  "Arles5.jpeg",
+		  "Arles6.jpeg",
+		  "Arles7.jpeg",
+		  "Arles8.jpeg",
+		  "Arles9.jpeg",
+		  "Arles10.jpeg",
+		  "Arles11.jpeg",
+		  "Arles12.jpeg",
+		  "Arles13.jpeg"] 
+	  },
       { titre: "Portraits de famille", dossier: "portraits-de-famille", images: [] }
     ]
   }
