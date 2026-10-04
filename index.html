@@ -1653,33 +1653,103 @@
 
     photo.onload = chargerEtDessiner;
 
-    // RÃ¨gle anti-rÃ©pÃ©tition : une mÃªme image ne REVIENT que lorsque
-    // un maximum d'autres images sont passÃ©es avant elle. L'Ã©cart
-    // cible est ECART_ACCUEIL, plafonnÃ© au nombre d'images disponibles
-    // moins une : une image ne revient donc qu'aprÃ¨s que TOUTES les
-    // autres sont sorties depuis sa derniÃ¨re apparition -- avec peu
-    // d'images, on fait ainsi le tour complet du dossier avant tout
-    // retour ; avec beaucoup, on revoie la mÃªme seulement aprÃ¨s au
-    // moins ECART_ACCUEIL autres images. (Avant : historique fixe de
-    // 10 ; dÃ¨s que le dossier comptait 10 images ou moins, le filtre
-    // ne laissait AUCUNE candidate et le tirage retombait sur tout le
-    // dossier, d'oÃ¹ les rÃ©pÃ©titions rapides.)
-    // L'historique est mÃ©morisÃ© entre les visites (localStorage).
-    const ECART_ACCUEIL = 50; // Ã©cart cible entre deux apparitions d'une mÃªme image
-    const HISTO_MAX = ECART_ACCUEIL; // mÃ©moire assez longue pour servir l'Ã©cart cible
-    let historiqueAccueil = [];
-    try {
-      historiqueAccueil = JSON.parse(localStorage.getItem("accueil-historique")) || [];
-      if (!Array.isArray(historiqueAccueil)) historiqueAccueil = [];
-    } catch (e) {
-      historiqueAccueil = [];
-    }
-    function enregistrerAccueil(url) {
-      historiqueAccueil.push(url);
-      if (historiqueAccueil.length > HISTO_MAX) historiqueAccueil.shift();
+    // RÃ¨gle anti-rÃ©pÃ©tition -- le PAQUET DE CARTES : le dossier est
+    // mÃ©langÃ© une fois pour toutes, puis les photos sont tirÃ©es dans
+    // cet ordre. Chaque image passe EXACTEMENT UNE fois par cycle :
+    // une photo ne peut pas revenir avant que le dossier ENTIER soit
+    // passÃ© -- 180 images, 90 couples par cycle, pas une visite de
+    // moins. Quand le paquet est Ã©puisÃ©, on remÃ©lange et le tour
+    // recommence : la premiÃ¨re carte d'un nouveau cycle n'est jamais
+    // la derniÃ¨re servie du prÃ©cÃ©dent. La photo D'AU-DESSUS et celle
+    // D'EN-DESSOUS (celle que le grattage dÃ©couvre) sortent de la
+    // MÃME file, l'une aprÃ¨s l'autre : les deux photos d'une visite
+    // sont toujours diffÃ©rentes, et aucun couple ne se rÃ©pÃ¨te. La
+    // file restante est mÃ©morisÃ©e entre les visites (localStorage) :
+    // chaque visite continue le cycle en cours au lieu de repartir
+    // de zÃ©ro. Les images ajoutÃ©es au dossier au fil du temps sont
+    // glissÃ©es au hasard DANS la file restante : elles attendent le
+    // prochain tirage, pas la fin du cycle en cours.
+    let paquetAccueil = null; // { max, reste, derniere } : voir ci-dessous
+    function chargerPaquetAccueil() {
       try {
-        localStorage.setItem("accueil-historique", JSON.stringify(historiqueAccueil));
-      } catch (e) { /* stockage indisponible : on continue sans mÃ©moire */ }
+        const brut = JSON.parse(localStorage.getItem("accueil-paquet"));
+        if (brut && typeof brut.max === "number" && Array.isArray(brut.reste)) {
+          return { max: brut.max, reste: brut.reste, derniere: brut.derniere };
+        }
+      } catch (e) { /* stockage indisponible : paquet neuf */ }
+      return null;
+    }
+    function sauvegarderPaquetAccueil() {
+      if (!paquetAccueil) return;
+      try {
+        localStorage.setItem("accueil-paquet", JSON.stringify(paquetAccueil));
+        // L'ancien systÃ¨me (historique des 50 derniÃ¨res) ne sert plus.
+        localStorage.removeItem("accueil-historique");
+      } catch (e) { /* sans mÃ©moire : le cycle repartira de zÃ©ro */ }
+    }
+    function melangerAccueil(liste) {
+      // Fisher-Yates : toutes les permutations sont Ã©quiprobables.
+      for (let i = liste.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = liste[i];
+        liste[i] = liste[j];
+        liste[j] = temp;
+      }
+      return liste;
+    }
+    function preparerPaquetAccueil(total) {
+      if (!paquetAccueil) paquetAccueil = chargerPaquetAccueil() || { max: 0, reste: [], derniere: null };
+      // Dossier raccourci (images retirÃ©es) : on nettoie la file.
+      if (total < paquetAccueil.max) {
+        paquetAccueil.reste = paquetAccueil.reste.filter(function (n) { return n <= total; });
+        paquetAccueil.max = total;
+      }
+      // Images AJOUTÃES depuis la derniÃ¨re visite : glissÃ©es au
+      // hasard dans la file restante, pour les voir sans attendre
+      // la fin du cycle en cours.
+      while (paquetAccueil.max < total) {
+        paquetAccueil.max++;
+        const pos = Math.floor(Math.random() * (paquetAccueil.reste.length + 1));
+        paquetAccueil.reste.splice(pos, 0, paquetAccueil.max);
+      }
+      // File Ã©puisÃ©e : on remÃ©lange TOUT le dossier. La premiÃ¨re
+      // carte ne doit pas Ãªtre la derniÃ¨re servie -- sinon la mÃªme
+      // photo repasserait deux fois de suite, Ã  la frontiÃ¨re des
+      // deux cycles.
+      if (paquetAccueil.reste.length === 0 && total > 0) {
+        const cartes = [];
+        for (let n = 1; n <= total; n++) cartes.push(n);
+        paquetAccueil.reste = melangerAccueil(cartes);
+        if (total > 1 && paquetAccueil.reste[0] === paquetAccueil.derniere) {
+          const j = 1 + Math.floor(Math.random() * (total - 1));
+          const temp = paquetAccueil.reste[0];
+          paquetAccueil.reste[0] = paquetAccueil.reste[j];
+          paquetAccueil.reste[j] = temp;
+        }
+      }
+      sauvegarderPaquetAccueil();
+    }
+    function tirerCarteAccueil(poolNumeros) {
+      // Prend la PREMIÃRE carte de la file qui convient au tirage
+      // (verticale seulement pour la photo du dessus, sur mobile) ;
+      // les cartes sautÃ©es restent en tÃªte de file : elles serviront
+      // aux prochains tirages -- jamais deux fois la mÃªme. File vide
+      // au moment du tirage : on remÃ©lange d'abord.
+      if (paquetAccueil.reste.length === 0) preparerPaquetAccueil(paquetAccueil.max);
+      let carte = null;
+      for (let i = 0; i < paquetAccueil.reste.length; i++) {
+        if (poolNumeros.indexOf(paquetAccueil.reste[i]) !== -1) {
+          carte = paquetAccueil.reste.splice(i, 1)[0];
+          break;
+        }
+      }
+      if (carte === null) {
+        // Plus AUCUNE carte du pool dans la file (derniÃ¨res images
+        // horizontales d'un cycle, sur mobile) : on sert la tÃªte.
+        carte = paquetAccueil.reste.shift();
+      }
+      paquetAccueil.derniere = carte;
+      return carte;
     }
 
     // Comptage automatique des images du dossier, puis tirage au sort.
@@ -1699,48 +1769,35 @@
     const dimsAccueil = {};
     function tirerImageAccueil(total) {
       totalAccueil = total;
-      const urls = [];
-      for (let n = 1; n <= total; n++) {
-        urls.push("images/accueil/accueil" + n + ".jpg");
-      }
+      preparerPaquetAccueil(total);
       // Sur MOBILE, la photo DU DESSUS n'est jamais HORIZONTALE :
       // on ne tire que parmi les images VERTICALES (elles seront
-      // de toute facon recadrees en 5 x 7 par chargerEtDessiner).
-      // S'il n'y en a aucune, on garde tout. La frontiere mobile
-      // est la meme que la mise en page (max-width: 760px).
+      // de toute faÃ§on recadrÃ©es en 5 x 7 par chargerEtDessiner).
+      // La photo D'EN-DESSOUS, elle, peut Ãªtre horizontale : le
+      // grattage la dÃ©couvre, aucune contrainte de taille pour
+      // elle. La frontiÃ¨re mobile est la mÃªme que la mise en page
+      // (max-width: 760px).
       const mobile = !!(window.matchMedia &&
         window.matchMedia("(max-width: 760px)").matches);
-      let pool = urls;
+      const toutes = [];
+      for (let n = 1; n <= total; n++) toutes.push(n);
+      let pool = toutes;
       if (mobile) {
-        const verticales = urls.filter(function (u) {
-          const d = dimsAccueil[u];
+        const verticales = toutes.filter(function (n) {
+          const d = dimsAccueil["images/accueil/accueil" + n + ".jpg"];
           return !d || d.h >= d.l;   // dimensions inconnues : on garde
         });
         if (verticales.length > 0) pool = verticales;
       }
-      // Ãcart maximal possible : on exclut les derniÃ¨res images
-      // sorties DU POOL (pas de l'historique entier : il peut
-      // contenir des images horizontales, jamais tirÃ©es en photo du
-      // dessus sur mobile), en nombre plafonnÃ© au pool moins une.
-      // RÃ©sultat : une mÃªme image ne revient qu'aprÃ¨s que TOUTES les
-      // autres sont passÃ©es -- ou au moins ECART_ACCUEIL si le
-      // dossier est immense.
-      const ecart = Math.min(ECART_ACCUEIL, pool.length - 1);
-      const exclus = ecart > 0
-        ? historiqueAccueil.filter(function (u) { return pool.indexOf(u) !== -1; }).slice(-ecart)
-        : [];
-      let candidates = pool.filter(function (u) {
-        return exclus.indexOf(u) === -1;
-      });
-      if (candidates.length === 0) candidates = pool;
-      const choisie = candidates[Math.floor(Math.random() * candidates.length)];
-      enregistrerAccueil(choisie);
-      photo.src = choisie;
-      // La photo de dessous est une AUTRE image, tiree au hasard ; si le
-      // dossier n'en contient qu'une, on la garde (effet neutralise).
-      let autres = urls.filter(function (u) { return u !== choisie; });
-      if (autres.length === 0) autres = urls;
-      imgDessous.src = autres[Math.floor(Math.random() * autres.length)];
+      // Deux cartes de suite dans la mÃªme file : celle DU DESSUS,
+      // puis celle que le grattage dÃ©couvrira. S'il n'y a qu'une
+      // image au dossier, la photo du dessous est la mÃªme que celle
+      // du dessus (effet neutralisÃ©, comme avant).
+      const numDessus = tirerCarteAccueil(pool);
+      const numDessous = tirerCarteAccueil(toutes);
+      sauvegarderPaquetAccueil();
+      photo.src = "images/accueil/accueil" + numDessus + ".jpg";
+      imgDessous.src = "images/accueil/accueil" + numDessous + ".jpg";
     }
     function sonderAccueil(debut, fin) {
       // restants est compte d'avance : le lot est clos quelle que soit
