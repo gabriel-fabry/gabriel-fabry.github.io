@@ -2092,7 +2092,22 @@
     boutonRafraichir.title = "Changer la photo";
     boutonRafraichir.setAttribute("aria-label", "Changer la photo d'accueil");
     boutonRafraichir.addEventListener("click", rafraichirImageAccueil);
-    cadre.appendChild(boutonRafraichir);
+    // SUR MOBILE, le bouton est pose sur le BODY, pas dans le
+    // cadre : sa regle CSS y est position:fixed, or sur iOS un
+    // element fixed pris dans la cascade figure/main peut etre
+    // ancre au document -- il defile avec la page au lieu de
+    // rester colle a l'ecran. Direct sous body, il n'a plus que
+    // html comme ancetre : la fixite est garantie. Sur DESKTOP il
+    // reste dans le cadre, ou sa position absolute se cale contre
+    // la colonne de gauche. Le bouton est recree a chaque visite
+    // de l'accueil : un retournement d'ecran redecide de sa place
+    // au prochain passage. Meme seuil que le CSS : max-width 760px.
+    if (window.matchMedia &&
+        window.matchMedia("(max-width: 760px)").matches) {
+      document.body.appendChild(boutonRafraichir);
+    } else {
+      cadre.appendChild(boutonRafraichir);
+    }
   }
 
   // Remplacement d'une photo en fondu : la nouvelle image est
