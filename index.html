@@ -129,13 +129,15 @@
     position: relative;
     z-index: 1;            /* au-dessus de la photo de dessous */
     /* DESKTOP : TOUTES les photos du dessus ont la MEME HAUTEUR
-       (92 vh) -- la largeur suit le format propre de chaque
-       image : verticale ou horizontale, aucune ne parait plus
-       petite que les autres. Le ratio du canvas est conserve,
-       aucune deformation. Pas de max-width : une image tres
-       panoramique garde sa hauteur, l'eventuel debordement est
-       simplement rogne par la page (overflow-x masque). */
-    height: 92vh;
+       -- la largeur suit le format propre de chaque image
+       (aucune deformation : le ratio du canvas est conserve).
+       La hauteur est calculee pour que la page d'accueil tienne
+       EXACTEMENT dans l'ecran (marge du haut + photo + marge du
+       bas = 100 vh) : plus AUCUN scroll residuel. Pas de
+       max-width : une image tres panoramique garde sa hauteur,
+       l'eventuel debordement est simplement rogne par la page
+       (overflow-x masque). */
+    height: calc(100vh - 2 * var(--marge));
     width: auto;
     cursor: grab !important;
     user-select: none;
@@ -181,7 +183,7 @@
        de 92 vh et les icones collees au bas de l'image, le chien
        paraissait trop bas -- il vit desormais sur une ligne un
        peu plus haute. Pour affiner : cette seule valeur. */
-    bottom: calc(var(--marge) + 7px);
+    bottom: calc(var(--marge) - 7px);
     width: 96px;
     height: 96px;
     image-rendering: pixelated;
@@ -237,7 +239,14 @@
      photo : plus aucun decalage, quel que soit l'ecran. */
   .figure-accueil {
     position: relative;
+    margin-bottom: 0;   /* pas de marge sous la figure : la page tient pile a l'ecran */
   }
+  /* Page d'accueil : le gros padding du bas de main (120 px, utile
+     sur les pages qui scrollent) est reduit a la marge -- la
+     photo et ses marges occupent exactement 100 vh, plus aucun
+     scroll inutile. La classe est posee par dessinerAccueil et
+     retiree par afficher. */
+  body.page-accueil main { padding-bottom: var(--marge); }
   /* Cadre qui epouse exactement la photo grattée (le figure peut
      contenir aussi l'emoji, plus bas, sur mobile) : la photo de
      dessous est rognée sur la photo du dessus, jamais au-dela */
@@ -628,8 +637,8 @@
     main figure.serie img { max-height: none; }
     /* Sur mobile, la photo d'accueil tient dans l'ecran : les pixels
        grattes tombent sur un sol toujours visible, jamais sous l'ecran.
-       On annule la hauteur fixe du desktop (92 vh) : la photo 5 x 7
-       s'adapte a la largeur de l'ecran, plafonnee a 85 vh. */
+       On annule la hauteur fixe du desktop (100 vh - 2 marges) : la
+       photo 5 x 7 s'adapte a la largeur de l'ecran, plafonnee a 85 vh. */
     #canvas-accueil {
       height: auto;
       width: auto;
@@ -907,6 +916,10 @@
 
   function afficher() {
     window.reinitialiserAccueil = null;
+    // La classe page-accueil ne doit vivre que sur l'accueil (elle
+    // reduit le padding du bas pour que la page tienne pile a
+    // l'ecran) : on l'enleve a chaque changement de page.
+    document.body.classList.remove("page-accueil");
     // Le bouton rafraichir ne vit que sur la page d'accueil : il
     // est retire des qu'on change de page (dessinerAccueil le
     // recree en revenant).
@@ -1553,6 +1566,9 @@
   function dessinerAccueil() {
     document.title = SITE.nom;
     if (!SITE.accueil) return;
+    // Page-accueil : reduit le padding du bas de main -- photo et
+    // marges occupent exactement 100 vh, aucun scroll inutile.
+    document.body.classList.add("page-accueil");
 
     const fig = document.createElement("figure");
     fig.className = "figure-accueil";
@@ -1613,11 +1629,11 @@
     // DEUX regles d'affichage pour la photo DU DESSUS, selon la
     // version :
     // - DESKTOP : la photo ENTIERE, et TOUTES les photos a la
-    //   MEME HAUTEUR (92 vh, regle CSS #canvas-accueil) -- la
-    //   largeur suit le format propre de chaque image, ni plus
-    //   ni moins : verticale ou horizontale, aucune ne parait
-    //   plus petite que les autres. Aucun recadrage, aucun
-    //   etirement.
+    //   MEME HAUTEUR (100 vh moins les deux marges, regle CSS
+    //   #canvas-accueil) -- la largeur suit le format propre de
+    //   chaque image, ni plus ni moins : verticale ou
+    //   horizontale, aucune ne parait plus petite que les
+    //   autres. Aucun recadrage, aucun etirement.
     // - MOBILE : toute image VERTICALE est RECADREE au ratio
     //   5 x 7 (5 de large, 7 de haut), au plus grand et CENTRE,
     //   quitte a rogner -- jamais d'etirement. (Et le tirage
