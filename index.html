@@ -19,6 +19,14 @@
   * { box-sizing: border-box; }
   html {
     -webkit-text-size-adjust: 100%;
+    /* Garde-fou lateral en doublon de celui du body : sur iOS,
+       overflow-x pose sur body SEUL n'interdit pas toujours le
+       petit pan lateral de quelques pixels. Pose aussi sur html,
+       il est respecte ; clip est plus strict que hidden (aucun pan
+       possible, meme par accident) -- les navigateurs qui ne le
+       connaissent pas gardent la ligne hidden au-dessus. */
+    overflow-x: hidden;
+    overflow-x: clip;
     /* Fleche bleue du site, en SVG inline. Le SVG est encode en
        %XX dans son INTEGRALITE (espaces, crochets, guillemets) :
        les caracteres bruts (< > et espaces) dans un data URI
@@ -35,6 +43,9 @@
     color: var(--texte);
     font: 14px/1.55 "Helvetica Neue", Helvetica, Arial, sans-serif;
     overflow-x: hidden;
+    overflow-x: clip;    /* plus strict que hidden : aucun pan lateral
+                            possible ; les vieux navigateurs gardent la
+                            ligne hidden juste au-dessus */
     /* MOBILE : touch-action: manipulation tue le ZOOM DOUBLE-TAP
        (le site se retrecissait un peu par accident en tapotant).
        Le grattage n'est pas touche : #canvas-accueil garde son
@@ -187,7 +198,7 @@
     left: var(--marge);
     /* Calage vertical affine a la main : pour l'ajuster,
        cette seule valeur. */
-    bottom: calc(var(--marge) + -9px);
+    bottom: calc(var(--marge) + -8px);
     width: 80px;
     height: 80px;
     image-rendering: pixelated;
@@ -571,7 +582,13 @@
     :root { --marge: 20px; }
     /* relative (identique a static dans le flux) : la colonne sert
        de repere au bouton rafraichir, aligne sur la ligne du nom */
-    aside { position: relative; width: auto; }
+    /* overflow: visible annule le overflow-y: auto du grand ecran :
+       sur mobile la colonne ne defile jamais en interne, mais cet
+       overflow-y: auto derivait en overflow-x: auto -- la zone
+       nom+menu devenait panable EN LARGEUR de quelques pixels des
+       qu'un texte y debordait d'un poil (le petit scroll lateral
+       vers la droite). */
+    aside { position: relative; width: auto; overflow: visible; }
     /* La colonne est en flex : par defaut le lien du nom s'etire
        sur toute la largeur et captait aussi les clics dans le vide
        a droite du texte (un clic la-bas rechargait la page !).
@@ -643,6 +660,11 @@
       left: auto;           /* annule le flanc de colline du grand ecran */
       bottom: auto;
       top: calc(var(--marge) + 3px);
+      /* iOS : un element fixed qui reste sur le calque general de
+         la page sautille pendant le scroll, surtout quand un
+         canvas se redessine a cote. translateZ(0) le pose sur son
+         PROPRE calque : l'icone reste bien figee a l'ecran. */
+      transform: translateZ(0);
       right: var(--marge);
       padding: 0;
       margin: 0;
