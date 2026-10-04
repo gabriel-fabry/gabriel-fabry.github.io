@@ -190,7 +190,7 @@
        d'accueil haute de 100 vh - 2 marges et les icones collees
        au bas de l'image, le chien vivait trop bas sur sa ligne
        d'avant. Pour affiner : cette seule valeur. */
-    bottom: calc(var(--marge) - 11px);
+    bottom: calc(var(--marge) + -8px);
     width: 80px;
     height: 80px;
     image-rendering: pixelated;
@@ -287,7 +287,7 @@
   .bouton-rafraichir {
     position: absolute;    /* DANS le cadre : bas colle au bas de la photo */
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
-    left: calc(-65px - var(--marge));  /* colonne de gauche, comme avant */
+    left: calc(-68px - var(--marge));  /* colonne de gauche, comme avant */
     bottom: 0;
     padding: 0;
     margin: 0;
@@ -845,7 +845,20 @@
         l.appendChild(creerLien(s));
         sub.appendChild(l);
       });
-      b.addEventListener("click", function () { basculer(b, sub); });
+      b.addEventListener("click", function () {
+        basculer(b, sub);
+        // Depuis la page Contact, ouvrir un groupe doit aussi
+        // QUITTER le jeu de la mouche : la page Contact n'a pas de
+        // contenu visible (juste le jeu), donc rester dessus laissait
+        // les mouches voler alors qu'on vient de cliquer "Journal" ou
+        // "Auto-editions". Le bouton d'un groupe se comporte alors
+        // comme un lien vers sa premiere serie : le jeu s'arrete et
+        // une vraie page s'affiche. (Uniquement a l'OUVERTURE : si le
+        // groupe etait deja ouvert, le clic le referme, on ne part pas.)
+        if (location.hash === "#contact" && !sub.hidden) {
+          location.hash = serie.sous[0].dossier;
+        }
+      });
       groupes.push({ bouton: b, liste: sub, enfants: serie.sous.map(function (s) { return s.dossier; }) });
       li.append(b, sub);
     } else {
@@ -1703,10 +1716,20 @@
 
     photo.onload = chargerEtDessiner;
 
-    // Règle anti-répétition : une même image ne peut pas revenir tant que
-    // 10 images différentes ne sont pas passées avant elle.
+    // Règle anti-répétition : une même image ne REVIENT que lorsque
+    // un maximum d'autres images sont passées avant elle. L'écart
+    // cible est ECART_ACCUEIL, plafonné au nombre d'images disponibles
+    // moins une : une image ne revient donc qu'après que TOUTES les
+    // autres sont sorties depuis sa dernière apparition -- avec peu
+    // d'images, on fait ainsi le tour complet du dossier avant tout
+    // retour ; avec beaucoup, on revoie la même seulement après au
+    // moins ECART_ACCUEIL autres images. (Avant : historique fixe de
+    // 10 ; dès que le dossier comptait 10 images ou moins, le filtre
+    // ne laissait AUCUNE candidate et le tirage retombait sur tout le
+    // dossier, d'où les répétitions rapides.)
     // L'historique est mémorisé entre les visites (localStorage).
-    const HISTO_MAX = 10;
+    const ECART_ACCUEIL = 50; // écart cible entre deux apparitions d'une même image
+    const HISTO_MAX = ECART_ACCUEIL; // mémoire assez longue pour servir l'écart cible
     let historiqueAccueil = [];
     try {
       historiqueAccueil = JSON.parse(localStorage.getItem("accueil-historique")) || [];
@@ -1758,8 +1781,19 @@
         });
         if (verticales.length > 0) pool = verticales;
       }
+      // Écart maximal possible : on exclut les dernières images
+      // sorties DU POOL (pas de l'historique entier : il peut
+      // contenir des images horizontales, jamais tirées en photo du
+      // dessus sur mobile), en nombre plafonné au pool moins une.
+      // Résultat : une même image ne revient qu'après que TOUTES les
+      // autres sont passées -- ou au moins ECART_ACCUEIL si le
+      // dossier est immense.
+      const ecart = Math.min(ECART_ACCUEIL, pool.length - 1);
+      const exclus = ecart > 0
+        ? historiqueAccueil.filter(function (u) { return pool.indexOf(u) !== -1; }).slice(-ecart)
+        : [];
       let candidates = pool.filter(function (u) {
-        return historiqueAccueil.indexOf(u) === -1;
+        return exclus.indexOf(u) === -1;
       });
       if (candidates.length === 0) candidates = pool;
       const choisie = candidates[Math.floor(Math.random() * candidates.length)];
