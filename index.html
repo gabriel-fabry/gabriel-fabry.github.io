@@ -128,10 +128,15 @@
     display: block;
     position: relative;
     z-index: 1;            /* au-dessus de la photo de dessous */
-    max-width: 100%;
-    max-height: 92vh;
+    /* DESKTOP : TOUTES les photos du dessus ont la MEME HAUTEUR
+       (92 vh) -- la largeur suit le format propre de chaque
+       image : verticale ou horizontale, aucune ne parait plus
+       petite que les autres. Le ratio du canvas est conserve,
+       aucune deformation. Pas de max-width : une image tres
+       panoramique garde sa hauteur, l'eventuel debordement est
+       simplement rogne par la page (overflow-x masque). */
+    height: 92vh;
     width: auto;
-    height: auto;
     cursor: grab !important;
     user-select: none;
     -webkit-user-select: none;
@@ -172,7 +177,11 @@
   .chien-dort {
     position: fixed;
     left: var(--marge);
-    bottom: var(--marge);
+    /* Remonte de 40 px : avec la photo d'accueil desormais haute
+       de 92 vh et les icones collees au bas de l'image, le chien
+       paraissait trop bas -- il vit desormais sur une ligne un
+       peu plus haute. Pour affiner : cette seule valeur. */
+    bottom: calc(var(--marge) + 7px);
     width: 96px;
     height: 96px;
     image-rendering: pixelated;
@@ -220,14 +229,12 @@
   html.chien-pointeur-detruit #canvas-accueil,
   html.chien-pointeur-detruit #canvas-accueil:active { cursor: none !important; }
 
-  /* Emoji souffle : DANS LA COLONNE DE GAUCHE, a droite du chien
-     qui dort (qui occupe deja le flanc gauche de la colonne),
-     ALIGNÉ SUR LA HAUTEUR VISUELLE du chien : son sprite a une
-     zone vide transparente autour de lui, ses pattes sont en
-     realite ~9 px plus HAUT que sa ligne CSS (bottom:
-     var(--marge)) -- on remonte les icones d'autant pour qu'elles
-     tiennent sur la meme ligne que lui. Position fixe :
-     l'alignement tient quel que soit le defilement. */
+  /* Icone souffle : DANS LA COLONNE DE GAUCHE, a droite du chien
+     qui dort, et COLLEE AU BAS DE LA PHOTO. L'icone est posee
+     DANS le cadre (position absolute -- le cadre epouse
+     exactement la photo grattée) : bottom: 0 cale son bas sur le
+     bas DE L'IMAGE elle-meme, et l'alignement defile avec la
+     photo : plus aucun decalage, quel que soit l'ecran. */
   .figure-accueil {
     position: relative;
   }
@@ -240,10 +247,10 @@
     vertical-align: bottom;
   }
   .bouton-vent {
-    position: fixed;
+    position: absolute;    /* DANS le cadre : bas colle au bas de la photo */
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
-    left: calc(var(--largeur-menu) - 44px);
-    bottom: calc(var(--marge) + 9px);
+    left: calc(-44px - var(--marge));  /* colonne de gauche, comme avant */
+    bottom: 0;
     padding: 0;
     margin: 0;
     border: none;
@@ -256,16 +263,16 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Emoji de rafraichissement de la photo d'accueil : tire une
+  /* Icone de rafraichissement de la photo d'accueil : tire une
      NOUVELLE photo au hasard sans recharger la page. Pose JUSTE A
-     GAUCHE de l'emoji souffle, dans la colonne de gauche, sur la
-     meme ligne VISUELLE que le chien (+9 px, zone vide du
-     sprite). */
+     GAUCHE de l'icone souffle, dans la colonne de gauche, son bas
+     ALIGNÉ sur le bas de la photo (position absolute dans le
+     cadre, comme le souffle). */
   .bouton-rafraichir {
-    position: fixed;
+    position: absolute;    /* DANS le cadre : bas colle au bas de la photo */
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
-    left: calc(var(--largeur-menu) - 88px);
-    bottom: calc(var(--marge) + 9px);
+    left: calc(-88px - var(--marge));  /* colonne de gauche, comme avant */
+    bottom: 0;
     padding: 0;
     margin: 0;
     border: none;
@@ -620,8 +627,15 @@
     main img { max-height: none; }
     main figure.serie img { max-height: none; }
     /* Sur mobile, la photo d'accueil tient dans l'ecran : les pixels
-       grattes tombent sur un sol toujours visible, jamais sous l'ecran. */
-    #canvas-accueil { max-height: 85vh; }
+       grattes tombent sur un sol toujours visible, jamais sous l'ecran.
+       On annule la hauteur fixe du desktop (92 vh) : la photo 5 x 7
+       s'adapte a la largeur de l'ecran, plafonnee a 85 vh. */
+    #canvas-accueil {
+      height: auto;
+      width: auto;
+      max-width: 100%;
+      max-height: 85vh;
+    }
 
     .pao-duo { flex-direction: column; gap: 20px; }
     .pao-cadre { width: 100%; }
@@ -1596,12 +1610,48 @@
     const PINCEAU_TAILLE_DESKTOP = 0.04; // pinceau sur grand ecran
     const PINCEAU_TAILLE_MOBILE = 0.04;  // pinceau sur la version mobile
 
+    // DEUX regles d'affichage pour la photo DU DESSUS, selon la
+    // version :
+    // - DESKTOP : la photo ENTIERE, et TOUTES les photos a la
+    //   MEME HAUTEUR (92 vh, regle CSS #canvas-accueil) -- la
+    //   largeur suit le format propre de chaque image, ni plus
+    //   ni moins : verticale ou horizontale, aucune ne parait
+    //   plus petite que les autres. Aucun recadrage, aucun
+    //   etirement.
+    // - MOBILE : toute image VERTICALE est RECADREE au ratio
+    //   5 x 7 (5 de large, 7 de haut), au plus grand et CENTRE,
+    //   quitte a rogner -- jamais d'etirement. (Et le tirage
+    //   mobile ne choisit jamais d'image horizontale : voir
+    //   tirerImageAccueil.)
+    let recadrage = { sx: 0, sy: 0, l: 0, h: 0 };  // la part de la photo affichee
     function chargerEtDessiner() {
-      const plusLong = Math.max(photo.naturalWidth, photo.naturalHeight);
+      const RATIO_5_7 = 5 / 7;
+      let sx = 0;                        // coin du recadrage dans la photo
+      let sy = 0;
+      let l = photo.naturalWidth;
+      let h = photo.naturalHeight;
+      const mobile = !!(window.matchMedia &&
+        window.matchMedia("(max-width: 760px)").matches);
+      if (mobile && h > l) {
+        // Image verticale sur MOBILE : on retaille son cadre en 5 x 7.
+        if (l / h > RATIO_5_7) {
+          // Plus large que 5:7 (ex. 3:4) : on rogne la LARGEUR.
+          const c = Math.round(h * RATIO_5_7);
+          sx = Math.floor((l - c) / 2);
+          l = c;
+        } else {
+          // Plus etroite que 5:7 (ex. 2:3) : on rogne la HAUTEUR.
+          const c = Math.round(l / RATIO_5_7);
+          sy = Math.floor((h - c) / 2);
+          h = c;
+        }
+      }
+      recadrage = { sx: sx, sy: sy, l: l, h: h };
+      const plusLong = Math.max(l, h);
       const k = plusLong > RESOLUTION_MAX ? RESOLUTION_MAX / plusLong : 1;
-      canvas.width = Math.max(1, Math.round(photo.naturalWidth * k));
-      canvas.height = Math.max(1, Math.round(photo.naturalHeight * k));
-      ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+      canvas.width = Math.max(1, Math.round(l * k));
+      canvas.height = Math.max(1, Math.round(h * k));
+      ctx.drawImage(photo, sx, sy, l, h, 0, 0, canvas.width, canvas.height);
       imgDessous.style.visibility = "visible";
       photoSale = true;
     }
@@ -1645,16 +1695,37 @@
     // Total decouvert par les sondes : le bouton rafraichir le
     // ressert sans resonder le dossier (les sondes sont en cache).
     let totalAccueil = 0;
+    // Dimensions de chaque image, relevees par les sondes quand
+    // elles chargent : elles servent a ecarter les images
+    // HORIZONTALES du tirage de la photo DU DESSUS sur mobile --
+    // recadee aux dimensions du petit ecran, une image horizontale
+    // deviendrait minuscule et sans interet.
+    const dimsAccueil = {};
     function tirerImageAccueil(total) {
       totalAccueil = total;
       const urls = [];
       for (let n = 1; n <= total; n++) {
         urls.push("images/accueil/accueil" + n + ".jpg");
       }
-      let candidates = urls.filter(function (u) {
+      // Sur MOBILE, la photo DU DESSUS n'est jamais HORIZONTALE :
+      // on ne tire que parmi les images VERTICALES (elles seront
+      // de toute facon recadrees en 5 x 7 par chargerEtDessiner).
+      // S'il n'y en a aucune, on garde tout. La frontiere mobile
+      // est la meme que la mise en page (max-width: 760px).
+      const mobile = !!(window.matchMedia &&
+        window.matchMedia("(max-width: 760px)").matches);
+      let pool = urls;
+      if (mobile) {
+        const verticales = urls.filter(function (u) {
+          const d = dimsAccueil[u];
+          return !d || d.h >= d.l;   // dimensions inconnues : on garde
+        });
+        if (verticales.length > 0) pool = verticales;
+      }
+      let candidates = pool.filter(function (u) {
         return historiqueAccueil.indexOf(u) === -1;
       });
-      if (candidates.length === 0) candidates = urls;
+      if (candidates.length === 0) candidates = pool;
       const choisie = candidates[Math.floor(Math.random() * candidates.length)];
       enregistrerAccueil(choisie);
       photo.src = choisie;
@@ -1688,7 +1759,11 @@
       for (let n = debut; n <= fin; n++) {
         (function (num) {
           const sonde = new Image();
-          sonde.onload = function () { sondeTerminee(num, true); };
+          sonde.onload = function () {
+            dimsAccueil["images/accueil/accueil" + num + ".jpg"] =
+              { l: sonde.naturalWidth, h: sonde.naturalHeight };
+            sondeTerminee(num, true);
+          };
           sonde.onerror = function () { sondeTerminee(num, false); };
           sonde.src = "images/accueil/accueil" + num + ".jpg";
         })(n);
@@ -1699,7 +1774,10 @@
     window.reinitialiserAccueil = function () {
       if (photo.complete && photo.naturalWidth) {
         ctx.globalCompositeOperation = "source-over";
-        ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+        // Meme RECADRAGE que chargerEtDessiner : redessiner la
+        // photo ENTIERE dans un canvas 5 x 7 l'etirerait.
+        ctx.drawImage(photo, recadrage.sx, recadrage.sy, recadrage.l, recadrage.h,
+                      0, 0, canvas.width, canvas.height);
         photoSale = true;
       }
       reinitialiserPhysique();
@@ -1838,11 +1916,11 @@
     canvas.addEventListener("pointerup", stopperGomme);
     canvas.addEventListener("pointercancel", stopperGomme);
 
-    // Bouton souffle (PNG/blow.png) : pose tout en bas de la photo
-    // d'accueil,
-    // sur le flanc gauche de la colline de gauche, ALIGNÉ PAR LE
-    // BAS sur la meme ligne que le chien qui dort (regle CSS
-    // .bouton-vent, position fixe comme lui). Le micro n'est
+    // Bouton souffle (PNG/blow.png) : pose dans la colonne de
+    // gauche, sur le flanc gauche de la colline de gauche, et
+    // COLLE AU BAS DE LA PHOTO (regle CSS .bouton-vent, position
+    // absolute DANS le cadre : le bas de l'icone affleure le bas
+    // de l'image, il defile avec elle). Le micro n'est
     // active qu'apres ce clic (permission navigateur),
     // jamais automatiquement.
     const boutonVent = document.createElement("button");
@@ -1856,13 +1934,14 @@
     });
     cadre.appendChild(boutonVent);
 
-    // Emoji rafraichissement : tire une NOUVELLE photo d'accueil
+    // Icone rafraichissement : tire une NOUVELLE photo d'accueil
     // au hasard, SANS recharger la page. Meme regle
     // anti-repetition, photo de dessous retiree a nouveau,
     // grattage et monticule remis a zero. Pose JUSTE A GAUCHE de
-    // l'emoji souffle, sur la meme ligne que le chien (regle CSS
-    // .bouton-rafraichir). Sur mobile, la regle CSS le cale sur
-    // la ligne du nom du site, en haut a droite.
+    // l'icone souffle, son bas aligne sur le bas de la photo
+    // (regle CSS .bouton-rafraichir, position absolute dans le
+    // cadre, comme le souffle). Sur mobile, la regle CSS le cale
+    // sur la ligne du nom du site, en haut a droite.
     function rafraichirImageAccueil() {
       reinitialiserPhysique();
       photoSale = true;
