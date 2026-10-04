@@ -586,12 +586,14 @@
     /* relative (identique a static dans le flux) : la colonne sert
        de repere au bouton rafraichir, aligne sur la ligne du nom */
     /* overflow: visible annule le overflow-y: auto du grand ecran :
-       sur mobile la colonne ne defile jamais en interne, mais cet
+       sur mobile la colonne ne defile jamais en interne, et cet
        overflow-y: auto derivait en overflow-x: auto -- la zone
-       nom+menu devenait panable EN LARGEUR de quelques pixels des
-       qu'un texte y debordait d'un poil (le petit scroll lateral
-       vers la droite). */
-    aside { position: relative; width: auto; overflow: visible; }
+       nom+menu devenait panable EN LARGEUR. overflow-x: clip coupe
+       en plus tout debord de texte (italique du menu) vers la
+       droite, sans creer de conteneur de defilement. Le bug Safari
+       de clip (rognage de l'axe Y) est sans effet : la colonne
+       mobile n'a jamais de debord vertical. */
+    aside { position: relative; width: auto; overflow: visible; overflow-x: clip; }
     /* La colonne est en flex : par defaut le lien du nom s'etire
        sur toute la largeur et captait aussi les clics dans le vide
        a droite du texte (un clic la-bas rechargait la page !).
@@ -611,7 +613,21 @@
        forcait la page a mesurer menu + 100 vh : l'accueil etait
        plus haute que l'ecran pour rien. Ici la hauteur de main
        est celle de son contenu -- l'accueil tient dans l'ecran. */
-    main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; min-height: auto; }
+    /* overflow-x: clip : le canvas du monticule (.tas-affichage)
+       deborde VOLONTAIREMENT de 25 % de la largeur de la photo de
+       chaque cote (tasDebord, pour que les pixels tombant au bord
+       ne soient pas coupes) -- sur mobile cela depasse l'ecran
+       d'environ 80 px a droite, et iOS laisse panner la page vers
+       ce depassement (il n'a jamais respecte l'overflow-x du
+       viewport). clip le coupe au PADDING de main : ce qui depasse
+       l'ecran n'etait de toute facon pas visible, les pixels
+       tombant dans les marges de 20 px restent affiches. Aucun
+       debord VERTICAL n'est possible (le canvas du monticule a la
+       hauteur exacte de la photo) : le bug Safari de clip (qui
+       rogne aussi l'axe Y) est sans effet ici. clip ne cree jamais
+       de conteneur de defilement : les elements position:fixed
+       restent intacts. */
+    main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; min-height: auto; overflow-x: clip; }
     main img { max-height: none; }
     main figure.serie img { max-height: none; }
     /* Sur mobile, la photo d'accueil tient dans l'ecran : les pixels
