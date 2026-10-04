@@ -35,6 +35,12 @@
     color: var(--texte);
     font: 14px/1.55 "Helvetica Neue", Helvetica, Arial, sans-serif;
     overflow-x: hidden;
+    /* MOBILE : touch-action: manipulation tue le ZOOM DOUBLE-TAP
+       (le site se retrecissait un peu par accident en tapotant).
+       Le grattage n'est pas touche : #canvas-accueil garde son
+       propre touch-action: none. Le pincement a deux doigts reste
+       possible (accessibilite). */
+    touch-action: manipulation;
   }
   a, button { 
     color: inherit; 
@@ -138,6 +144,7 @@
        l'eventuel debordement est simplement rogne par la page
        (overflow-x masque). */
     height: calc(100vh - 2 * var(--marge));
+    height: calc(100dvh - 2 * var(--marge));
     width: auto;
     cursor: grab !important;
     user-select: none;
@@ -632,7 +639,11 @@
        les autres sections : plus de marge qui le fait sauter en bas */
     #menu > ul > li:last-child { margin-top: 0; }
     nav ul ul { margin: 2px 0 0 14px; }
-    main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; }
+    /* MOBILE : le min-height: 100vh de main (utile sur desktop)
+       forcait la page a mesurer menu + 100 vh : l'accueil etait
+       plus haute que l'ecran pour rien. Ici la hauteur de main
+       est celle de son contenu -- l'accueil tient dans l'ecran. */
+    main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; min-height: auto; }
     main img { max-height: none; }
     main figure.serie img { max-height: none; }
     /* Sur mobile, la photo d'accueil tient dans l'ecran : les pixels
@@ -644,6 +655,7 @@
       width: auto;
       max-width: 100%;
       max-height: 85vh;
+      max-height: 85dvh;   /* suit la barre d'adresse : la photo ne saute plus */
     }
 
     .pao-duo { flex-direction: column; gap: 20px; }
