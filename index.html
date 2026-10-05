@@ -1743,6 +1743,15 @@
     imgDessous.className = "photo-dessous";
     imgDessous.alt = "";
     imgDessous.decoding = "async";
+    imgDessous.onload = function () {
+      // pareil que la photo du dessus : reaffinage du cache de
+      // dimensions au chargement reel
+      if (photoNumDessous !== null) {
+        dimsAccueil[nomImageAccueil(photoNumDessous)] =
+          { l: imgDessous.naturalWidth, h: imgDessous.naturalHeight };
+        enregistrerDimsAccueil();
+      }
+    };
     imgDessous.style.visibility = "hidden"; // visible des que la photo principale est posee
     cadre.appendChild(imgDessous);
 
@@ -1818,6 +1827,13 @@
           h = c;
         }
       }
+      if (photoNumDessus !== null) {
+        // dimensions relevees au chargement reel : le cache local
+        // se reaffine au passage (image remplacee sur le serveur)
+        dimsAccueil[nomImageAccueil(photoNumDessus)] =
+          { l: photo.naturalWidth, h: photo.naturalHeight };
+        enregistrerDimsAccueil();
+      }
       recadrage = { sx: sx, sy: sy, l: l, h: h };
       const plusLong = Math.max(l, h);
       const k = plusLong > RESOLUTION_MAX ? RESOLUTION_MAX / plusLong : 1;
@@ -1840,22 +1856,64 @@
     photo.onload = chargerEtDessiner;
 
     // Comptage automatique des images du dossier, puis tirage au sort.
-    // Les sondes partent par lots de 10 EN PARALLELE : la photo apparait
-    // apres un ou deux allers-retours reseau, au lieu d'attendre chaque
-    // image l'une apres l'autre. Le navigateur garde les sondes en
-    // cache : la photo tiree au sort s'affiche aussitot.
+    // RYTHME D AFFICHAGE : un visiteur REGULIER voit sa photo
+    // IMMEDIATEMENT (le paquet persiste sait deja combien d images il
+    // y a, voir l appel de sonderAccueil plus bas) ; un NOUVEAU
+    // visiteur la voit des que le PREMIER lot de sondes a repondu --
+    // le comptage continue ensuite en arriere-plan, sans jamais
+    // redessiner la photo affichee.
+    // BANDE PASSANTE : les dimensions mesurees sont gardees en local
+    // (TTL 7 jours) -- les sondes SAUTENT les images deja connues :
+    // un visiteur regulier ne re-telecharge rien du tout.
     const LOT_SONDES = 10;
     // Total decouvert par les sondes : le bouton rafraichir le
     // ressert sans resonder le dossier (les sondes sont en cache).
     let totalAccueil = 0;
+    // La premiere photo a-t-elle deja ete servie (tirage immediat
+    // ou premier lot) ? Les sondes de fond ne redessinent plus
+    // ensuite : elles etendent juste la file.
+    let accueilTire = false;
     // Dimensions de chaque image, relevees par les sondes quand
     // elles chargent : elles servent a ecarter les images
     // HORIZONTALES du tirage de la photo DU DESSUS sur mobile --
     // recadee aux dimensions du petit ecran, une image horizontale
     // deviendrait minuscule et sans interet.
     const dimsAccueil = {};
+    // Cache LOCAL des dimensions (cle "accueil-dims", TTL 7 jours) :
+    // pre-remplit dimsAccueil au chargement de la page -- la sonde
+    // n a alors AUCUNE requete a faire pour ces images la. Une image
+    // REMPLACEE sur le serveur finit par etre re-mesuree quand le
+    // TTL expire, et aussi a chaque tirage reel : les dimensions
+    // relevees au chargement ecrasent celles en stock.
+    try {
+      const brutDims = JSON.parse(localStorage.getItem("accueil-dims"));
+      if (brutDims && typeof brutDims.j === "number" && brutDims.d &&
+          Date.now() - brutDims.j < 604800000) { // 7 jours en ms
+        for (const cle in brutDims.d) dimsAccueil[cle] = brutDims.d[cle];
+      }
+    } catch (e) { /* stockage indisponible : sondes normales */ }
+    function enregistrerDimsAccueil() {
+      try {
+        localStorage.setItem("accueil-dims",
+          JSON.stringify({ j: Date.now(), d: dimsAccueil }));
+      } catch (e) { /* stockage indisponible : rien de grave */ }
+    }
+    // numeros des deux cartes en cours d affichage : servent au
+    // reaffinage du cache au chargement reel (voir chargerEtDessiner
+    // et imgDessous.onload).
+    let photoNumDessus = null;
+    let photoNumDessous = null;
+    // Le total decouvert en arriere-plan BOUGE (images ajoutees au
+    // dossier depuis la derniere visite) : on etend la file sans
+    // redessiner la photo deja affichee.
+    function actualiserTotalAccueil(total) {
+      if (total === totalAccueil) return;
+      totalAccueil = total;
+      preparerPaquetAccueil(total);
+    }
     function tirerImageAccueil(total) {
       totalAccueil = total;
+      accueilTire = true;
       preparerPaquetAccueil(total);
       // Sur MOBILE, la photo DU DESSUS n'est jamais HORIZONTALE :
       // on ne tire que parmi les images VERTICALES (elles seront
@@ -1901,6 +1959,8 @@
       // du dessus (effet neutralisÃ©, comme avant).
       const numDessus = tirerCarteAccueil(pool);
       const numDessous = tirerCarteAccueil(toutes);
+      photoNumDessus = numDessus;
+      photoNumDessous = numDessous;
       sauvegarderPaquetAccueil();
       photo.src = nomImageAccueil(numDessus);
       imgDessous.src = nomImageAccueil(numDessous);
@@ -1915,19 +1975,34 @@
         restants--;
         if (restants > 0) return;
         if (premiereRatee > fin) {
-          // tout le lot existe : on sonde le lot suivant
+          // tout le lot existe : premier affichage DES MAINTENANT
+          // (nouveau visiteur -- un visiteur regulier a deja ete
+          // servi par le tirage immediat), puis comptage du lot
+          // suivant en arriere-plan, sans jamais redessiner
+          if (!accueilTire) tirerImageAccueil(fin);
           sonderAccueil(fin + 1, fin + LOT_SONDES);
           return;
         }
         const total = premiereRatee - 1;
-        if (total > 0) tirerImageAccueil(total);
-        else {
+        enregistrerDimsAccueil();
+        if (total > 0) {
+          if (!accueilTire) tirerImageAccueil(total);
+          else actualiserTotalAccueil(total);
+        } else if (!accueilTire) {
           photo.src = src; // aucune image numerotee : image par defaut
           imgDessous.src = src;
+          accueilTire = true;
         }
       };
       for (let n = debut; n <= fin; n++) {
         (function (num) {
+          const dConnues = dimsAccueil[nomImageAccueil(num)];
+          if (dConnues) {
+            // dimensions deja connues (cache local de 7 jours) :
+            // AUCUNE requete reseau, la sonde repond sur-le-champ
+            sondeTerminee(num, true);
+            return;
+          }
           const sonde = new Image();
           sonde.onload = function () {
             dimsAccueil[nomImageAccueil(num)] =
@@ -1939,6 +2014,16 @@
         })(n);
       }
     }
+    // VISITEUR REGULIER : le paquet persiste (localStorage ou cookie)
+    // sait deja combien d images existent -- premiere photo servie
+    // IMMEDIATEMENT, sans un seul aller-retour reseau. Les sondes
+    // qui suivent ne decouvrent que les images AJOUTEES depuis la
+    // derniere visite (et re-mesurent les dimensions expirees) :
+    // elles etendent la file en arriere-plan, jamais de redessin.
+    paquetAccueil = chargerPaquetAccueil();
+    if (paquetAccueil && paquetAccueil.max > 0) tirerImageAccueil(paquetAccueil.max);
+    // Nouveau visiteur : la premiere photo apparait des que le
+    // premier lot de sondes a repondu (voir sonderAccueil).
     sonderAccueil(1, LOT_SONDES);
 
     let estEnTrainDeCliquer = false;
