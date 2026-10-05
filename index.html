@@ -1127,7 +1127,12 @@
     if (!tasCanvas) tasCanvas = document.createElement("canvas");
     tasCanvas.width = tasLargeurImage + tasDebord * 2;
     tasCanvas.height = tasHauteurImage;
-    tasCtx = tasCanvas.getContext("2d");
+    // willReadFrequently : le monticule est LU a chaque arrachement
+    // de pixel (couleur de la poussiere). Sans cette option le
+    // navigateur garde le canvas sur le GPU et chaque lecture paie
+    // un aller-retour GPU-CPU -- la cause du ralenti du debut de
+    // souffle, surtout sur mobile.
+    tasCtx = tasCanvas.getContext("2d", { willReadFrequently: true });
     tasCtx.clearRect(0, 0, tasCanvas.width, tasCanvas.height);
     // Canvas d'affichage pose DANS LA PAGE, dans le cadre de la
     // photo (CSS .tas-affichage). Safari clippe les calques fixes a
@@ -1414,21 +1419,45 @@
     });
   }
 
-  function arracherPixelTas(bin) {
-    // Retire le pixel du haut d'une tranche du monticule et renvoie
-    // sa couleur, lue sur le canvas du tas juste avant l'effacement.
+  // Arrache plusieurs pixels d un coup : UNE SEULE lecture
+  // getImageData pour tout le lot (au lieu d une par pixel, la
+  // cause principale du ralenti au debut d un gros souffle).
+  // Renvoie la liste des couleurs dans l ordre des bins donnes.
+  function arracherLotsTas(bins) {
+    const couleurs = [];
+    if (bins.length === 0) return couleurs;
     const solLocal = tasCanvas.height - TAS_SOL;
-    const y = Math.round(solLocal - tasHauteurs[bin]);
-    let couleur = "#111111";
+    // bande verticale minimale couvrant toutes les tetes de tranches
+    let yMin = Infinity;
+    let yMax = -Infinity;
+    const ys = [];
+    for (let i = 0; i < bins.length; i++) {
+      const y = Math.round(solLocal - tasHauteurs[bins[i]]);
+      ys.push(y);
+      if (y < yMin) yMin = y;
+      if (y + TAS_TAILLE > yMax) yMax = y + TAS_TAILLE;
+    }
+    let px = null;
     try {
-      const px = tasCtx.getImageData(bin * TAS_BIN, y, TAS_BIN, TAS_TAILLE);
-      if (px.data[3] > 0) {
-        couleur = "#" + ((1 << 24) + (px.data[0] << 16) + (px.data[1] << 8) + px.data[2]).toString(16).slice(1);
+      px = tasCtx.getImageData(0, yMin, tasCanvas.width, yMax - yMin);
+    } catch (e) { /* canvas illisible : pixels noirs par defaut */ }
+    for (let i = 0; i < bins.length; i++) {
+      const bin = bins[i];
+      const y = ys[i];
+      let couleur = "#111111";
+      if (px) {
+        // position du pixel dans la bande : x = bin * TAS_BIN
+        const ix = (y - yMin) * px.width + bin * TAS_BIN;
+        if (px.data[ix * 4 + 3] > 0) {
+          couleur = "#" + ((1 << 24) + (px.data[ix * 4] << 16) +
+            (px.data[ix * 4 + 1] << 8) + px.data[ix * 4 + 2]).toString(16).slice(1);
+        }
       }
-    } catch (e) { /* canvas illisible : pixel noir par defaut */ }
-    tasCtx.clearRect(bin * TAS_BIN, y, TAS_BIN, TAS_TAILLE);
-    tasHauteurs[bin] -= TAS_TAILLE;
-    return couleur;
+      tasCtx.clearRect(bin * TAS_BIN, y, TAS_BIN, TAS_TAILLE);
+      tasHauteurs[bin] -= TAS_TAILLE;
+      couleurs.push(couleur);
+    }
+    return couleurs;
   }
 
   function soufflerSurTas(force) {
@@ -1437,12 +1466,20 @@
     // s'epuiser) ; gros souffle d'un coup = quasi tout le tas
     // s'envole, et vite
     const arrachements = Math.round(30 + force * 260 + Math.random() * 10);
-    let arraches = 0;
-    for (let k = 0; k < arrachements * 3 && arraches < arrachements; k++) {
+    // Phase 1 : tirage des tranches a arracher (aucune lecture
+    // de pixels -- juste le choix des bins)
+    const binsChoisis = [];
+    for (let k = 0; k < arrachements * 3 && binsChoisis.length < arrachements; k++) {
       const bin = Math.floor(Math.random() * tasHauteurs.length);
       if (tasHauteurs[bin] < TAS_TAILLE) continue;
-      const solLocal = tasCanvas.height - TAS_SOL;
-      const couleur = arracherPixelTas(bin);
+      binsChoisis.push(bin);
+    }
+    // Phase 2 : UNE SEULE lecture pour toutes les couleurs,
+    // puis creation des particules
+    const couleurs = arracherLotsTas(binsChoisis);
+    const solLocal = tasCanvas.height - TAS_SOL;
+    for (let i = 0; i < binsChoisis.length; i++) {
+      const bin = binsChoisis[i];
       particulesVent.push({
         x: bin * TAS_BIN + TAS_BIN / 2,
         y: solLocal - tasHauteurs[bin] - TAS_TAILLE,
@@ -1450,9 +1487,8 @@
         vy: -(1.5 + Math.random() * 4),
         vie: 1,
         decroissance: 0.012 + Math.random() * 0.02,
-        couleur: couleur
+        couleur: couleurs[i]
       });
-      arraches++;
     }
     // Le vent pousse aussi les pixels encore en chute libre
     for (let i = 0; i < particulesTas.length; i++) {
