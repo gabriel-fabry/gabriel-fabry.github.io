@@ -1752,6 +1752,17 @@
         enregistrerDimsAccueil();
       }
     };
+    imgDessous.onerror = function () {
+      // photo de dessous absente : elle est invisible tant qu on ne
+      // gratte pas -- on purge la carte, puis on neutralise (meme
+      // image que le dessus, effet annule, precedent du dossier a
+      // une seule image) plutot que de redessiner la photo visible
+      if (photoNumDessous === null) return;
+      const num = photoNumDessous;
+      photoNumDessous = null;
+      carteAbsenteAccueil(num);
+      imgDessous.src = photo.src;
+    };
     imgDessous.style.visibility = "hidden"; // visible des que la photo principale est posee
     cadre.appendChild(imgDessous);
 
@@ -1834,6 +1845,7 @@
           { l: photo.naturalWidth, h: photo.naturalHeight };
         enregistrerDimsAccueil();
       }
+      tiragesRates = 0; // photo servie : compteur d erreurs remis a zero
       recadrage = { sx: sx, sy: sy, l: l, h: h };
       const plusLong = Math.max(l, h);
       const k = plusLong > RESOLUTION_MAX ? RESOLUTION_MAX / plusLong : 1;
@@ -1854,6 +1866,26 @@
     }
 
     photo.onload = chargerEtDessiner;
+    // SECURITE ANTI-SUPPRESSION : une carte tiree qui n existe plus
+    // (image supprimee du dossier depuis la derniere visite) ne
+    // laisse pas un cadre vide. On purge la carte, le compte
+    // redescend, et une autre est resservie aussitot. Garde-fou
+    // apres plusieurs echecs d affilee : image par defaut.
+    let tiragesRates = 0;
+    photo.onerror = function () {
+      if (photoNumDessus === null) return;
+      const num = photoNumDessus;
+      tiragesRates++;
+      carteAbsenteAccueil(num);
+      if (tiragesRates > 5 || !paquetAccueil || paquetAccueil.max < 1) {
+        photoNumDessus = null;
+        photoNumDessous = null;
+        photo.src = src;
+        imgDessous.src = src;
+        return;
+      }
+      tirerImageAccueil(paquetAccueil.max);
+    };
 
     // Comptage automatique des images du dossier, puis tirage au sort.
     // RYTHME D AFFICHAGE : un visiteur REGULIER voit sa photo
@@ -1910,6 +1942,30 @@
       if (total === totalAccueil) return;
       totalAccueil = total;
       preparerPaquetAccueil(total);
+    }
+    // Une carte tiree n existe plus : image supprimee du dossier.
+    // REGLE D OR DU DOSSIER : numeros CONTIGUS, de 1 a N, SANS TROU
+    // (une suppression se fait en decalant les numeros suivants
+    // d un cran). Si la carte n manque, le total reel est n - 1 ou
+    // moins : on descend le compte d autant. Le cache de dimensions
+    // de toute la queue est vide aussi : apres une suppression avec
+    // renumerotation, les dimensions des images decalees ne valent
+    // plus rien -- elles seront re-mesurees a la prochaine visite.
+    function carteAbsenteAccueil(num) {
+      if (!paquetAccueil) return;
+      const ancienMax = paquetAccueil.max;
+      for (let k = num; k <= ancienMax; k++) {
+        delete dimsAccueil[nomImageAccueil(k)];
+      }
+      enregistrerDimsAccueil();
+      paquetAccueil.reste =
+        paquetAccueil.reste.filter(function (n) { return n !== num; });
+      if (num <= paquetAccueil.max) {
+        paquetAccueil.max = num - 1 > 0 ? num - 1 : 0;
+      }
+      if (paquetAccueil.derniere === num) paquetAccueil.derniere = null;
+      totalAccueil = paquetAccueil.max;
+      sauvegarderPaquetAccueil();
     }
     function tirerImageAccueil(total) {
       totalAccueil = total;
