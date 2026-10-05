@@ -740,18 +740,20 @@
     if (c !== " ") lettres.push(s);
   });
 
-  // CYCLE RVB DECALE : au survol, chaque lettre prend une couleur
-  // du cycle rouge-vert-bleu, decalee d une lettre entre voisines.
-  // Etape 0 : g=R a=V b=B r=R i=V e=B l=R...
-  // Chaque passage fait avancer TOUTES les lettres d un cran dans
-  // le cycle (R devient V, V devient B, B devient R) : etape 1
-  // donne g=V a=B b=R r=V... Le compteur d etapes n est JAMAIS
-  // remis a zero : un nouveau survol REPREND la ou le cycle
-  // s etait arrete.
+  // VAGUE RVB QUI VOYAGE : les trois couleurs forment une
+  // sequence fixe R-V-B repete le long des lettres, et a chaque
+  // etape la SEQUENCE GLISSE d une lettre vers la droite :
+  // chaque lettre prend la couleur de sa voisine de gauche (la
+  // premiere boucle sur la derniere). Etape 0 :
+  // g=R a=V b=B r=R... etape 1 : g=B a=R b=V r=B...
+  // (les couleurs voyagent de lettre en lettre). Le compteur
+  // d etapes n est JAMAIS remis a zero : un nouveau survol
+  // REPREND la ou la vague s etait arretee.
   let etapeNom = 0;
   function colorerNom() {
     lettres.forEach(function (s, i) {
-      s.style.color = PALETTE_RVB[(i + etapeNom) % PALETTE_RVB.length];
+      const pos = ((i - etapeNom) % PALETTE_RVB.length + PALETTE_RVB.length) % PALETTE_RVB.length;
+      s.style.color = PALETTE_RVB[pos];
     });
     etapeNom++;
   }
