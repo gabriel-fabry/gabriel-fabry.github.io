@@ -666,27 +666,26 @@
       width: 20px;
       height: 20px;
     }
-    /* Emoji rafraichissement : il vit desormais dans le cadre de
-       la photo (il y est pose a cote de l'emoji souffle sur grand
-       ecran) ; en position: fixed il reste cale sur la ligne du
-       nom du site, en haut a droite de l'ecran, et reste visible
-       meme quand la page defile. Le haut du texte du nom est a
-       var(--marge) du haut de l'ecran ; +3px pour centrer l'emoji
-       sur la hauteur de la ligne. */
+    /* Icone rafraichissement : sur mobile elle vit en PREMIER
+       enfant du body (le JS l'y pose) en position: STICKY, plus
+       en position: fixed -- sur iOS, fixed reste fragile : l'icone
+       defilait avec la page des qu'un overflow vivait sur les
+       racines, meme apres menage complet. STICKY, natif et sans
+       faille, la colle au bord haut de l'ecran des que la page
+       defile. Calee sur la ligne du nom : le haut du texte du nom
+       est a var(--marge) du haut de l'ecran ; +3px pour centrer
+       l'icone sur la hauteur de la ligne. La marge basse NEGATIVE
+       annule sa hauteur de flux : rien ne se decale. */
     .bouton-rafraichir {
       display: block;
-      position: fixed;
+      position: sticky;
+      top: calc(var(--marge) + 3px);
       left: auto;           /* annule le flanc de colline du grand ecran */
       bottom: auto;
-      top: calc(var(--marge) + 3px);
-      /* iOS : un element fixed qui reste sur le calque general de
-         la page sautille pendant le scroll, surtout quand un
-         canvas se redessine a cote. translateZ(0) le pose sur son
-         PROPRE calque : l'icone reste bien figee a l'ecran. */
-      transform: translateZ(0);
-      right: var(--marge);
+      right: auto;
+      width: max-content;   /* block sinon pleine largeur : repliee sur l'icone */
+      margin: 0 var(--marge) -20px auto;  /* alignee a droite ; hauteur de flux annulee */
       padding: 0;
-      margin: 0;
       border: none;
       background: none;
       font-size: 17px;
@@ -695,7 +694,11 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
-      z-index: 2;
+      /* Au-dessus de l'aside (z-index 10) : l'icone doit rester
+         lisible quand le menu passe dessous au defilement. */
+      z-index: 11;
+      /* Calque propre : pas de sautillement au scroll. */
+      transform: translateZ(0);
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -2108,19 +2111,22 @@
     boutonRafraichir.title = "Changer la photo";
     boutonRafraichir.setAttribute("aria-label", "Changer la photo d'accueil");
     boutonRafraichir.addEventListener("click", rafraichirImageAccueil);
-    // SUR MOBILE, le bouton est pose sur le BODY, pas dans le
-    // cadre : sa regle CSS y est position:fixed, or sur iOS un
-    // element fixed pris dans la cascade figure/main peut etre
-    // ancre au document -- il defile avec la page au lieu de
-    // rester colle a l'ecran. Direct sous body, il n'a plus que
-    // html comme ancetre : la fixite est garantie. Sur DESKTOP il
-    // reste dans le cadre, ou sa position absolute se cale contre
-    // la colonne de gauche. Le bouton est recree a chaque visite
-    // de l'accueil : un retournement d'ecran redecide de sa place
-    // au prochain passage. Meme seuil que le CSS : max-width 760px.
+    // SUR MOBILE, le bouton est pose sur le BODY, en PREMIER
+    // enfant du flux, pas dans le cadre : sa regle CSS mobile est
+    // position:sticky -- sur iOS, position:fixed reste fragile
+    // (l'icone defilait avec la page des qu'un overflow vivait sur
+    // les racines, meme apres menage complet des ancetres).
+    // STICKY, natif et sans faille, la colle au bord haut de
+    // l'ecran des que la page defile ; la marge basse negative du
+    // CSS annule sa hauteur de flux, rien ne se decale. Sur
+    // DESKTOP il reste dans le cadre, ou sa position absolute se
+    // cale contre la colonne de gauche. Le bouton est recree a
+    // chaque visite de l'accueil : un retournement d'ecran redecide
+    // de sa place au prochain passage. Meme seuil que le CSS :
+    // max-width 760px.
     if (window.matchMedia &&
         window.matchMedia("(max-width: 760px)").matches) {
-      document.body.appendChild(boutonRafraichir);
+      document.body.insertBefore(boutonRafraichir, document.body.firstChild);
     } else {
       cadre.appendChild(boutonRafraichir);
     }
