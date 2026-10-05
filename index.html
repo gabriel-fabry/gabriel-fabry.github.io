@@ -740,17 +740,20 @@
     if (c !== " ") lettres.push(s);
   });
 
+  // CYCLE RVB DECALE : au survol, chaque lettre prend une couleur
+  // du cycle rouge-vert-bleu, decalee d une lettre entre voisines.
+  // Etape 0 : g=R a=V b=B r=R i=V e=B l=R...
+  // Chaque passage fait avancer TOUTES les lettres d un cran dans
+  // le cycle (R devient V, V devient B, B devient R) : etape 1
+  // donne g=V a=B b=R r=V... Le compteur d etapes n est JAMAIS
+  // remis a zero : un nouveau survol REPREND la ou le cycle
+  // s etait arrete.
+  let etapeNom = 0;
   function colorerNom() {
-    let derniereCouleur = null;
-    lettres.forEach(function (s) {
-      let options = PALETTE_RVB;
-      if (derniereCouleur !== null) {
-        options = PALETTE_RVB.filter(c => c !== derniereCouleur);
-      }
-      const choix = options[Math.floor(Math.random() * options.length)];
-      derniereCouleur = choix;
-      s.style.color = choix;
+    lettres.forEach(function (s, i) {
+      s.style.color = PALETTE_RVB[(i + etapeNom) % PALETTE_RVB.length];
     });
+    etapeNom++;
   }
   function decolorerNom() {
     lettres.forEach(function (s) { s.style.color = ""; });
@@ -1469,9 +1472,15 @@
     // Phase 1 : tirage des tranches a arracher (aucune lecture
     // de pixels -- juste le choix des bins)
     const binsChoisis = [];
+    const dejaVus = []; // un meme bin ne peut pas etre tire deux
+    // fois dans le meme lot : sinon sa hauteur interne descendrait
+    // de deux crans pour un seul arrachement visuel, et les pixels
+    // restants deviendraient insensibles au souffle (bug fige)
     for (let k = 0; k < arrachements * 3 && binsChoisis.length < arrachements; k++) {
       const bin = Math.floor(Math.random() * tasHauteurs.length);
       if (tasHauteurs[bin] < TAS_TAILLE) continue;
+      if (dejaVus.indexOf(bin) !== -1) continue;
+      dejaVus.push(bin);
       binsChoisis.push(bin);
     }
     // Phase 2 : UNE SEULE lecture pour toutes les couleurs,
