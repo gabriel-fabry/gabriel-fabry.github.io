@@ -1751,30 +1751,22 @@
           { l: imgDessous.naturalWidth, h: imgDessous.naturalHeight };
         enregistrerDimsAccueil();
       }
-      dessousPrete = true;
-      majVisibiliteDessous();
-    };
-    imgDessous.onerror = function () {
-      // photo de dessous absente : elle est invisible tant qu on ne
-      // gratte pas -- on purge la carte, puis on neutralise (meme
-      // image que le dessus, effet annule, precedent du dossier a
-      // une seule image) plutot que de redessiner la photo visible
-      if (photoNumDessous === null) return;
-      const num = photoNumDessous;
-      photoNumDessous = null;
-      carteAbsenteAccueil(num);
-      imgDessous.src = photo.src;
+      imgDessous.style.visibility = "visible";
     };
     imgDessous.style.visibility = "hidden"; // visible des que la photo principale est posee
-    // Visibilite de la photo de dessous : deux drapeaux -- elle
-    // n est revelee que quand la photo du dessus est DESSINEE ET
-    // que la dessous est DECODEE, dans n importe quel ordre.
-    let dessusPret = false;
-    let dessousPrete = false;
-    function majVisibiliteDessous() {
-      imgDessous.style.visibility =
-        (dessusPret && dessousPrete) ? "visible" : "hidden";
-    }
+    // Visibilite de la photo de dessous : on ne change JAMAIS son
+    // src directement. iOS Safari vide le bitmap d une <img> des
+    // que son src change -- d ou le blanc dans les trous du
+    // grattage au reload. La nouvelle photo de dessous est PRE-
+    // CHARGEE a part (chargerNouvelleDessous), et l echange
+    // complet -- canvas recouvert + swap de la dessous -- n a
+    // lieu qu une fois les DEUX nouvelles photos pretes, dans un
+    // seul bloc synchrone : le navigateur ne peint jamais entre
+    // les deux. Aucun blanc, aucun spoiler.
+    let echangeEnAttente = false;
+    let nouveauDessusPret = false;
+    let nouveauDessousPrete = false;
+    let srcDessousAttente = null;
     cadre.appendChild(imgDessous);
 
     const canvas = document.createElement("canvas");
@@ -1863,14 +1855,10 @@
       canvas.width = Math.max(1, Math.round(l * k));
       canvas.height = Math.max(1, Math.round(h * k));
       ctx.drawImage(photo, sx, sy, l, h, 0, 0, canvas.width, canvas.height);
-      // SWAP EN UNE SEULE FRAME : l ancienne photo de dessous reste
-      // affichee pendant TOUT le chargement (aucun blanc dans les
-      // trous du grattage). On ne la masque qu ici, juste avant de
-      // recouvrir le canvas -- le navigateur ne peint jamais entre
-      // ces lignes. La NOUVELLE dessous ne sera revelee qu une fois
-      // decodee (voir imgDessous.onload) : pas de spoiler non plus.
-      dessusPret = true;
-      majVisibiliteDessous();
+      // ECHANGE ATOMIQUE : ce redraw est appele par
+      // finaliserEchangeAccueil, qui pose aussitot apres la
+      // nouvelle photo de dessous pre-chargee -- le navigateur ne
+      // peint jamais entre les deux operations.
       photoSale = true;
     }
 
@@ -1883,7 +1871,16 @@
       }
     }
 
-    photo.onload = chargerEtDessiner;
+    photo.onload = function () {
+      if (echangeEnAttente) {
+        // tirage en cours : on attend aussi la dessous, puis
+        // echange en une seule frame (finaliserEchangeAccueil)
+        nouveauDessusPret = true;
+        finaliserEchangeAccueil();
+      } else {
+        chargerEtDessiner(); // image par defaut : pas de rendez-vous
+      }
+    };
     // SECURITE ANTI-SUPPRESSION : une carte tiree qui n existe plus
     // (image supprimee du dossier depuis la derniere visite) ne
     // laisse pas un cadre vide. On purge la carte, le compte
@@ -1898,6 +1895,9 @@
       if (tiragesRates > 5 || !paquetAccueil || paquetAccueil.max < 1) {
         photoNumDessus = null;
         photoNumDessous = null;
+        echangeEnAttente = false;
+        srcDessousAttente = null;
+        reinitialiserPhysique(); // retombe sur l image par defaut : monticule nettoye
         photo.src = src;
         imgDessous.src = src;
         return;
@@ -2036,8 +2036,61 @@
       photoNumDessus = numDessus;
       photoNumDessous = numDessous;
       sauvegarderPaquetAccueil();
+      // RENDEZ-VOUS : les deux nouvelles photos partent en
+      // parallele ; l affichage ne bascule qu une fois les deux
+      // pretes (voir finaliserEchangeAccueil).
+      echangeEnAttente = true;
+      nouveauDessusPret = false;
+      nouveauDessousPrete = false;
       photo.src = nomImageAccueil(numDessus);
-      imgDessous.src = nomImageAccueil(numDessous);
+      chargerNouvelleDessous(nomImageAccueil(numDessous));
+    }
+    function finaliserEchangeAccueil() {
+      if (!nouveauDessusPret || !nouveauDessousPrete) return;
+      echangeEnAttente = false;
+      nouveauDessusPret = false;
+      nouveauDessousPrete = false;
+      reinitialiserPhysique(); // le monticule s en va AVEC l ancienne photo
+      const urlDessous = srcDessousAttente;
+      srcDessousAttente = null;
+      chargerEtDessiner(); // recouvre les trous de l ancien grattage
+      if (urlDessous) {
+        // deja pre-chargee et decodee : bascule instantanee,
+        // dans la meme frame que le redraw du canvas
+        imgDessous.src = urlDessous;
+        imgDessous.style.visibility = "visible";
+      }
+    }
+    function chargerNouvelleDessous(url) {
+      srcDessousAttente = url;
+      const precharge = new Image();
+      precharge.decoding = "async";
+      precharge.onload = function () {
+        if (srcDessousAttente !== url) return; // tirage plus recent en cours
+        if (photoNumDessous !== null) {
+          dimsAccueil[url] =
+            { l: precharge.naturalWidth, h: precharge.naturalHeight };
+          enregistrerDimsAccueil();
+        }
+        nouveauDessousPrete = true;
+        finaliserEchangeAccueil();
+      };
+      precharge.onerror = function () {
+        if (srcDessousAttente !== url) return;
+        // photo de dessous absente (supprimee du dossier) : purge
+        // de la carte, puis neutralisation -- la dessous prend la
+        // meme image que le dessus, effet annule, sans toucher a
+        // l affichage en cours.
+        if (photoNumDessous !== null) {
+          const num = photoNumDessous;
+          photoNumDessous = null;
+          carteAbsenteAccueil(num);
+        }
+        srcDessousAttente = photo.src;
+        nouveauDessousPrete = true;
+        finaliserEchangeAccueil();
+      };
+      precharge.src = url;
     }
     function sonderAccueil(debut, fin) {
       // restants est compte d'avance : le lot est clos quelle que soit
@@ -2260,20 +2313,19 @@
     // cadre, comme le souffle). Sur mobile, la regle CSS le cale
     // sur la ligne du nom du site, en haut a droite.
     function rafraichirImageAccueil() {
-      reinitialiserPhysique();
+      // Le monticule de l ancienne photo N EST PAS nettoye ici :
+      // il reste affiche jusqu a l echange des photos
+      // (finaliserEchangeAccueil) -- le reload ne le fait plus
+      // disparaitre net, il part avec l ancienne photo.
       photoSale = true;
       estEnTrainDeCliquer = false;
       precedentGrattage = null;
-      // ANTI-BLANC : on ne masque PAS la photo de dessous ici.
-      // L ANCIENNE reste affichee pendant tout le chargement de la
-      // nouvelle (le navigateur ne bascule qu une fois la nouvelle
-      // decodee) : les trous du grattage ne montrent jamais de
-      // blanc. Le masquage n arrive qu au recouvrement du canvas,
-      // dans chargerEtDessiner, en une seule frame.
-      dessusPret = false;
-      dessousPrete = false;
+      // ANTI-BLANC : on ne touche PAS a imgDessous ici. Son ancien
+      // bitmap reste affiche pendant tout le chargement ; le swap
+      // n a lieu qu une fois la nouvelle dessous PRE-CHARGEE, au
+      // meme moment ou le canvas est recouvert (une seule frame).
       if (totalAccueil > 0) tirerImageAccueil(totalAccueil);
-      else { photo.src = src; imgDessous.src = src; }
+      else { reinitialiserPhysique(); photo.src = src; imgDessous.src = src; }
     }
     const boutonRafraichir = document.createElement("button");
     boutonRafraichir.type = "button";
