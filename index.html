@@ -1751,6 +1751,8 @@
           { l: imgDessous.naturalWidth, h: imgDessous.naturalHeight };
         enregistrerDimsAccueil();
       }
+      dessousPrete = true;
+      majVisibiliteDessous();
     };
     imgDessous.onerror = function () {
       // photo de dessous absente : elle est invisible tant qu on ne
@@ -1764,6 +1766,15 @@
       imgDessous.src = photo.src;
     };
     imgDessous.style.visibility = "hidden"; // visible des que la photo principale est posee
+    // Visibilite de la photo de dessous : deux drapeaux -- elle
+    // n est revelee que quand la photo du dessus est DESSINEE ET
+    // que la dessous est DECODEE, dans n importe quel ordre.
+    let dessusPret = false;
+    let dessousPrete = false;
+    function majVisibiliteDessous() {
+      imgDessous.style.visibility =
+        (dessusPret && dessousPrete) ? "visible" : "hidden";
+    }
     cadre.appendChild(imgDessous);
 
     const canvas = document.createElement("canvas");
@@ -1800,7 +1811,7 @@
     // Plage conseillee : de 0.02 (tres fin) a 0.12 (large).
     // Pour les retrouver : chercher PINCEAU_TAILLE dans le code.
     const PINCEAU_TAILLE_DESKTOP = 0.03; // pinceau sur grand ecran
-    const PINCEAU_TAILLE_MOBILE = 0.04;  // pinceau sur la version mobile
+    const PINCEAU_TAILLE_MOBILE = 0.03;  // pinceau sur la version mobile
 
     // DEUX regles d'affichage pour la photo DU DESSUS, selon la
     // version :
@@ -1852,7 +1863,14 @@
       canvas.width = Math.max(1, Math.round(l * k));
       canvas.height = Math.max(1, Math.round(h * k));
       ctx.drawImage(photo, sx, sy, l, h, 0, 0, canvas.width, canvas.height);
-      imgDessous.style.visibility = "visible";
+      // SWAP EN UNE SEULE FRAME : l ancienne photo de dessous reste
+      // affichee pendant TOUT le chargement (aucun blanc dans les
+      // trous du grattage). On ne la masque qu ici, juste avant de
+      // recouvrir le canvas -- le navigateur ne peint jamais entre
+      // ces lignes. La NOUVELLE dessous ne sera revelee qu une fois
+      // decodee (voir imgDessous.onload) : pas de spoiler non plus.
+      dessusPret = true;
+      majVisibiliteDessous();
       photoSale = true;
     }
 
@@ -2246,10 +2264,14 @@
       photoSale = true;
       estEnTrainDeCliquer = false;
       precedentGrattage = null;
-      // La photo de dessous se masque le temps du chargement : les
-      // trous de l'ancien grattage ne doivent pas spoiler la
-      // nouvelle photo cachee. chargerEtDessiner la revele.
-      imgDessous.style.visibility = "hidden";
+      // ANTI-BLANC : on ne masque PAS la photo de dessous ici.
+      // L ANCIENNE reste affichee pendant tout le chargement de la
+      // nouvelle (le navigateur ne bascule qu une fois la nouvelle
+      // decodee) : les trous du grattage ne montrent jamais de
+      // blanc. Le masquage n arrive qu au recouvrement du canvas,
+      // dans chargerEtDessiner, en une seule frame.
+      dessusPret = false;
+      dessousPrete = false;
       if (totalAccueil > 0) tirerImageAccueil(totalAccueil);
       else { photo.src = src; imgDessous.src = src; }
     }
