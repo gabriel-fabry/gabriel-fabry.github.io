@@ -1960,6 +1960,8 @@
     photo.decoding = "async";
 
     let photoData = null;
+    let photoOrig = null;  // la photo du dessus intacte : sert au clic droit (reparation)
+    let modeReparation = false;  // geste en cours : clic droit = repare
     let photoSale = true;  // l'instantane des pixels doit etre relu avant le prochain geste
 
     // Le canvas de grattage travaille en resolution limitee : l'ecran
@@ -1981,6 +1983,11 @@
     // Pour les retrouver : chercher PINCEAU_TAILLE dans le code.
     const PINCEAU_TAILLE_DESKTOP = 0.03; // pinceau sur grand ecran
     const PINCEAU_TAILLE_MOBILE = 0.03;  // pinceau sur la version mobile
+
+    // REGLAGE : CLIC DROIT REPARATEUR -- true = le clic droit sur la
+    // photo d'accueil repare le grattage ; false = option coupee
+    // (le clic droit retrouve le menu normal du navigateur).
+    const REPARATION_CLIC_DROIT = true;
 
     // DEUX regles d'affichage pour la photo DU DESSUS, selon la
     // version :
@@ -2032,6 +2039,12 @@
       canvas.width = Math.max(1, Math.round(l * k));
       canvas.height = Math.max(1, Math.round(h * k));
       ctx.drawImage(photo, sx, sy, l, h, 0, 0, canvas.width, canvas.height);
+      // Copie intacte de la photo : le clic droit y puise pour
+      // remettre les pixels graves.
+      photoOrig = document.createElement("canvas");
+      photoOrig.width = canvas.width;
+      photoOrig.height = canvas.height;
+      photoOrig.getContext("2d").drawImage(canvas, 0, 0);
       // ECHANGE ATOMIQUE : ce redraw est appele par
       // finaliserEchangeAccueil, qui pose aussitot apres la
       // nouvelle photo de dessous pre-chargee -- le navigateur ne
@@ -2422,14 +2435,65 @@
       precedentGrattage = { x: x, y: y };
     }
 
+    // CLIC DROIT : pinceau de REPARATION. Il remet la photo d'origine
+    // la ou elle a ete grattee (meme taille et meme bord doux que le
+    // grattage). Il ne touche PAS au monticule de pixels.
+    let tamponRep = null;
+    function reparer(clientX, clientY) {
+      if (!photoOrig) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const x = (clientX - rect.left) * (canvas.width / rect.width);
+      const y = (clientY - rect.top) * (canvas.height / rect.height);
+      const taille = (window.matchMedia && window.matchMedia("(max-width: 760px)").matches)
+        ? PINCEAU_TAILLE_MOBILE : PINCEAU_TAILLE_DESKTOP;
+      const rayon = Math.min(canvas.width, canvas.height) * taille;
+      const cote = Math.ceil(rayon * 2) + 2;
+      if (!tamponRep) tamponRep = document.createElement("canvas");
+      if (tamponRep.width !== cote) { tamponRep.width = cote; tamponRep.height = cote; }
+      const tg = tamponRep.getContext("2d");
+      const poser = function (cx, cy) {
+        const ox = Math.round(cx - cote / 2);
+        const oy = Math.round(cy - cote / 2);
+        tg.globalCompositeOperation = "source-over";
+        tg.clearRect(0, 0, cote, cote);
+        const grad = tg.createRadialGradient(cote / 2, cote / 2, 0, cote / 2, cote / 2, rayon);
+        grad.addColorStop(0, "rgba(0,0,0,1)");
+        grad.addColorStop(0.5, "rgba(0,0,0,0.6)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        tg.fillStyle = grad;
+        tg.fillRect(0, 0, cote, cote);
+        // la photo d'origine n'est gardee que la ou le pinceau passe
+        tg.globalCompositeOperation = "source-in";
+        tg.drawImage(photoOrig, ox, oy, cote, cote, 0, 0, cote, cote);
+        ctx.drawImage(tamponRep, ox, oy);
+      };
+      if (precedentGrattage) {
+        const dx = x - precedentGrattage.x;
+        const dy = y - precedentGrattage.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const pas = Math.min(12, Math.max(1, Math.ceil(dist / (rayon * 0.5))));
+        for (let i = 0; i <= pas; i++) {
+          poser(precedentGrattage.x + dx * i / pas, precedentGrattage.y + dy * i / pas);
+        }
+      } else {
+        poser(x, y);
+      }
+      precedentGrattage = { x: x, y: y };
+    }
+    canvas.addEventListener("contextmenu", function (e) { if (REPARATION_CLIC_DROIT) e.preventDefault(); });
+
     canvas.addEventListener("pointerdown", function (e) {
+      if (e.button !== 0 && !(e.button === 2 && REPARATION_CLIC_DROIT)) return;  // ni molette ni autres boutons
+      modeReparation = (e.button === 2);
       estEnTrainDeCliquer = true;
       precedentGrattage = null;
       // L'instantane des pixels est relu seulement ici, au moment ou la
       // main part : plus jamais pendant ou a la fin du geste.
       if (photoSale) actualiserPhotoData();
       try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
-      gratterEtEjecter(e.clientX, e.clientY);
+      if (modeReparation) reparer(e.clientX, e.clientY);
+      else gratterEtEjecter(e.clientX, e.clientY);
     });
 
     canvas.addEventListener("pointermove", function (e) {
@@ -2447,7 +2511,10 @@
       requestAnimationFrame(function () {
         const p = griffeAttendue;
         griffeAttendue = null;
-        if (p && estEnTrainDeCliquer) gratterEtEjecter(p[0], p[1]);
+        if (p && estEnTrainDeCliquer) {
+          if (modeReparation) reparer(p[0], p[1]);
+          else gratterEtEjecter(p[0], p[1]);
+        }
       });
     });
 
@@ -4361,11 +4428,11 @@
     // ==============================================================
     // REGLAGE : TAILLES TAPETTE  (chercher "TAILLES TAPETTE")
     // Les 3 tailles de la tapette, en pixels, TOUTES ICI :
-    tailleCurseur: 40,   // tapettemaster.png (le curseur). 0 = taille
+    tailleCurseur: 0,   // tapettemaster.png (le curseur). 0 = taille
                         // native de l'image (plafonnee a 64 px).
                         // Mets par ex. 40 pour la forcer a 40 px.
-    tailleCoup1: 50,    // animation du coup normal (coup1.png)
-    tailleCoup2: 40,    // animation du coup charge (coup2.png)
+    tailleCoup1: 30,    // animation du coup normal (coup1.png)
+    tailleCoup2: 30,    // animation du coup charge (coup2.png)
     // ==============================================================
   };
   // Le CURSEUR est declare directement en CSS (voir la regle
