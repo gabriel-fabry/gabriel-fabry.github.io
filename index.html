@@ -597,6 +597,15 @@
     will-change: transform;
   }
   #tapette-charge svg { display: block; width: 100%; height: 100%; }
+  /* Tapette animee par frames (planche sprites/tapette.png) :
+     impact sur une mouche ET curseur de charge */
+  .tapette-anim {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9700;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+  }
   #tapette-charge.clignote { animation: clignote-tapette .3s steps(2, jump-none) infinite; }
   @keyframes clignote-tapette { 50% { opacity: 0.4; } }
   #tapette-charge.frappe { transition: transform .07s ease-in; }
@@ -637,12 +646,26 @@
     40%, 60% { transform: translate3d(12px, -6px, 0); }
   }
 
-  /* Le curseur devient une tapette (plus grande, inclinÃ©e) dans la zone de vol.
-     SVG integrement encode en %XX, comme les autres curseurs : les
-     caracteres bruts d'un data URI font clignoter le curseur. */
+  /* Dans la zone de vol : le curseur est la tapette
+     (sprites/tapettemaster.png, posee par le code au chargement).
+     Repli simple si le PNG n est pas encore charge : crosshair. */
+  /* Dans la zone de vol, le curseur EST sprites/tapettemaster.png
+     (inclus directement : pas de decoupe, pas de data URL). Le
+     point chaud suit en 50% 55% de l image. ATTENTION : un PNG de
+     plus de 128 px de cote est REFUSE par le navigateur, qui
+     garderait le crosshair -- garde tapettemaster.png petit
+     (32 a 64 px ideal). */
   html.zone-tapette,
   html.zone-tapette * {
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='40'%20height='40'%20viewBox='0%200%2040%2040'%3E%3Cg%20transform='rotate(-28%2020%2020)'%3E%3Crect%20x='14'%20y='3'%20width='12'%20height='13'%20fill='%23808080'%20stroke='%23000000'%20stroke-width='1.5'%20stroke-dasharray='2.5,2.5'/%3E%3Crect%20x='18'%20y='17'%20width='4'%20height='21'%20fill='%23000000'/%3E%3Crect%20x='13'%20y='1'%20width='14'%20height='2'%20fill='%23000000'/%3E%3Crect%20x='13'%20y='16'%20width='14'%20height='2'%20fill='%23000000'/%3E%3C/g%3E%3C/svg%3E") 15 11, crosshair !important;
+    cursor: none !important;
+  }
+  #curseur-tapette {
+    position: fixed; top: 0; left: 0;
+    max-width: 64px; max-height: 64px;
+    pointer-events: none;
+    z-index: 9650;
+    image-rendering: pixelated;
+    display: none;
   }
 
   @media (max-width: 760px) {
@@ -4302,22 +4325,241 @@
 
   // Coup chargÃ© : maintenir le clic 2 secondes pour une zone de frappe 200 % plus grande
   const DUREE_CHARGE = 2000; // en millisecondes
+  // REGLAGE : DELAI D'APPARITION DE LA BARRE DE CHARGE -- la barre
+  // reste cachee ce temps (ms) apres le clic ; la charge, elle,
+  // compte deja : a l'apparition, la barre est deja remplie de
+  // DELAI / DUREE_CHARGE (300 / 2000 = 15 %).
+  const DELAI_BARRE_CHARGE = 300;
   let chargeActive = false;
   let debutCharge = 0;
   let barreChargeEl = null;
   let remplieChargeEl = null;
   let tapetteEl = null;    // La tapette animÃ©e qui remplace le curseur
+  let animChargeCreee = false;  // coup2 deja affiche pour ce clic ?
+  let tapetteChargeStop = null;   // stop() de l anim du coup charge
   let reculCharge = -1;    // Ãtape de recul (0 Ã  3) de la tapette
 
-  // La tapette animÃ©e (mÃªme dessin que le curseur, en plus grand)
-  const SVG_TAPETTE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
-    <g transform="rotate(-28 20 20)">
-      <rect x="13" y="1" width="14" height="2" fill="#111111" />
-      <rect x="14" y="3" width="12" height="13" fill="#808080" stroke="#111111" stroke-width="1.5" stroke-dasharray="2.5,2.5" />
-      <rect x="13" y="16" width="14" height="2" fill="#111111" />
-      <rect x="18" y="17" width="4" height="21" fill="#111111" />
-    </g>
-  </svg>`;
+  // REGLAGE : TAPETTE -- trois fichiers du dossier sprites/ :
+  //   tapettemaster.png : image CARREE simple = le CURSEUR quand
+  //                       il ne se passe rien (pose de repos).
+  //   coup1.png : planche de frames = ANIMATION DU COUP NORMAL
+  //               (frames collees, horiz. ou verticale).
+  //   coup2.png : planche de frames = ANIMATION DU COUP CHARGE
+  //               (meme format, jouee pendant le clic maintenu).
+  // Chaque planche est AUTODETECTEE : nombre de frames compte,
+  // orientation horiz./verticale reconnue. Fichier absent :
+  // curseur en croix (crosshair) ou pas d animation -- aucun
+  // blocage.
+  const TAPETTE = {
+    curseur: "sprites/tapettemaster.png",  // pose de repos (carree)
+    coup1: "sprites/coup1.png",            // animation coup normal
+    coup2: "sprites/coup2.png",            // animation coup charge
+    msCoup1: 110,      // REGLAGE VITESSE COUP NORMAL : delai (ms)
+                       // entre chaque frame de coup1.png
+    msCoup2: 110,      // REGLAGE VITESSE COUP CHARGE : delai (ms)
+                       // entre chaque frame de coup2.png
+    // ==============================================================
+    // REGLAGE : TAILLES TAPETTE  (chercher "TAILLES TAPETTE")
+    // Les 3 tailles de la tapette, en pixels, TOUTES ICI :
+    tailleCurseur: 40,   // tapettemaster.png (le curseur). 0 = taille
+                        // native de l'image (plafonnee a 64 px).
+                        // Mets par ex. 40 pour la forcer a 40 px.
+    tailleCoup1: 50,    // animation du coup normal (coup1.png)
+    tailleCoup2: 40,    // animation du coup charge (coup2.png)
+    // ==============================================================
+  };
+  // Le CURSEUR est declare directement en CSS (voir la regle
+  // html.zone-tapette) : sprites/tapettemaster.png, point chaud
+  // regle dans cette meme regle. Pas de chargement JS.
+  // Planches d animation : chargement + AUTODETECTION de chaque
+  // planche (frames comptees, orientation horiz./verticale).
+  // ATTENDRE la fin du decodage avant de mesurer : sinon
+  // naturalWidth vaut 0 et l animation reste muette.
+  function chargerPlancheTapette(src) {
+    const p = { img: null, horiz: true, frames: 0, prete: false };
+    const img = new Image();
+    img.onload = function () {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h || w < 4 || h < 4) return;
+      p.horiz = w >= h;
+      const cote = p.horiz ? h : w;
+      const longueur = p.horiz ? w : h;
+      p.frames = Math.max(1, Math.round(longueur / cote));
+      p.prete = true;
+    };
+    img.onerror = function () { /* planche absente : pas d animation */ };
+    img.src = src;
+    p.img = img;
+    return p;
+  }
+  const PLANCHE_COUP1 = chargerPlancheTapette(TAPETTE.coup1);
+  const PLANCHE_COUP2 = chargerPlancheTapette(TAPETTE.coup2);
+
+  // Curseur tapette : une vraie image (tapettemaster.png) qui suit
+  // la souris, au lieu du curseur CSS (limite de taille, refus en
+  // fichier local...). Point chaud = 50 % / 55 % de l'image.
+  const curseurTapetteImg = document.createElement("img");
+  curseurTapetteImg.id = "curseur-tapette";
+  curseurTapetteImg.alt = "";
+  curseurTapetteImg.draggable = false;
+  curseurTapetteImg.src = TAPETTE.curseur;
+  if (TAPETTE.tailleCurseur > 0) {  // REGLAGE : TAILLES TAPETTE (en haut)
+    curseurTapetteImg.style.maxWidth = "none";
+    curseurTapetteImg.style.maxHeight = "none";
+    curseurTapetteImg.style.width = TAPETTE.tailleCurseur + "px";
+    curseurTapetteImg.style.height = TAPETTE.tailleCurseur + "px";
+  }
+  document.documentElement.appendChild(curseurTapetteImg);
+  let curseurTapetteX = -100, curseurTapetteY = -100;
+  let curseurCacheJusqua = 0;  // tapettemaster cachee pendant coup1
+  window.addEventListener("pointerdown", function (e) {
+    curseurTapetteX = e.clientX;
+    curseurTapetteY = e.clientY;
+  });
+  window.addEventListener("pointermove", function (e) {
+    curseurTapetteX = e.clientX;
+    curseurTapetteY = e.clientY;
+  });
+  (function boucleCurseurTapette() {
+    const h = document.documentElement.classList;
+    // Boss battu : la fleche bleue revient immediatement
+    if ((bossChute || bossAuSol) && h.contains("zone-tapette")) {
+      zoneTapetteActive = false;
+      h.remove("zone-tapette");
+    }
+    const visible = h.contains("zone-tapette") &&
+      !h.contains("tapette-animee") && !h.contains("chien-pointeur-detruit") &&
+      performance.now() > curseurCacheJusqua &&
+      curseurTapetteImg.naturalWidth > 0;
+    if (visible) {
+      curseurTapetteImg.style.display = "block";
+      curseurTapetteImg.style.transform = "translate(" +
+        Math.round(curseurTapetteX - curseurTapetteImg.width * 0.5) + "px," +
+        Math.round(curseurTapetteY - curseurTapetteImg.height * 0.55) + "px)";
+    } else {
+      curseurTapetteImg.style.display = "none";
+    }
+    requestAnimationFrame(boucleCurseurTapette);
+  })();
+
+  function tailleDe(planche) {
+    return planche === PLANCHE_COUP2 ? TAPETTE.tailleCoup2 : TAPETTE.tailleCoup1;
+  }
+  function creerDivTapette(planche) {
+    // Div anime par les frames d une planche donnee
+    const el = document.createElement("div");
+    el.className = "tapette-anim";
+    el.style.width = tailleDe(planche) + "px";
+    el.style.height = tailleDe(planche) + "px";
+    el.style.backgroundImage = "url(" + planche.img.src + ")";
+    el.style.backgroundSize = planche.horiz ?
+      (planche.frames * 100) + "% 100%" : "100% " + (planche.frames * 100) + "%";
+    return el;
+  }
+  function tapetteFrame(planche, el, i) {
+    // Affiche la frame i (0 a frames-1) de la planche
+    const pct = planche.frames > 1 ? (i / (planche.frames - 1)) * 100 : 0;
+    if (planche.horiz) el.style.backgroundPositionX = pct + "%";
+    else el.style.backgroundPositionY = pct + "%";
+  }
+  function tapetteJouer(planche, ms, x, y, boucle) {
+    // Joue la planche sur (x, y) : une fois (impact) ou en boucle
+    // (charge). Retourne { el, stop } -- stop() nettoie tout.
+    if (!planche.prete) return null;
+    const el = creerDivTapette(planche);
+    const demi = tailleDe(planche) / 2;
+    el.style.left = (x - demi) + "px";
+    el.style.top = (y - demi) + "px";
+    conteneurJeu.appendChild(el);
+    let i = 0;
+    let minuteur = null;
+    tapetteFrame(planche, el, 0);
+    const avancer = function () {
+      i++;
+      if (i >= planche.frames) {
+        if (boucle) i = 0;
+        else { el.remove(); return; }
+      }
+      tapetteFrame(planche, el, i);
+      minuteur = setTimeout(avancer, ms);
+    };
+    minuteur = setTimeout(avancer, ms);
+    return {
+      el: el,
+      stop: function () {
+        if (minuteur) clearTimeout(minuteur);
+        el.remove();
+      }
+    };
+  }
+  function tapetteJouerProgressif(planche, x, y, ecoule) {
+    // COUP CHARGE : les frames AVANCENT AVEC LA CHARGE. Frame 1
+    // a l appui, puis une frame par etape de
+    // DUREE_CHARGE/(frames-1) ; la DERNIERE frame reste affichee
+    // tant que le clic est tenu (elle ne boucle jamais).
+    if (!planche.prete) return null;
+    const el = creerDivTapette(planche);
+    const demi = tailleDe(planche) / 2;
+    el.style.left = (x - demi) + "px";
+    el.style.top = (y - demi) + "px";
+    conteneurJeu.appendChild(el);
+    const pas = planche.frames > 1 ?
+      DUREE_CHARGE / (planche.frames - 1) : DUREE_CHARGE;
+    ecoule = ecoule || 0;  // temps de charge deja ecoule (ms)
+    let i = Math.min(planche.frames - 1, Math.floor(ecoule / pas));
+    tapetteFrame(planche, el, i);
+    let minuteur = null;
+    const avancer = function () {
+      if (i + 1 >= planche.frames) return;  // derniere frame : on y reste
+      i++;
+      tapetteFrame(planche, el, i);
+      if (i + 1 < planche.frames) minuteur = setTimeout(avancer, pas);
+    };
+    if (i + 1 < planche.frames) {
+      minuteur = setTimeout(avancer, pas - (ecoule % pas));
+    }
+    return {
+      el: el,
+      stop: function () {
+        if (minuteur) clearTimeout(minuteur);
+        el.remove();
+      }
+    };
+  }
+  function tapetteFrappe(x, y) {
+    // ANIMATION DU COUP NORMAL : coup1.png joue une fois sur le
+    // point d impact, a la vitesse msCoup1
+    if (PLANCHE_COUP1.prete) {
+      curseurCacheJusqua = performance.now() +
+        PLANCHE_COUP1.frames * TAPETTE.msCoup1 + 30;
+    }
+    const anim = tapetteJouer(PLANCHE_COUP1, TAPETTE.msCoup1, x, y, false);
+    derniereCoup1El = anim ? anim.el : null;
+  }
+  // Secousse locale (coup normal) : seul ce qui est actif bouge --
+  // le curseur tapette, l'animation du coup, la tapette de charge --
+  // jamais l'ecran. Utilise la propriete CSS "translate", qui ne
+  // gene pas les transform deja utilises.
+  let derniereCoup1El = null;
+  function secouerElement(el, duree, amp) {
+    if (!el) return;
+    const fin = performance.now() + duree;
+    const iv = setInterval(function () {
+      if (!el.isConnected || performance.now() >= fin) {
+        clearInterval(iv);
+        el.style.translate = "";
+        return;
+      }
+      el.style.translate = Math.round((Math.random() - 0.5) * 2 * amp) + "px " +
+                           Math.round((Math.random() - 0.5) * 2 * amp) + "px";
+    }, 30);
+  }
+  function secousseCurseur() {
+    // REGLAGE : SECOUSSE COUP NORMAL -- duree (ms) et amplitude (px)
+    secouerElement(curseurTapetteImg, 250, 3);
+    secouerElement(derniereCoup1El, 250, 3);
+    secouerElement(tapetteEl, 250, 3);
+  }
 
   // Barre de vie du boss
   let barreVieEl = null;
@@ -4790,7 +5032,8 @@
   function frapperBoss(degats) {
     bossPV -= (degats || 1); // Le coup chargÃ© (degats = 2) compte pour deux coups
     actualiserBarreVie();
-    declencherScreenShake();
+    if ((degats || 1) > 1) declencherScreenShake();
+    else secousseCurseur();
     freezeBossImpact = 5; // lÃ©ger freeze frame du boss : Ã§a claque
 
     for (let i = 0; i < 12; i++) {
@@ -4959,7 +5202,7 @@
     // navigateur Ã  recalculer le curseur sans arrÃªt -- c'est ce qui
     // le faisait clignoter.
     const surMenu = !!(e.target && e.target.closest && e.target.closest("aside"));
-    const actif = jeuCommence && !surMenu;
+    const actif = jeuCommence && !surMenu && !bossChute && !bossAuSol;
     if (actif !== zoneTapetteActive) {
       zoneTapetteActive = actif;
       document.documentElement.classList.toggle("zone-tapette", actif);
@@ -4978,28 +5221,25 @@
     debutCharge = performance.now();
     reculCharge = 0;
 
-    tapetteEl = document.createElement("div");
-    tapetteEl.id = "tapette-charge";
-    tapetteEl.className = "clignote";
-    tapetteEl.innerHTML = SVG_TAPETTE;
-    tapetteEl.style.transform = "translate(0px, 0px) rotate(0deg)";
-    conteneurJeu.appendChild(tapetteEl);
-    positionnerTapette(e.clientX, e.clientY);
-    document.documentElement.classList.add("tapette-animee");
+    // L'animation du coup charge (coup2.png) n'apparait qu'apres
+    // DELAI_BARRE_CHARGE ms de clic maintenu (voir boucleJeu) : un
+    // clic rapide ne montre donc que l'animation du coup normal.
+    animChargeCreee = false;
 
     barreChargeEl = document.createElement("div");
     barreChargeEl.id = "barre-charge";
     remplieChargeEl = document.createElement("div");
     remplieChargeEl.id = "barre-charge-remplie";
     barreChargeEl.appendChild(remplieChargeEl);
+    barreChargeEl.style.visibility = "hidden";  // revelee par boucleJeu
     conteneurJeu.appendChild(barreChargeEl);
     positionnerBarreCharge(e.clientX, e.clientY);
   }
 
   function positionnerTapette(x, y) {
     if (!tapetteEl) return;
-    tapetteEl.style.left = (x - 27) + "px";
-    tapetteEl.style.top = (y - 22) + "px";
+    tapetteEl.style.left = (x - TAPETTE.tailleCoup2 * 0.48) + "px";
+    tapetteEl.style.top = (y - TAPETTE.tailleCoup2 * 0.39) + "px";
   }
 
   function positionnerBarreCharge(x, y) {
@@ -5012,6 +5252,7 @@
     // Interruption brutale (fin de partie, sortie de page) :
     // tout disparaÃ®t immÃ©diatement, sans animation
     chargeActive = false;
+    if (tapetteChargeStop) { tapetteChargeStop(); tapetteChargeStop = null; }
     if (barreChargeEl) { barreChargeEl.remove(); barreChargeEl = null; }
     remplieChargeEl = null;
     if (tapetteEl) { tapetteEl.remove(); tapetteEl = null; }
@@ -5019,18 +5260,20 @@
     reculCharge = -1;
   }
 
-  function arreterChargeVisuel() {
+  function arreterChargeVisuel(e) {
     // RelÃ¢chement du clic : la tapette s'abat d'un coup sec, puis disparaÃ®t
     if (barreChargeEl) { barreChargeEl.remove(); barreChargeEl = null; remplieChargeEl = null; }
     document.documentElement.classList.remove("tapette-animee");
+    if (tapetteChargeStop) { tapetteChargeStop(); tapetteChargeStop = null; }
     if (tapetteEl) {
       const t = tapetteEl;
       tapetteEl = null;
-      t.classList.remove("clignote");
-      t.classList.add("frappe");
-      // Elle s'abat vers la gauche, sur le point d'impact
-      t.style.transform = "translate(-5px, 7px) rotate(-14deg)";
-      setTimeout(function () { t.remove(); }, 120);
+      t.remove();  // l anim de charge s arrete net
+    }
+    // LACHE DU CLIC : l animation DU COUP NORMAL (coup1.png) se
+    // joue une fois sur le point d impact
+    if (e && typeof e.clientX === "number") {
+      tapetteFrappe(e.clientX, e.clientY);
     }
     reculCharge = -1;
   }
@@ -5041,7 +5284,7 @@
     if (!chargeActive) return;
     const chargeComplete = (performance.now() - debutCharge) >= DUREE_CHARGE;
     chargeActive = false;
-    arreterChargeVisuel();
+    arreterChargeVisuel(e);
     if (chargeComplete) frapperCharge(e);
   }
 
@@ -5081,7 +5324,7 @@
     for (const m of mouches) {
       if (m.etat === "morte" || m.etat === "touchee") continue;
       if (Math.hypot(e.clientX - m.x, e.clientY - m.y) < 84) {
-        tuerMouche(m);
+        tuerMouche(m, true);
       }
     }
   }
@@ -5127,13 +5370,17 @@
     if (jeuCommence) demarrerCharge(e);
   }
 
-  function tuerMouche(m) {
+  function tuerMouche(m, chargee) {
     // Une fois la fin dÃ©clenchÃ©e, les mouches restantes d'un mÃªme coup
     // n'ont plus rien Ã  faire ici : elles partent rejoindre le boss
     if (etapeFin) return;
 
     m.etat = "touchee";
     m.el.classList.add("touchee");
+
+    // Animation d impact de la tapette : frames 1 -> 4 sur la
+    // mouche (planche sprites/tapette.png)
+    tapetteFrappe(m.x, m.y);
 
     // La partie ne commence qu'au premier coup portÃ© Ã  une mouche :
     // compteur et timer apparaissent Ã  ce moment-lÃ , et pas avant
@@ -5149,7 +5396,7 @@
     estEnFreeze = true;
 
     // 2. Shake d'Ã©cran immÃ©diat
-    declencherScreenShake();
+    if (!chargee) secousseCurseur(); // coup charge : le shake d ecran est deja fait par frapperCharge
 
     // 3. Ãjection de particules pixel art rouges, qui retombent
     for (let i = 0; i < 16; i++) {
@@ -5194,6 +5441,23 @@
     if (chargeActive && remplieChargeEl) {
       const progression = Math.min(1, (performance.now() - debutCharge) / DUREE_CHARGE);
       remplieChargeEl.style.width = (progression * 100) + "%";
+      if (performance.now() - debutCharge >= DELAI_BARRE_CHARGE) {
+        if (barreChargeEl && barreChargeEl.style.visibility === "hidden") {
+          barreChargeEl.style.visibility = "visible";
+        }
+        if (!animChargeCreee) {
+          animChargeCreee = true;
+          const animCharge = tapetteJouerProgressif(PLANCHE_COUP2,
+            curseurTapetteX, curseurTapetteY,
+            performance.now() - debutCharge);
+          if (animCharge) {
+            tapetteEl = animCharge.el;
+            tapetteChargeStop = animCharge.stop;
+            positionnerTapette(curseurTapetteX, curseurTapetteY);
+          }
+          document.documentElement.classList.add("tapette-animee");
+        }
+      }
       if (progression >= 1 && barreChargeEl) barreChargeEl.classList.add("chargee");
 
       // Recul rÃ©parti aux tiers du temps de charge :
