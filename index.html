@@ -231,6 +231,45 @@
     60% { transform: translateX(-2px); }
     80% { transform: translateX(2px); }
   }
+
+  /* Bulle de dialogue du chien (style RPG Super NES) : posee dans
+     l espace blanc AU-DESSUS du chien, dans la colonne de gauche.
+     Fond bleu tres clair, contour noir, coins arrondis. Largeur
+     plafonnee a la colonne du menu (var(--largeur-menu)) : la
+     bulle garde ses marges -- bord gauche du site d un cote, zone
+     des images de l autre. Les clics la TRAVERSENT
+     (pointer-events: none) et atteignent le chien. La taille
+     exacte est fixee par le code AVANT l ecriture (mesure du
+     texte complet) : la bulle n evolue jamais en direct. */
+  .bulle-chien {
+    position: fixed;
+    left: var(--marge);
+    bottom: calc(var(--marge) + 94px); /* au-dessus du chien (80px + air) */
+    max-width: var(--largeur-menu);
+    background: #eaf2fb;
+    border: 2px solid #111111;
+    border-radius: 10px;
+    padding: 10px 14px;
+    z-index: 55;             /* au-dessus du chien (z-index 50) */
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+  /* Petite queue de bulle qui pointe vers le chien. Le padding
+     interne et la largeur maxi de la bulle sont regles par le
+     code (chercher REGLAGE : BULLE DU CHIEN -- MARGES). */
+  .bulle-chien::after {
+    content: "";
+    position: absolute;
+    left: 28px;
+    bottom: -7px;
+    width: 12px;
+    height: 12px;
+    background: #eaf2fb;
+    border-right: 2px solid #111111;
+    border-bottom: 2px solid #111111;
+    transform: rotate(45deg);
+  }
+  .bulle-chien span { display: block; white-space: pre-wrap; }
   /* Planches du chien : une seule image (sprites/chien.png),
      tous les sprites cote a cote. Le JavaScript choisit le sprite
      par la position du fond en pourcentage (section
@@ -2860,7 +2899,12 @@
     chienDortGen++;
     chienStopMinuteurs();
     chienDortEtat = "reveil";
-    chienJouerSequence(ANIMATION_CHIEN.reveil, chienEveille);
+    chienJouerSequence(ANIMATION_CHIEN.reveil, function () {
+      chienEveille();
+      // Sur l accueil, le chien reveille prend la parole : bulles
+      // de dialogue (fichier textes/chien-accueil.txt)
+      chienDemarrerBulles();
+    });
   }
 
   function chienEveille() {
@@ -2876,6 +2920,231 @@
     chienStopMinuteurs();
     chienDortEtat = "parle";
     chienJouerSequence(ANIMATION_CHIEN.parle, null);
+  }
+
+  // ==== BULLE DE DIALOGUE DU CHIEN (style RPG 16-bit) ====
+  // Le chien reveille parle dans une bulle : fond bleu tres
+  // clair, contour noir, coins arrondis, texte ecrit lettre par
+  // lettre comme dans un RPG Super NES. Tant que le texte
+  // s ecrit, l animation "parle" (sprites 6/7) tourne ; le
+  // texte fini, le chien reprend sa position normale (sprite 6).
+  // La bulle mesure le texte complet AVANT d ecrire : elle nait
+  // directement a sa taille definitive, jamais en direct.
+  // Les textes viennent d un fichier .txt du depot (une ligne =
+  // une bulle), modifiable sans toucher au code.
+
+  // REGLAGE : BULLE DU CHIEN -- STYLE DU TEXTE
+  const BULLE_CHIEN_STYLE = {
+    taille: 14,         // taille de police en px
+    gras: false,        // texte en gras ?
+    italique: false,    // texte en italique ?
+    souligne: false    // texte souligne ?
+  };
+  // REGLAGE : BULLE DU CHIEN -- MARGES
+  const BULLE_CHIEN_MARGES = {
+    interne: 14,     // air DANS la bulle, autour du texte (padding, px)
+    autour: 32       // air AUTOUR de la bulle : meme valeur des deux
+                     // cotes -- a gauche du bord du site, a droite
+                     // avant la zone des images (px). La largeur
+                     // maxi de la bulle se calcule toute seule :
+                     // largeur colonne - 2 x autour
+  };
+  // REGLAGE : BULLE DU CHIEN -- TEMPS
+  const BULLE_CHIEN_TEMPS = {
+    frappe: 38,         // delai entre chaque lettre (ms)
+    entreBulles: 1400   // delai entre la fin d une bulle et la suivante (ms)
+  };
+  // Fichier des textes : UNE LIGNE = UNE BULLE. Un fichier PAR
+  // SECTION, nomme d apres le dossier de la section :
+  //   textes/chien-accueil.txt    -> page d accueil
+  //   textes/chien-contact.txt    -> page contact
+  //   textes/chien-<dossier>.txt  -> chaque serie (meme nom que
+  //                                 le dossier d images)
+  // Fichier absent ou vide : le chien se reveille SANS bulle sur
+  // cette page (aucun blocage, rien a declarer).
+  const BULLE_CHIEN_FICHIER = "textes/chien-accueil.txt";
+  const BULLE_CHIEN_DEFAUT = [
+    "Hello !",
+    "Bienvenue sur mon site, n'h\u00e9sitez pas \u00e0 me r\u00e9veiller si vous voulez plus d'infos.",
+    "Je retourne me coucher, \u00e0 toute !"
+  ];
+
+  let chienBulleGen = 0;          // annule toute sequence de bulles en cours
+  let chienBulleActive = false;   // une sequence tourne (les clics l avancent)
+  let chienBulleEl = null;        // la bulle affichee
+  let chienBulleSpan = null;      // le span de texte dans la bulle
+  let chienBulleTexte = "";       // texte complet de la bulle en cours
+  let chienBulleFrappe = null;    // setInterval d ecriture lettre par lettre
+  let chienBulleFinFrappe = null; // callback de fin d ecriture
+  let chienBulleTimeout = null;   // attente entre deux bulles
+  let chienBulleSuite = null;     // etape suivante apres l attente
+
+  function chienBulleNettoyer() {
+    // TOUT arrete : bulle, frappe, attente (changement de page...)
+    chienBulleGen++;
+    if (chienBulleFrappe) { clearInterval(chienBulleFrappe); chienBulleFrappe = null; }
+    if (chienBulleTimeout) { clearTimeout(chienBulleTimeout); chienBulleTimeout = null; }
+    if (chienBulleEl) { chienBulleEl.remove(); chienBulleEl = null; }
+    chienBulleSpan = null;
+    chienBulleActive = false;
+    chienBulleFinFrappe = null;
+    chienBulleSuite = null;
+  }
+
+  function chienBulleVider() {
+    // retire la bulle et la frappe, SANS toucher a la sequence
+    if (chienBulleFrappe) { clearInterval(chienBulleFrappe); chienBulleFrappe = null; }
+    if (chienBulleTimeout) { clearTimeout(chienBulleTimeout); chienBulleTimeout = null; }
+    if (chienBulleEl) { chienBulleEl.remove(); chienBulleEl = null; }
+    chienBulleSpan = null;
+    chienBulleFinFrappe = null;
+    chienBulleSuite = null;
+  }
+
+  function chienMontrerBulle(texte, finTexte, gen) {
+    chienBulleTexte = texte;
+    chienBulleEl = document.createElement("div");
+    chienBulleEl.className = "bulle-chien";
+    chienBulleSpan = document.createElement("span");
+    // Marges de la bulle (REGLAGE : BULLE DU CHIEN -- MARGES) :
+    // padding interne + largeur maxi coherente des deux cotes
+    // (colonne moins autant d air a gauche qu a droite)
+    chienBulleEl.style.padding = BULLE_CHIEN_MARGES.interne + "px";
+    const largeurColonne = parseFloat(
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--largeur-menu")) || 270;
+    chienBulleEl.style.maxWidth =
+      (largeurColonne - 2 * BULLE_CHIEN_MARGES.autour) + "px";
+    // Style du texte (REGLAGE : BULLE DU CHIEN -- STYLE DU TEXTE)
+    chienBulleSpan.style.fontSize = BULLE_CHIEN_STYLE.taille + "px";
+    chienBulleSpan.style.fontWeight = BULLE_CHIEN_STYLE.gras ? "bold" : "normal";
+    chienBulleSpan.style.fontStyle = BULLE_CHIEN_STYLE.italique ? "italic" : "normal";
+    chienBulleSpan.style.textDecoration = BULLE_CHIEN_STYLE.souligne ? "underline" : "none";
+    // 1. MESURE : la bulle affiche le texte complet en invisible
+    //    pour connaitre sa taille AVANT la moindre lettre ecrite
+    chienBulleSpan.textContent = texte;
+    chienBulleEl.style.visibility = "hidden";
+    chienBulleEl.appendChild(chienBulleSpan);
+    document.body.appendChild(chienBulleEl);
+    // 2. La taille mesuree est FIGEE : la bulle n evolue plus,
+    //    quel que soit le texte deja ecrit dedans. +2px de tampon :
+    //    au pixel pres, l espace d une phrase courte (ex. le !
+    //    de "Hello !") devenait un point de coupure et sautait
+    //    seul a la ligne -- le tampon interdit ce wrap parasite.
+    chienBulleEl.style.width = Math.ceil(chienBulleEl.offsetWidth) + 2 + "px";
+    chienBulleEl.style.height = Math.ceil(chienBulleEl.offsetHeight) + "px";
+    // 3. ECRITURE lettre par lettre (style RPG SNES)
+    chienBulleSpan.textContent = "";
+    chienBulleEl.style.visibility = "visible";
+    chienParler();  // le chien parle tant que le texte s ecrit
+    let n = 0;
+    chienBulleFinFrappe = finTexte;
+    chienBulleFrappe = setInterval(function () {
+      if (gen !== chienBulleGen) return;  // sequence annulee
+      n++;
+      chienBulleSpan.textContent = texte.slice(0, n);
+      if (n >= texte.length) {
+        clearInterval(chienBulleFrappe);
+        chienBulleFrappe = null;
+        const fin = chienBulleFinFrappe;
+        chienBulleFinFrappe = null;
+        if (fin) fin();
+      }
+    }, BULLE_CHIEN_TEMPS.frappe);
+  }
+
+  function chienBulles(textes) {
+    // Annule tout (y compris le minuteur d endormissement : le
+    // chien ne dort pas pendant qu il parle), puis enchaine.
+    chienBulleNettoyer();
+    chienStopMinuteurs();
+    const gen = chienBulleGen;
+    chienBulleActive = true;
+    let i = 0;
+    const suivante = function () {
+      if (gen !== chienBulleGen) return;
+      chienBulleVider();
+      if (i >= textes.length) {
+        // DERNIERE BULLE PASSEE : le chien ne se rendort PAS
+        // aussitot -- il reste EVEILLE (timer normal de 5 s).
+        // On peut donc continuer a lui cliquer dessus : chaque
+        // clic compte vers le cyclope (10 clics -> oeil rouge ->
+        // laser), comme le promet le texte de la bulle. Sans
+        // clic, il s endort de lui meme au bout du timer.
+        chienBulleActive = false;
+        chienEveille();
+        return;
+      }
+      chienMontrerBulle(textes[i], function () {
+        // texte termine : position normale (sprite 6), puis
+        // apres un court instant, bulle suivante
+        chienAfficherSprite(ANIMATION_CHIEN.eveilleSprite);
+        chienBulleSuite = function () { i++; suivante(); };
+        chienBulleTimeout = setTimeout(function () {
+          if (gen !== chienBulleGen) return;
+          chienBulleTimeout = null;
+          const s = chienBulleSuite;
+          chienBulleSuite = null;
+          if (s) s();
+        }, BULLE_CHIEN_TEMPS.entreBulles);
+      }, gen);
+    };
+    suivante();
+  }
+
+  function chienBulleAvancer() {
+    // Clic pendant une sequence de bulles : le texte en cours
+    // s affiche d un coup ; s il est deja fini, on passe
+    // aussitot a la bulle suivante (comme dans un vrai RPG).
+    if (chienBulleFrappe) {
+      clearInterval(chienBulleFrappe);
+      chienBulleFrappe = null;
+      chienBulleSpan.textContent = chienBulleTexte;
+      const fin = chienBulleFinFrappe;
+      chienBulleFinFrappe = null;
+      if (fin) fin();
+      return;
+    }
+    if (chienBulleTimeout) {
+      clearTimeout(chienBulleTimeout);
+      chienBulleTimeout = null;
+      const s = chienBulleSuite;
+      chienBulleSuite = null;
+      if (s) s();
+    }
+  }
+
+  function chienDemarrerBulles() {
+    // Le fichier de textes depend de la PAGE ou l on se trouve :
+    // accueil, contact, ou le dossier de la serie affichee
+    // (le hash de l URL porte le nom du dossier, comme pour les
+    // images). Fichier absent : pas de bulle sur cette page.
+    const dossierCourant = decodeURIComponent(location.hash.slice(1));
+    const surAccueil =
+      location.hash === "" || location.hash === "#" ||
+      (dossierCourant !== "contact" && !trouver(dossierCourant));
+    let fichier = null;
+    if (surAccueil) fichier = "textes/chien-accueil.txt";
+    else if (dossierCourant === "contact") fichier = "textes/chien-contact.txt";
+    else {
+      const serie = trouver(dossierCourant);
+      if (serie) fichier = "textes/chien-" + serie.dossier + ".txt";
+    }
+    if (!fichier) return;  // page inconnue : pas de bulle
+    if (typeof fetch !== "function") { chienBulles(BULLE_CHIEN_DEFAUT); return; }
+    fetch(fichier).then(function (r) {
+      if (!r.ok) throw new Error("fichier absent");
+      return r.text();
+    }).then(function (t) {
+      const lignes = t.split(/\r?\n/).map(function (s) { return s.trim(); })
+        .filter(function (s) { return s.length > 0; });
+      if (lignes.length) chienBulles(lignes);
+      // fichier vide : pas de bulle (le chien reste juste eveille)
+    }).catch(function () {
+      // fichier absent : pas de bulle sur cette page. L accueil,
+      // lui, garde toujours ses textes par defaut integres.
+      if (surAccueil) chienBulles(BULLE_CHIEN_DEFAUT);
+    });
   }
 
   function chienCyclope() {
@@ -3650,6 +3919,9 @@
 
   function chienCliquer() {
     const maintenant = Date.now();
+    // Sequence de bulles en cours : un clic l AVANCE (texte
+    // complet d un coup, puis bulle suivante) -- comme un RPG.
+    if (chienBulleActive) { chienBulleAvancer(); return; }
     // Clics "de suite" : au moindre ecart trop grand, le compte
     // repart de zero.
     if (maintenant - chienDernierClic > ANIMATION_CHIEN.suiteMs) chienClicsSuite = 0;
@@ -3735,6 +4007,7 @@
   function arreterChienDort() {
     chienDortGen++;  // fige sequences, laser et effets en cours
     chienStopMinuteurs();
+    chienBulleNettoyer();  // changement de page : la bulle part avec le chien
     chienDortEtat = "dodo";
     chienClicsReveil = 0;
     chienClicsSuite = 0;
@@ -4249,11 +4522,11 @@
   // Augmenter = texte plus grand, diminuer = plus petit. Ex. :
   //   compteur/timer de 3 -> 4 : le HUD devient plus lisible.
   const TAILLES_TEXTE = {
-    compteur:  2,   // compteur de mouches (HUD, haut droite)
-    timer:     2,   // timer 99 s (HUD, haut droite)
+    compteur:  3,   // compteur de mouches (HUD, haut droite)
+    timer:     3,   // timer 99 s (HUD, haut droite)
     boss:      2,   // THE FLY KING (nom au-dessus de la barre de vie)
-    defaite:   3,   // GAME OVER (fin de partie)
-	victoire:  3    // CONGRATULATIONS ! (fin de partie)
+    defaite:   4,   // GAME OVER (fin de partie)
+    victoire:  4    // CONGRATULATIONS ! (fin de partie)
   };
   function majTextePixel(conteneur, texte) {
     // Met Ã  jour un texte pixel art (compteur, timer)
