@@ -764,7 +764,7 @@
   // 250 ms) : sans cela, un delai trop court laisserait la
   // transition inachevee et tout paraitrait GRIS (melange jamais
   // termine entre les couleurs).
-  const VAGUE_VITESSE = 400;
+  const VAGUE_VITESSE = 100;
 
   const nom = document.getElementById("nom");
   const lettres = [];
@@ -793,7 +793,7 @@
   // bande entiere voyage vers la droite. Avec 12 lettres, on voit
   // environ deux bandes a la fois qui se suivent. Le compteur
   // d etapes n est JAMAIS remis a zero.
-  const BANDE_NOM = 7;
+  const BANDE_NOM = 4;
   let etapeNom = 0;
   function colorerNom() {
     const cycle = PALETTE_RVB.length * BANDE_NOM;
