@@ -730,6 +730,15 @@
 
   const PALETTE_RVB = ["#ff1744", "#00e676", "#2979ff"];
 
+  // VITESSE DE LA VAGUE : delai en ms entre deux etapes. Plus petit
+  // = vague plus rapide et plus nerveuse (essaie 150 ou 100). La
+  // transition CSS de couleur de chaque lettre est reglee
+  // AUTOMATIQUEMENT en proportion (60 % du delai, plafonnee a
+  // 250 ms) : sans cela, un delai trop court laisserait la
+  // transition inachevee et tout paraitrait GRIS (melange jamais
+  // termine entre les couleurs).
+  const VAGUE_VITESSE = 400;
+
   const nom = document.getElementById("nom");
   const lettres = [];
   SITE.nom.split("").forEach(function (c) {
@@ -738,6 +747,14 @@
     s.textContent = c;
     nom.appendChild(s);
     if (c !== " ") lettres.push(s);
+  });
+  // Transition proportionnee au delai de la vague (voir
+  // VAGUE_VITESSE plus haut) : a 400 ms -> 250 ms de fondu, a
+  // 100 ms -> 60 ms seulement. On garde la fluidite du fondu
+  // SANS que les couleurs se melent en gris quand la vague va vite.
+  lettres.forEach(function (s) {
+    s.style.transition = "color " +
+      Math.min(250, Math.round(VAGUE_VITESSE * 0.6)) + "ms ease";
   });
 
   // VAGUE RVB QUI VOYAGE : les trois couleurs forment une
@@ -766,7 +783,7 @@
 
   nom.addEventListener("mouseenter", function () {
     colorerNom();
-    if (!mouvementReduit.matches) minuteurNom = setInterval(colorerNom, 200);
+    if (!mouvementReduit.matches) minuteurNom = setInterval(colorerNom, VAGUE_VITESSE);
   });
   nom.addEventListener("touchstart", function () {
     colorerNom();
