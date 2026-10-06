@@ -6,6 +6,10 @@
 <title>Gabriel Fabry</title>
 <meta name="description" content="Gabriel Fabry, photographie.">
 <style>
+  /* REGLAGE : COULEURS ET MARGES DU SITE -- fond, texte, couleur
+     discrete, marge generale, largeur de la colonne menu, les
+     trois couleurs rouge/vert/bleu. Tout le site lit ces
+     variables. */
   :root {
     --fond: #ffffff;
     --texte: #111111;
@@ -88,6 +92,9 @@
   aside nav a,
   aside nav button,
   aside .bouton-rafraichir { pointer-events: auto; }
+  /* REGLAGE : TYPO DU TITRE -- taille de police du nom du site
+     (15px). Les couleurs de la vague se reglent ailleurs
+     (chercher REGLAGE dans le code, en bas). */
   .nom {
     font-size: 15px;
     font-weight: 500;
@@ -192,11 +199,14 @@
     z-index: 2;
   }
 
-  /* Chien qui dort (planche SPRITE SHEET DOG.png, sprites 32x32,
+  /* Chien qui dort (planche sprites/chien.png, sprites 32x32,
      toutes les pages SAUF mobile) : en bas a gauche, cote colonne.
      Chaque sprite fait 32x32 : affiche en 80x80 avec
      image-rendering: pixelated pour garder des pixels nets, pas
      flous. Si le fichier manque, le chien ne s'affiche pas. */
+  /* REGLAGE : CHIEN -- placement (bottom : hauteur au-dessus du
+     bas de l'ecran) et TAILLE (width/height 80px) du chien qui
+     dort. Le decalage + -8px affine son calage vertical. */
   .chien-dort {
     position: fixed;
     left: var(--marge);
@@ -221,7 +231,7 @@
     60% { transform: translateX(-2px); }
     80% { transform: translateX(2px); }
   }
-  /* Planches du chien : une seule image (SPRITE SHEET DOG.png),
+  /* Planches du chien : une seule image (sprites/chien.png),
      tous les sprites cote a cote. Le JavaScript choisit le sprite
      par la position du fond en pourcentage (section
      ANIMATION_CHIEN). */
@@ -277,6 +287,10 @@
   .bouton-vent {
     position: absolute;    /* DANS le cadre : bas colle au bas de la photo */
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
+    /* REGLAGE : ICONE SOUFFLE -- position horizontale (left,
+       colonne de gauche) et TAILLE (font-size 30px) de l'icone
+       souffle sur desktop. Version mobile : chercher la regle
+       .bouton-vent (sans accolade) plus bas dans le code. */
     left: calc(-24px - var(--marge));  /* colonne de gauche, comme avant */
     bottom: 0;
     padding: 0;
@@ -299,6 +313,10 @@
   .bouton-rafraichir {
     position: absolute;    /* DANS le cadre : bas colle au bas de la photo */
     z-index: 3;             /* au-dessus de la photo, du canvas et du monticule */
+    /* REGLAGE : ICONE RELOAD -- position horizontale de l'icone
+       de rafraichissement sur desktop (juste a gauche du souffle).
+       Version mobile : chercher la regle .bouton-rafraichir
+       (sans accolade) plus bas dans le code. */
     left: calc(-68px - var(--marge));  /* colonne de gauche, comme avant */
     bottom: 0;
     padding: 0;
@@ -312,12 +330,15 @@
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  /* Les icones des deux boutons sont des PNG du dossier "PNG"
+  /* Les icones des deux boutons sont des PNG du dossier "sprites"
      (blow.png pour le souffle, reload.png pour le rafraichir).
      image-rendering: pixelated : le petit PNG est agrandi au
      pixel pres -- le pixel art reste net, sans fondre. */
   .bouton-vent img, .bouton-rafraichir img {
     display: block;
+    /* REGLAGE : TAILLE DES ICONES -- 28px sur desktop. Sur mobile,
+       elles sont 40% plus petites : chercher 40% plus bas dans le
+       code. */
     width: 28px;
     height: 28px;
     image-rendering: pixelated;
@@ -477,6 +498,9 @@
     user-select: none;
     -webkit-user-select: none;
   }
+  /* REGLAGE : ESPACEMENT HUD -- ecart vertical entre le compteur
+     de mouches et le timer (6px). Augmente pour plus d air. */
+  #hud-compteur { margin-bottom: 6px; }
   #hud-compteur,
   #hud-timer { display: flex; justify-content: flex-end; }
   #hud-compteur canvas,
@@ -728,8 +752,11 @@
   const liens = {};
   const groupes = [];
 
+  // REGLAGE : COULEURS DE LA VAGUE -- les trois couleurs du titre
+  // et du menu, dans l'ordre : rouge, vert, bleu.
   const PALETTE_RVB = ["#ff1744", "#00e676", "#2979ff"];
 
+  // REGLAGE : VITESSE DE LA VAGUE DU TITRE
   // VITESSE DE LA VAGUE : delai en ms entre deux etapes. Plus petit
   // = vague plus rapide et plus nerveuse (essaie 150 ou 100). La
   // transition CSS de couleur de chaque lettre est reglee
@@ -757,20 +784,22 @@
       Math.min(250, Math.round(VAGUE_VITESSE * 0.6)) + "ms ease";
   });
 
-  // VAGUE RVB QUI VOYAGE : les trois couleurs forment une
-  // sequence fixe R-V-B repete le long des lettres, et a chaque
-  // etape la SEQUENCE GLISSE d une lettre vers la droite :
-  // chaque lettre prend la couleur de sa voisine de gauche (la
-  // premiere boucle sur la derniere). Etape 0 :
-  // g=R a=V b=B r=R... etape 1 : g=B a=R b=V r=B...
-  // (les couleurs voyagent de lettre en lettre). Le compteur
-  // d etapes n est JAMAIS remis a zero : un nouveau survol
-  // REPREND la ou la vague s etait arretee.
+  // REGLAGE : LARGEUR DES BANDES DE LA VAGUE DU TITRE
+  // BANDES RVB DE 7 LETTRES : la sequence n est plus une lettre
+  // par couleur, mais BANDE_NOM lettres ROUGES, puis BANDE_NOM
+  // VERTES, puis BANDE_NOM BLEUES (cycle total de 3 x BANDE_NOM
+  // positions). Le meme glissement s applique : a chaque etape,
+  // chaque lettre prend la couleur de sa voisine de gauche -- la
+  // bande entiere voyage vers la droite. Avec 12 lettres, on voit
+  // environ deux bandes a la fois qui se suivent. Le compteur
+  // d etapes n est JAMAIS remis a zero.
+  const BANDE_NOM = 7;
   let etapeNom = 0;
   function colorerNom() {
+    const cycle = PALETTE_RVB.length * BANDE_NOM;
     lettres.forEach(function (s, i) {
-      const pos = ((i - etapeNom) % PALETTE_RVB.length + PALETTE_RVB.length) % PALETTE_RVB.length;
-      s.style.color = PALETTE_RVB[pos];
+      const pos = ((i - etapeNom) % cycle + cycle) % cycle;
+      s.style.color = PALETTE_RVB[Math.floor(pos / BANDE_NOM)];
     });
     etapeNom++;
   }
@@ -1040,6 +1069,10 @@
   let animExpId = null;
 
   /* Monticule de pixels de grattage (page d'accueil) */
+  // REGLAGE : GRAIN DU MONTICULE -- taille des pixels du tas et
+  // largeur des tranches (3px : dense et fin ; 5 : plus gros
+  // grain ; TAS_SOL : decalage du sol imaginaire, 0 = colle au
+  // bas de l'image).
   const TAS_TAILLE = 3; // Taille d'un pixel du tas (px)
   const TAS_BIN = 3;    // Largeur d'une tranche = taille du pixel : dÃ©pÃ´ts pleins, tas dense
   const TAS_SOL = 0;    // Sol imaginaire : 0 = la premiere rangee de
@@ -1268,12 +1301,12 @@
   let particulesVent = [];   // Pixels arraches par le souffle, en vol
 
   // Icones des deux boutons : des PNG poses par l'utilisateur
-  // dans le dossier "PNG" (blow.png pour le souffle, reload.png
+  // dans le dossier "sprites" (blow.png pour le souffle, reload.png
   // pour le rafraichissement). Si le micro est refuse ou
   // indisponible, on ne change RIEN a l'ecran : le petit clic
   // d'interrupteur (jouerClicVent, sens "off") suffit a prevenir.
-  const ICONE_VENT = "PNG/blow.png";      // l'icone du souffle
-  const ICONE_RELOAD = "PNG/reload.png";  // l'icone du rafraichissement
+  const ICONE_VENT = "sprites/blow.png";      // l'icone du souffle
+  const ICONE_RELOAD = "sprites/reload.png";  // l'icone du rafraichissement
 
   // Pose l'icone du souffle (blow.png) dans le bouton, sur le
   // modele d'imgReload pour le rafraichir. Jamais remplacee :
@@ -1375,6 +1408,13 @@
     const rms = Math.sqrt(somme / ventDonnees.length);
     // Seuil tres bas : meme un souffle FAIBLE declenche le vent
     // a pleine puissance, sans s'epuiser.
+    // REGLAGE : SENSIBILITE DU SOUFFLE -- 0.03 = seuil de
+    // declenchement (tres bas, un souffle leger suffit) ; 0.9 =
+    // plancher de puissance (un petit souffle fait deja presque
+    // tout partir) ; 0.08 = vitesse de saturation (plus petit =
+    // sature encore plus vite). Plus haut dans le fichier :
+    // chercher REGLAGE : PUISSANCE DU SOUFFLE pour la quantite de
+    // pixels arraches.
     if (rms > 0.03) {
       const ancienne = ventEnergie;
       // Plancher haut et saturation rapide : un souffle faible
@@ -1487,6 +1527,9 @@
     // Petit souffle = le tas part deja en ENTIER (inutile de
     // s'epuiser) ; gros souffle d'un coup = quasi tout le tas
     // s'envole, et vite
+    // REGLAGE : PUISSANCE DU SOUFFLE -- nombre de pixels arraches
+    // par frame : 30 au minimum, +260 x la force du souffle au
+    // maximum. Plus gros = le tas part plus vite et plus massivement.
     const arrachements = Math.round(30 + force * 260 + Math.random() * 10);
     // Phase 1 : tirage des tranches a arracher (aucune lecture
     // de pixels -- juste le choix des bins)
@@ -1511,6 +1554,10 @@
       particulesVent.push({
         x: bin * TAS_BIN + TAS_BIN / 2,
         y: solLocal - tasHauteurs[bin] - TAS_TAILLE,
+        // REGLAGE : VITESSE DE LA POUSSIERE -- vitesse initiale
+        // des pixels arraches : vx vers la droite (5 a 14), vy
+        // vers le haut (negatif). La gravite et le vent les
+        // accelerent ensuite tout seuls.
         vx: 5 + Math.random() * 9,   // le vent les chasse vite vers la droite
         vy: -(1.5 + Math.random() * 4),
         vie: 1,
@@ -1857,8 +1904,12 @@
     // n'affiche de toute facon qu'une fraction de la photo, et tout
     // (pinceau, lecture de pixels, monticule) devient nettement plus
     // rapide, surtout sur telephone.
+    // REGLAGE : RESOLUTION DU GRATTAGE -- cote le plus long du
+    // canvas (1600px). Plus grand = grattage plus fin mais plus
+    // lourd pour le telephone ; plus petit = plus leger.
     const RESOLUTION_MAX = 1600; // cote le plus long du canvas
 
+    // REGLAGE : TAILLE DU PINCEAU DE GRATTAGE (desktop et mobile)
     // TAILLE DU PINCEAU DE GRATTAGE : fraction du petit cote de la
     // photo affichee. Deux valeurs reglees INDEPENDAMMENT : une pour
     // grand ecran (desktop), une pour la version mobile. La frontiere
@@ -2350,7 +2401,7 @@
     canvas.addEventListener("pointerup", stopperGomme);
     canvas.addEventListener("pointercancel", stopperGomme);
 
-    // Bouton souffle (PNG/blow.png) : pose dans la colonne de
+    // Bouton souffle (sprites/blow.png) : pose dans la colonne de
     // gauche, sur le flanc gauche de la colline de gauche, et
     // COLLE AU BAS DE LA PHOTO (regle CSS .bouton-vent, position
     // absolute DANS le cadre : le bas de l'icone affleure le bas
@@ -2592,7 +2643,7 @@
      section ANIMATION_CHIEN ---
      Machine a etats du chien qui dort en bas a gauche de chaque
      page (accueil, series, contact), anime par une seule planche
-     (sprite sheet) : "dog sprite/SPRITE SHEET DOG.png", 17 sprites
+     (sprite sheet) : "sprites/chien.png", 17 sprites
      de 32px cote a cote. TOUS les reglages sont dans l'objet
      ANIMATION_CHIEN ci-dessous : sequences, durees de chaque
      sprite, comportement.
@@ -2632,8 +2683,8 @@
   ----------------------------------------------------------------- */
   const ANIMATION_CHIEN = {
     // La planche : une seule image, tous les sprites cote a cote,
-    // de gauche a droite, comptes de 1 a 17 (%20 = espace).
-    planche: "dog%20sprite/SPRITE%20SHEET%20DOG.png",
+    // de gauche a droite, comptes de 1 a 17. Dossier "sprites".
+    planche: "sprites/chien.png",
     frames: 17,
 
     // ---- Les sequences ----
@@ -4192,25 +4243,150 @@
     intervalTimer = setInterval(tickTimer, 1000);
   }
 
+  // REGLAGE : TAILLES DES TEXTES PIXEL ART -- TOUTES les tailles
+  // des textes du jeu sont reunies ICI, en un seul endroit. Le
+  // nombre = ECHELLE (multiplicateur de la taille de base 8).
+  // Augmenter = texte plus grand, diminuer = plus petit. Ex. :
+  //   compteur/timer de 3 -> 4 : le HUD devient plus lisible.
+  const TAILLES_TEXTE = {
+    compteur:  2,   // compteur de mouches (HUD, haut droite)
+    timer:     2,   // timer 99 s (HUD, haut droite)
+    boss:      2,   // THE FLY KING (nom au-dessus de la barre de vie)
+    defaite:   3,   // GAME OVER (fin de partie)
+	victoire:  3    // CONGRATULATIONS ! (fin de partie)
+  };
   function majTextePixel(conteneur, texte) {
     // Met Ã  jour un texte pixel art (compteur, timer)
-    if (conteneur) conteneur.replaceChildren(creerTextePixel(texte, "#111111", 8, 3));
+    if (conteneur) conteneur.replaceChildren(creerTextePixel(texte, "#111111", 8,
+      conteneur === timerEl ? TAILLES_TEXTE.timer : TAILLES_TEXTE.compteur));
   }
 
+  // POLICE PIXEL ART (sprites/typo.png) : planche de lettres qui
+  // REMPLACE le rendu Courier de tous les textes pixel (GAME OVER,
+  // CONGRATULATIONS !, THE FLY KING, compteur, timer).
+  // FORMAT ATTENDU : cases RECTANGULAIRES toutes de la meme
+  // taille, COLLEES sans aucun espacement ni marge (l espacement
+  // visuel entre lettres vient du cote vide DE DANS chaque case).
+  // AUTODETECTION DE L ORIENTATION : bande HORIZONTALE (image
+  // plus large que haute, lettres de gauche a droite) ou VERTICALE
+  // (image plus haute que large, lettres de haut en bas). Ordre :
+  //   A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+  //   (espace) ! puis les chiffres dans L ORDRE DE LA PLANCHE :
+  //   1 2 3 4 5 6 7 8 9 0
+  // Lettres PLEINES (noir ou couleur) sur fond TRANSPARENT. Un
+  // caractere absent du texte : on affiche un espace. Tant que le
+  // fichier n existe pas (ou pas encore charge), le site retombe
+  // tout seul sur le rendu Courier actuel : aucun blocage.
+  // REGLAGE : POLICE PIXEL ART -- l ordre des caracteres de la
+  // planche. Si tu changes l ordre dans typo.png, refaire
+  // correspondre cette chaine.
+  const FONT_TYPO_CARACTERES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ !1234567890";
+  // REGLAGE : TAILLE DES CASES DE typo.png -- largeur x hauteur
+  // en pixels. Doit correspondre EXACTEMENT a la planche (cases
+  // collees, sans espacement). Exemple actuel : 7 x 8.
+  const FONT_TYPO_LARG = 7;
+  const FONT_TYPO_HAUT = 8;
+  const FONT_TYPO = new Image();
+  FONT_TYPO.src = "sprites/typo.png";
+
   function creerTextePixel(texte, couleur, taille, echelle) {
-    // Rendu fin puis agrandissement sans lissage : typographie pixel art
+    // DEUX CHEMINS DE RENDU, automatiquement choisis :
+    // 1. sprites/typo.png PRESENTE et chargee -> rendu par la
+    //    planche (chemin principal, ci-dessous). Les parametres
+    //    taille/echelle : seul echelle sert (multiplicateur).
+    // 2. planche ABSENTE -> repli Courier sur-echantillonne
+    //    (code apres le return du chemin 1).
     taille = taille || 8;
     echelle = echelle || 4;
+    // Planche typo.png presente et chargee : rendu par lettres
+    if (FONT_TYPO.complete && FONT_TYPO.naturalWidth > 0 &&
+        FONT_TYPO.naturalHeight >= 4) {
+      // AUTODETECTION : image plus large que haute = bande
+      // HORIZONTALE ; plus haute que large = colonne VERTICALE.
+      const horiz = FONT_TYPO.naturalWidth >= FONT_TYPO.naturalHeight;
+      const nbCases = horiz ?
+        Math.floor(FONT_TYPO.naturalWidth / FONT_TYPO_LARG) :
+        Math.floor(FONT_TYPO.naturalHeight / FONT_TYPO_HAUT);
+      const haut = texte.toUpperCase();
+      const renduT = document.createElement("canvas");
+      renduT.width = haut.length * FONT_TYPO_LARG * echelle;
+      renduT.height = FONT_TYPO_HAUT * echelle;
+      const tctx = renduT.getContext("2d");
+      tctx.imageSmoothingEnabled = false;
+      let xT = 0;
+      for (let i = 0; i < haut.length; i++) {
+        const idx = FONT_TYPO_CARACTERES.indexOf(haut[i]);
+        if (idx >= 0 && idx < nbCases) {
+          if (horiz) {
+            tctx.drawImage(FONT_TYPO, idx * FONT_TYPO_LARG, 0,
+              FONT_TYPO_LARG, FONT_TYPO_HAUT,
+              xT, 0, FONT_TYPO_LARG * echelle, FONT_TYPO_HAUT * echelle);
+          } else {
+            tctx.drawImage(FONT_TYPO, 0, idx * FONT_TYPO_HAUT,
+              FONT_TYPO_LARG, FONT_TYPO_HAUT,
+              xT, 0, FONT_TYPO_LARG * echelle, FONT_TYPO_HAUT * echelle);
+          }
+        }
+        xT += FONT_TYPO_LARG * echelle;
+      }
+      // Recoloration : les lettres de la planche deviennent la
+      // couleur demandee (l alpha est conserve)
+      tctx.globalCompositeOperation = "source-in";
+      tctx.fillStyle = couleur;
+      tctx.fillRect(0, 0, renduT.width, renduT.height);
+      tctx.globalCompositeOperation = "source-over";
+      return renduT;
+    }
+    // SUR-ECHANTILLONNAGE : a 8px la police n a tout simplement pas
+    // assez de pixels pour dessiner les lettres (les trous du o,
+    // du e, du 8 se bouchent : chiffres et lettres illisibles).
+    // On dessine donc le texte SUR (4x) plus grand -- contours
+    // precis --, on binarise, puis on REDUIT a la grille fine par
+    // moyenne de zones et on re-binarise : les formes restent
+    // justes (les trous restent des trous) tout en gardant le
+    // grain pixel. L agrandissement final donne des lettres
+    // carrees, nettes ET lisibles.
+    // REGLAGE : NETTETE PIXEL ART -- SUR_ECH (4) : 2 = lettres
+    // plus grossieres, 8 = contours encore plus justes (un peu
+    // plus lourd a calculer, sans consequence visible).
+    const SUR_ECH = 4;
+    const police = "bold " + (taille * SUR_ECH) + "px 'Courier New', Courier, monospace";
+    const grand = document.createElement("canvas");
+    const gctx = grand.getContext("2d");
+    gctx.font = police;
+    const nbCols = Math.ceil(gctx.measureText(texte).width / SUR_ECH) + 4;
+    const nbLignes = taille + 6;
+    grand.width = nbCols * SUR_ECH;
+    grand.height = nbLignes * SUR_ECH;
+    gctx.font = police;
+    gctx.textBaseline = "top";
+    gctx.fillStyle = couleur;
+    gctx.fillText(texte, 2 * SUR_ECH, 2 * SUR_ECH);
+    // 1re binarisation (haute resolution) : opaque ou transparent
+    try {
+      const pxG = gctx.getImageData(0, 0, grand.width, grand.height);
+      const dG = pxG.data;
+      for (let i = 3; i < dG.length; i += 4) {
+        dG[i] = dG[i] >= 120 ? 255 : 0;
+      }
+      gctx.putImageData(pxG, 0, 0);
+    } catch (e) { /* lecture impossible : rendu tel quel */ }
+    // Reduction a la grille fine : moyenne des SUR_ECH x SUR_ECH
+    // zones, puis 2e binarisation
     const petit = document.createElement("canvas");
+    petit.width = nbCols;
+    petit.height = nbLignes;
     const pctx = petit.getContext("2d");
-    const police = "bold " + taille + "px 'Courier New', Courier, monospace";
-    pctx.font = police;
-    petit.width = Math.ceil(pctx.measureText(texte).width) + 4;
-    petit.height = taille + 6;
-    pctx.font = police;
-    pctx.textBaseline = "top";
-    pctx.fillStyle = couleur;
-    pctx.fillText(texte, 2, 2);
+    pctx.imageSmoothingEnabled = true; // moyenne de zones
+    pctx.drawImage(grand, 0, 0, petit.width, petit.height);
+    try {
+      const pxB = pctx.getImageData(0, 0, petit.width, petit.height);
+      const dB = pxB.data;
+      for (let i = 3; i < dB.length; i += 4) {
+        dB[i] = dB[i] >= 128 ? 255 : 0;
+      }
+      pctx.putImageData(pxB, 0, 0);
+    } catch (e) { /* lecture impossible : rendu tel quel */ }
 
     const rendu = document.createElement("canvas");
     rendu.width = petit.width * echelle;
@@ -4227,7 +4403,7 @@
 
     const nom = document.createElement("div");
     nom.id = "nom-boss";
-    nom.appendChild(creerTextePixel("THE FLY KING", "#111111", 8, 2));
+    nom.appendChild(creerTextePixel("THE FLY KING", "#111111", 8, TAILLES_TEXTE.boss));
 
     const piste = document.createElement("div");
     piste.id = "barre-vie-piste";
@@ -4266,7 +4442,7 @@
 
     motEl = document.createElement("div");
     motEl.className = "mot-fin";
-    motEl.appendChild(creerTextePixel("GAME OVER", "#ff1744"));
+    motEl.appendChild(creerTextePixel("GAME OVER", "#ff1744", 8, TAILLES_TEXTE.defaite));
     conteneurJeu.appendChild(motEl);
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { if (motEl) motEl.classList.add("visible"); });
@@ -4418,7 +4594,7 @@
     // Le mot de victoire apparaÃ®t au milieu de l'Ã©cran, en typo pixel art
     motEl = document.createElement("div");
     motEl.className = "mot-fin";
-    motEl.appendChild(creerTextePixel(MOT_FIN, "#111111"));
+    motEl.appendChild(creerTextePixel(MOT_FIN, "#111111", 8, TAILLES_TEXTE.victoire));
     conteneurJeu.appendChild(motEl);
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { if (motEl) motEl.classList.add("visible"); });
