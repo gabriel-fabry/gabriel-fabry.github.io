@@ -137,7 +137,7 @@
   /* Colonne de droite */
   main {
     margin-left: var(--largeur-menu);
-    padding: var(--marge) 48px 120px var(--marge);
+    padding: var(--marge) 48px var(--marge) var(--marge);
     max-width: calc(var(--largeur-menu) + 1180px);
     min-height: 100vh;
     position: relative;
@@ -145,7 +145,7 @@
   }
 
   main .texte { max-width: 60ch; margin: 0 0 32px; color: var(--discret); white-space: pre-line; }
-  main figure { margin: 0 0 36px; }
+  main figure { margin: 0; }
   /* REGLAGE : HAUTEUR UNIFORME DES IMAGES -- TOUTES les photos
      des pages de serie ont la MEME HAUTEUR que la photo
      d accueil (100vh moins les deux marges) : le bas de chaque
@@ -469,7 +469,19 @@
   }
   .pao-cadre img.superpose.fondu { opacity: 0; }
 
-  .compteur { display: flex; gap: 14px; align-items: center; margin-top: 14px; color: var(--discret); font-variant-numeric: tabular-nums; }
+  /* REGLAGE : COMPTEUR DE SERIE -- fleches et numerotation,
+     POSEES DANS LA COLONNE DE GAUCHE, SOUS LE CHIEN, alignees
+     sur le MEME niveau que le bas de l image et le chien. Le
+     compteur n est plus SOUS l image : plus de scroll residuel,
+     la page tient exactement dans l ecran, comme l accueil. */
+  main .compteur {
+    position: fixed;
+    left: var(--marge);
+    bottom: calc(var(--marge) + 4px);
+    margin: 0;
+    z-index: 40;
+  }
+  main .compteur button { pointer-events: auto; }
   .compteur button { border: 0; background: none; padding: 0 2px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
   .compteur button:hover { color: var(--texte); }
 
@@ -4293,24 +4305,11 @@
     btnDroite.className = "zone-clic droite";
     btnDroite.setAttribute("aria-label", "Nouveau tirage alÃÂ©atoire");
 
-    conteneur.append(btnGauche, btnDroite);
+    // PAO : pas de fleches ni de numerotation sous le duo -- la
+    // navigation se fait par les ZONES DE CLIC sur les images
+    // (gauche = tirage precedent, droite = nouveau tirage). Les
+    // petites fleches n etaient de toute facon pas bien situees.
     fig.appendChild(conteneur);
-
-    const compteur = document.createElement("div");
-    compteur.className = "compteur";
-
-    const prec = document.createElement("button");
-    prec.type = "button";
-    prec.id = "prec";
-    prec.innerHTML = "&#8249;";
-
-    const suiv = document.createElement("button");
-    suiv.type = "button";
-    suiv.id = "suiv";
-    suiv.innerHTML = "&#8250;";
-
-    compteur.append(prec, suiv);
-    fig.appendChild(compteur);
 
     let paireCourante = null;
     let pairePrecedente = null;
@@ -4357,10 +4356,8 @@
     }
 
     btnDroite.addEventListener("click", tirageSuivant);
-    suiv.addEventListener("click", tirageSuivant);
 
     btnGauche.addEventListener("click", tiragePrecedent);
-    prec.addEventListener("click", tiragePrecedent);
 
     contenu.appendChild(fig);
     tirageSuivant();
