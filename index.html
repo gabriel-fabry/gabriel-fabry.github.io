@@ -156,6 +156,10 @@
      width: auto garde les proportions : aucune deformation.
      Les gabarits speciaux (PAO, Carnaval, vitrine Old fashion)
      ont leurs propres regles et ne sont pas touches. */
+  /* La hauteur uniforme ne s applique qu aux series a une image
+     par ecran : le duo PAO, la vitrine Carnaval/Old fashion et
+     la photo dessous de l accueil ont leurs propres regles,
+     plus precises, posees apres celle-ci dans le CSS. */
   main img {
     display: block;
     height: calc(100vh - 2 * var(--marge));
@@ -442,23 +446,27 @@
   }
   .vitrine img.superpose.fondu { opacity: 0; }
 
+  /* PAO : le duo garde sa mise en page propre (deux images cote
+     a cote), mais chaque image a la MEME HAUTEUR UNIFORME que
+     tout le site (100vh - 2 marges) et le duo part du bord
+     GAUCHE du contenu, colle comme les autres series. La
+     regle generale main img ci-dessus ne touche pas le duo :
+     ces regles, plus precises, la couvrent. */
   .pao-duo {
     display: flex;
     gap: 32px;
-    align-items: center;
-    width: 100%;
+    align-items: flex-end;
+    width: auto;
   }
   .pao-cadre {
     position: relative;
-    flex: 1 1 50%;
-    width: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    flex: 0 1 auto;
+    width: auto;
   }
   .pao-cadre img {
-    width: 100%;
-    max-height: 80vh;
+    width: auto;
+    height: calc(100vh - 2 * var(--marge));
+    max-height: none;
     object-fit: contain;
   }
   .pao-cadre img.superpose {
@@ -766,7 +774,11 @@
 
     .pao-duo { flex-direction: column; gap: 20px; }
     .pao-cadre { width: 100%; }
-    .pao-cadre img { max-height: none; }
+    .pao-cadre img { height: auto; width: 100%; max-height: none; }
+    /* Compteur de serie : sur mobile il redevient STATIQUE sous
+       l image (pas de colonne fixe a gauche : l ecran est trop
+       etroit pour poser les fleches a cote du contenu). */
+    main .compteur { position: static; margin-top: 14px; }
     /* Sur mobile, l'emoji revient DANS le cadre de la photo (position
        absolue, plus fixe) : sur la ligne du menu ou se trouve
        Contact, a droite, aligne sur le bord droit de l'image, le bas
@@ -4305,10 +4317,11 @@
     btnDroite.className = "zone-clic droite";
     btnDroite.setAttribute("aria-label", "Nouveau tirage alÃÂ©atoire");
 
-    // PAO : pas de fleches ni de numerotation sous le duo -- la
-    // navigation se fait par les ZONES DE CLIC sur les images
-    // (gauche = tirage precedent, droite = nouveau tirage). Les
-    // petites fleches n etaient de toute facon pas bien situees.
+    // Les ZONES DE CLIC sont la vraie navigation de la serie :
+    // moitie gauche = tirage precedent, moitie droite = nouveau
+    // tirage. Elles restent invisibles. Seules les petites
+    // fleches du bas ont ete retirees.
+    conteneur.append(btnGauche, btnDroite);
     fig.appendChild(conteneur);
 
     let paireCourante = null;
