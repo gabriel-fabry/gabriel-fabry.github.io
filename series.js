@@ -217,19 +217,19 @@ const SERIES = [
         titre: "Arles",
         dossier: "Arles",
         images: [
-          "Arles1.jpeg",
-          "Arles2.jpeg",
-          "Arles3.jpeg",
-          "Arles4.jpeg",
-          "Arles5.jpeg",
-          "Arles6.jpeg",
-          "Arles7.jpeg",
-          "Arles8.jpeg",
-          "Arles9.jpeg",
-          "Arles10.jpeg",
-          "Arles11.jpeg",
-          "Arles12.jpeg",
-          "Arles13.jpeg"
+          "Arles1.jpg",
+          "Arles2.jpg",
+          "Arles3.jpg",
+          "Arles4.jpg",
+          "Arles5.jpg",
+          "Arles6.jpg",
+          "Arles7.jpg",
+          "Arles8.jpg",
+          "Arles9.jpg",
+          "Arles10.jpg",
+          "Arles11.jpg",
+          "Arles12.jpg",
+          "Arles13.jpg"
         ]
       }
     ]
