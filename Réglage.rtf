@@ -1,0 +1,222 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2821
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww28700\viewh18880\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 ======================================================================\
+ REGLAGES DU SITE -- reperes de recherche\
+======================================================================\
+ Ce fichier se depose tel quel dans le dossier du depot GitHub\
+ (a cote de index.html). Il n'a AUCUNE incidence sur le site :\
+ GitHub Pages ne sert que index.html et les dossiers d'images,\
+ tous les autres fichiers sont ignores.\
+\
+ LEGENDE DES VALEURS :\
+   [OK] = valeur VALIDEE EN COURS, au site tel qu'il marche\
+          aujourd'hui -- n'y touche que pour tester.\
+   (defaut) = valeur de depart, modifiable librement.\
+\
+ METHODE : ouvrir index.html dans un editeur de texte et chercher\
+ (Ctrl+F / Cmd+F) le texte du marqueur, dans la colonne\
+ "CHERCHER". Chaque marqueur est un commentaire pose DIRECTEMENT\
+ au-dessus de la ou des lignes a modifier. Ne toucher qu'a la ou\
+ les valeurs indiquees, jamais au reste de la ligne.\
+ Apres chaque modification : enregistrer en UTF-8, commit, push.\
+\
+----------------------------------------------------------------------\
+ EFFETS VISUELS -- TITRE ET VAGUE\
+----------------------------------------------------------------------\
+ CHERCHER : REGLAGE : TYPO DU TITRE\
+   => Taille de police du nom du site. [OK] 15px.\
+\
+ CHERCHER : REGLAGE : COULEURS DE LA VAGUE\
+   => Les 3 couleurs (rouge, vert, bleu) du titre et du menu.\
+      [OK] "#ff1744", "#00e676", "#2979ff".\
+\
+ CHERCHER : REGLAGE : VITESSE DE LA VAGUE DU TITRE\
+   => VAGUE_VITESSE : delai en ms entre 2 etapes.\
+      [OK] 100 (vague rapide). Le fondu des lettres s adapte\
+      tout seul (pas de gris possible).\
+\
+ CHERCHER : REGLAGE : LARGEUR DES BANDES DE LA VAGUE DU TITRE\
+   => BANDE_NOM : nombre de lettres par bande de couleur.\
+      [OK] 4. NB : plus la bande est large, plus le mouvement\
+      parait lent (baisser VAGUE_VITESSE en consequence).\
+\
+----------------------------------------------------------------------\
+ GRATTAGE DE LA PHOTO D'ACCUEIL\
+----------------------------------------------------------------------\
+ CHERCHER : REGLAGE : TAILLE DU PINCEAU\
+   => PINCEAU_TAILLE_DESKTOP et PINCEAU_TAILLE_MOBILE.\
+      Fraction du petit cote de la photo. [OK] 0.03 tous deux.\
+      Plage : 0.02 (tres fin) a 0.12 (grosse eponge).\
+\
+ CHERCHER : REGLAGE : RESOLUTION DU GRATTAGE\
+   => RESOLUTION_MAX. [OK] 1600. Plus grand = plus fin mais plus\
+      lourd pour le telephone.\
+\
+ CHERCHER : REGLAGE : CLIC DROIT REPARATEUR\
+   => REPARATION_CLIC_DROIT : true = le clic droit repare le\
+      grattage. [OK] true.\
+\
+ CHERCHER : REGLAGE : GRAIN DU MONTICULE\
+   => TAS_TAILLE et TAS_BIN [OK] 3 / 3 ; TAS_SOL [OK] 0.\
+      5 = grain plus gros.\
+\
+----------------------------------------------------------------------\
+ SOUFFLE (micro) ET POUSSIERE\
+----------------------------------------------------------------------\
+ CHERCHER : REGLAGE : SENSIBILITE DU SOUFFLE\
+   => Seuil 0.03 [OK], plancher 0.9 [OK], saturation 0.08 [OK].\
+\
+ CHERCHER : REGLAGE : PUISSANCE DU SOUFFLE\
+   => Pixels arraches par frame : 30 + 260 x force. [OK].\
+\
+ CHERCHER : REGLAGE : VITESSE DE LA POUSSIERE\
+   => vx 5 a 14 [OK], vy negatif [OK].\
+\
+----------------------------------------------------------------------\
+ TAPETTE -- CURSEUR ET ANIMATIONS (dossier sprites/)\
+----------------------------------------------------------------------\
+ FICHIERS :\
+   sprites/tapettemaster.png : le CURSEUR quand il ne se passe\
+     rien (image simple). AFFICHE PAR UN DIV QUI SUIT LA SOURIS\
+     (pas un curseur CSS) : aucune limite de taille, fiable\
+     partout, meme en local.\
+   sprites/coup1.png : ANIMATION DU COUP NORMAL, planche de\
+     frames collees (horizontale ou verticale, autodetectee),\
+     jouee une fois sur la mouche touchee.\
+   sprites/coup2.png : ANIMATION DU COUP CHARGE, meme format de\
+     planche. Jouee pendant le clic maintenu : les frames\
+     AVANCENT AVEC LA CHARGE (frame 1 a l appui, derniere frame\
+     quand la charge est pleine, on y reste tant que le clic est\
+     tenu). Au relachement, coup1.png se joue sur l impact.\
+\
+ CHERCHER : REGLAGE VITESSE COUP NORMAL\
+   => msCoup1 [OK] 110 ms entre frames.\
+\
+ CHERCHER : REGLAGE VITESSE COUP CHARGE\
+   => msCoup2 [OK] 110 ms entre frames.\
+\
+ CHERCHER : "TAILLES TAPETTE" (bloc REGLAGE : TAILLES TAPETTE)\
+   => Les 3 tailles, en pixels, TOUTES au meme endroit :\
+      tailleCurseur [OK] 40 (tapettemaster ; 0 = taille native\
+      plafonnee a 64 px), tailleCoup1 [OK] 50, tailleCoup2\
+      [OK] 40.\
+\
+----------------------------------------------------------------------\
+ JEU DE LA MOUCHE -- TEXTES ET HUD\
+----------------------------------------------------------------------\
+ CHERCHER : REGLAGE : NETTETE PIXEL ART\
+   => SUR_ECH [OK] 4 (repli Courier uniquement, tant que\
+      sprites/typo.png n est pas en ligne).\
+\
+ CHERCHER : REGLAGE : TAILLES DES TEXTES PIXEL ART\
+   => Bloc TAILLES_TEXTE : compteur [OK] 3, timer [OK] 3,\
+      boss [OK] 2, defaite [OK] 4, victoire [OK] 4.\
+      Le nombre = echelle (x la taille de base).\
+\
+ CHERCHER : REGLAGE : TAILLE DES CASES DE typo.png\
+   => FONT_TYPO_LARG / FONT_TYPO_HAUT [OK] 7 x 8. Cases collees,\
+      sans espacement ni marge.\
+\
+ CHERCHER : REGLAGE : POLICE PIXEL ART\
+   => Ordre des caracteres de la planche typo.png :\
+      A-Z, espace, !, 1 2 3 4 5 6 7 8 9 0 (38 cases).\
+\
+ CHERCHER : REGLAGE : ESPACEMENT HUD\
+   => Ecart compteur / timer. [OK] 6px.\
+\
+----------------------------------------------------------------------\
+ CHIEN ET BULLES DE DIALOGUE\
+----------------------------------------------------------------------\
+ CHERCHER : REGLAGE : CHIEN\
+   => Placement (bottom) et taille (80x80) du chien qui dort.\
+\
+ CHERCHER : REGLAGE : BULLE DU CHIEN -- STYLE DU TEXTE\
+   => BULLE_CHIEN_STYLE : taille [OK] 14px, gras [OK] false,\
+      italique [OK] false, souligne [OK] false.\
+\
+ CHERCHER : REGLAGE : BULLE DU CHIEN -- MARGES\
+   => BULLE_CHIEN_MARGES : interne [OK] 14 (air dans la bulle),\
+      autour [OK] 32 (air entre la bulle et ses voisins, des deux\
+      cotes). La largeur maxi de la bulle se calcule toute seule.\
+\
+ CHERCHER : REGLAGE : BULLE DU CHIEN -- TEMPS\
+   => BULLE_CHIEN_TEMPS : frappe [OK] 38 ms par lettre,\
+      entreBulles [OK] 1400 ms entre deux bulles.\
+\
+----------------------------------------------------------------------\
+ TEXTES DES BULLES DU CHIEN -- FICHIERS .TXT\
+----------------------------------------------------------------------\
+ OU LES POSER : dans un dossier "textes" A LA RACINE du depot,\
+ au meme niveau que index.html :\
+\
+   depot/\
+     index.html\
+     sprites/        (chien.png, typo.png, blow.png, ...)\
+     textes/         <-- CREER CE DOSSIER\
+       chien-accueil.txt\
+       chien-contact.txt\
+       chien-<dossier>.txt\
+\
+ NOMMAGE DES FICHIERS -- le site choisit TOUT SEUL le fichier\
+ d apres la page ou le chien se reveille :\
+   textes/chien-accueil.txt   -> page d ACCUEIL\
+   textes/chien-contact.txt   -> page CONTACT\
+   textes/chien-<dossier>.txt  -> chaque SERIE : <dossier> = le\
+     nom EXACT du dossier d images de la serie, celui declare\
+     dans le champ "dossier" de series.js.\
+     Exemple : la serie qui vit dans images/PortraitsNYC lit\
+     textes/chien-PortraitsNYC.txt (casse respectee).\
+\
+ CONTENU D UN FICHIER :\
+   - UNE LIGNE = UNE BULLE. Le chien les enchaene dans l ordre,\
+     avec entreBulles (1400 ms) entre chacune.\
+   - Autant de bulles que tu veux : 1, 3 ou 10.\
+   - Une ligne vide est ignoree.\
+   - Enregistrer en UTF-8 (accents francais obligatoires).\
+   - Apres la DERNIERE bulle, le chien reste eveille : on peut\
+     continuer a cliquer (10 clics = mode cyclope + laser).\
+\
+ REPLIS SANS BLOCAGE :\
+   - Fichier absent sur une page -> le chien se reveille SANS\
+     bulle. EXCEPTION : l accueil garde TOUJOURS ses 3 textes\
+     integres au code ("Hello !", "Bienvenue...", "Je retourne\
+     me coucher, a toute !").\
+   - Fichier vide -> pas de bulle non plus.\
+   => Tu crees les fichiers au fil de l eau, seulement pour les\
+     sections ou le chien a quelque chose a dire.\
+\
+----------------------------------------------------------------------\
+ ICONES ET MISE EN PAGE\
+----------------------------------------------------------------------\
+ CHERCHER : REGLAGE : ICONE SOUFFLE\
+   => Position (left) et taille (30px) de l icone souffle\
+      desktop. Mobile : chercher .bouton-vent dans la section\
+      mobile du CSS.\
+\
+ CHERCHER : REGLAGE : ICONE RELOAD\
+   => Position de l icone de rafraichissement desktop.\
+      Mobile : chercher .bouton-rafraichir dans le CSS mobile.\
+\
+ CHERCHER : REGLAGE : TAILLE DES ICONES\
+   => [OK] 28px desktop ; mobile : 40% plus petites (20px).\
+\
+ CHERCHER : REGLAGE : COULEURS ET MARGES DU SITE\
+   => Bloc :root : fond, texte, discret, --marge [OK] 32px\
+      (20px mobile), --largeur-menu [OK] 270px, 3 couleurs RVB.\
+\
+----------------------------------------------------------------------\
+ IMAGES D'ACCUEIL -- RAPPEL DES REGLES\
+----------------------------------------------------------------------\
+ - Nom des fichiers : images/accueil/accueil00001.jpg, 00002...\
+   (5 chiffres, numerotation de 1 a N, SANS TROU).\
+ - Ajout : numero suivant. Suppression : renumeroter tout le\
+   dossier (Capture One le fait tres bien).\
+ - Format ideal : vertical 5:7, ~1600 px de cote le plus long,\
+   JPEG qualite 75-80, 150-250 Ko max par photo.\
+ - Un .txt dans le depot n'affecte pas le site.\
+======================================================================}
