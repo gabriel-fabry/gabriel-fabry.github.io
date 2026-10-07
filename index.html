@@ -175,7 +175,7 @@
      plus SPECIFIQUE gagne contre main img. */
   main .index-miniatures button img {
     height: 100% !important;
-    width: 100% !important;
+    width: auto !important;
     object-fit: contain;
     max-width: none;
   }
@@ -520,7 +520,7 @@
   }
   .index-miniatures button {
     padding: 0;
-    border: 2px solid transparent;
+    border: 0;
     background: none;
     line-height: 0;
     cursor: pointer;
@@ -529,19 +529,29 @@
     overflow: hidden;
   }
   .index-miniatures button img {
-    /* ratio preserve DANS la case fixe : un panorama reste
-       entier, il ne s etale plus sur toute la page. Les
-       dimensions de la case viennent du JS (PLANCHE_SERIES) ;
-       la regle main .index-miniatures button img, plus precise,
-       protege les vignettes de la hauteur uniforme du site. */
+    /* VIGNETTE AU RATIO DE SA PHOTO : hauteur FIXE, largeur
+       LIBRE (chaque vignette est proportionnee a son image :
+       une vignette verticale est etroite, un panorama large).
+       Plus de CASE FIXE : plus de letterboxing, les marges entre
+       les images sont TOUTES de la meme taille. */
     display: block;
-    width: 100%;
+    width: auto;
     height: 100%;
     object-fit: contain;
   }
-  .index-miniatures button[aria-current="true"] {
-    border-color: var(--texte);
-  }
+  /* SURVOL DE VIGNETTE : quand le curseur est SUR une vignette,
+     toutes les AUTRES palelissent ; des qu il la quitte, tout
+     redevient normal. La classe .survol est posee par le JS sur
+     la planche (mouseenter/mouseleave d une vignette) : le CSS
+     seul ne peut pas remonter au parent depuis le bouton survole.
+     REGLAGE : OPACITE DU SURVOL -- plus petit = les autres
+     vignettes palissent davantage (0.35 = 35 % d opacite). */
+  .index-miniatures.survol button:not(:hover) { opacity: var(--planche-opacite, 0.35); }
+  /* TRANSITION : retour a la normale (quand on quitte une vignette)
+     et entree dans la paleur (quand on en survole une) ont chacune
+     leur duree, reglees dans PLANCHE_EFFET (JavaScript). */
+  .index-miniatures button { transition: opacity var(--planche-retour, .15s) ease; }
+  .index-miniatures.survol button { transition: opacity var(--planche-entree, .15s) ease; }
   .compteur button { border: 0; background: none; padding: 0 2px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
   .compteur button:hover { color: var(--texte); }
 
@@ -2753,25 +2763,55 @@
        largeur : largeur d une vignette en px (la case)
        hauteur : hauteur d une vignette en px (la case)
        marge   : espace entre les vignettes en px
-     Chaque vignette vit dans une CASE FIXE (largeur x hauteur)
-     et la photo garde son ratio DANS la case : un panorama
-     s y affiche entier, reduit, au lieu de s etaler sur toute
-     la page en bande geante.
+     Chaque vignette est PROPORTIONNEE a sa photo : hauteur
+     FIXE, largeur LIBRE (le ratio de l image est respecte, la
+     grille se resserre ou s elargit selon les images). Plus de
+     case fixe : plus de letterboxing, les marges entre images
+     sont toutes identiques.
      Toute serie sans entree utilise "defaut". La grille se
-     replie toute seule : les cases se rangent en rangees,
+     replie toute seule : les vignettes se rangent en rangees,
      d abord horizontalement, puis a la ligne suivante. */
   const PLANCHE_SERIES = {
-    defaut:   { largeur: 140, hauteur: 110, marge: 14 },
-    Arles:    { largeur: 140, hauteur: 110, marge: 14 },
-    houses:   { largeur: 140, hauteur: 110, marge: 14 },
-    Cecifoot: { largeur: 140, hauteur: 110, marge: 14 },
-    Cammaron: { largeur: 140, hauteur: 110, marge: 14 },
-    Milk:     { largeur: 140, hauteur: 110, marge: 14 },
-    carnaval: { largeur: 140, hauteur: 110, marge: 14 }
+    defaut:   { hauteur: 110, marge: 14 },
+    Arles:    { hauteur: 110, marge: 14 },
+    houses:   { hauteur: 150, marge: 14 },
+    Cecifoot: { hauteur: 230, marge: 14 },
+    Cammaron: { hauteur: 150, marge: 14 },
+    Milk:     { hauteur: 300, marge: 14 },
+    carnaval: { hauteur: 170, marge: 14 }
   };
   function reglagesPlanche(dossier) {
     const r = PLANCHE_SERIES[dossier];
     return r || PLANCHE_SERIES.defaut;
+  }
+
+  /* REGLAGE : EFFET DE PALEUR DES PLANCHES CONTACT
+     Quand on survole une vignette, toutes les autres palissent.
+       intensite : force de la paleur, de 0 a 1
+                   0   = aucun effet (les autres ne bougent pas)
+                   0.5 = les autres a moitie effacees
+                   0.65 = reglage d origine (35 % d opacite restante)
+                   1   = les autres totalement invisibles
+       entree    : duree EN MILLISECONDES du passage vers la paleur
+                   (quand le curseur arrive sur une vignette)
+                   0 = instantane, 150 = rapide, 600 = lent
+       retour    : duree EN MILLISECONDES du retour a la normale
+                   (quand le curseur quitte la vignette)
+     "defaut" s applique a toutes les series. Pour regler UNE
+     serie differemment, ajoute-la dans PLANCHE_EFFET : seules les
+     valeurs que tu y mets remplacent celles de "defaut".
+     Exemple :  Milk: { intensite: 0.9, entree: 400 }  */
+  const PLANCHE_EFFET = {
+    defaut:   { intensite: 0.30, entree: 300, retour: 300 }
+    // Arles:    { intensite: 0.8, entree: 300, retour: 500 },
+    // Cecifoot: { intensite: 0.4 },
+  };
+  function appliquerEffetPlanche(el, dossier) {
+    const e = Object.assign({}, PLANCHE_EFFET.defaut, PLANCHE_EFFET[dossier] || {});
+    const intensite = Math.min(1, Math.max(0, e.intensite));
+    el.style.setProperty("--planche-opacite", String(1 - intensite));
+    el.style.setProperty("--planche-entree", Math.max(0, e.entree) + "ms");
+    el.style.setProperty("--planche-retour", Math.max(0, e.retour) + "ms");
   }
 
   function dessiner(serie) {
@@ -2918,13 +2958,21 @@
     const planche = document.createElement("div");
     planche.className = "index-miniatures";
     planche.style.gap = r.marge + "px";
+    appliquerEffetPlanche(planche, serie.dossier);
     for (let k = 0; k < total; k++) {
       (function (k) {
         const b = document.createElement("button");
         b.type = "button";
         b.setAttribute("aria-label", "Image " + (k + 1));
-        b.style.width = r.largeur + "px";
         b.style.height = r.hauteur + "px";
+        // SURVOL : poser/retirer la classe sur la PLANCHE fait
+        // paler toutes les vignettes SAUF celle sous le curseur
+        b.addEventListener("mouseenter", function () {
+          planche.classList.add("survol");
+        });
+        b.addEventListener("mouseleave", function () {
+          planche.classList.remove("survol");
+        });
         const vignette = document.createElement("img");
         vignette.decoding = "async";
         vignette.src = chemin(k);
@@ -2953,8 +3001,8 @@
       if (ouvrir) {
         const r = reglagesPlanche(serie.dossier);
         planche.style.gap = r.marge + "px";
+        appliquerEffetPlanche(planche, serie.dossier);
         miniatures.forEach(function (b) {
-          b.style.width = r.largeur + "px";
           b.style.height = r.hauteur + "px";
         });
       }
@@ -4426,13 +4474,20 @@
     plancheCarnaval.className = "index-miniatures";
     const rCarnaval = reglagesPlanche(serie.dossier);
     plancheCarnaval.style.gap = rCarnaval.marge + "px";
+    appliquerEffetPlanche(plancheCarnaval, serie.dossier);
     for (let k = 0; k < total; k++) {
       (function (k) {
         const b = document.createElement("button");
         b.type = "button";
         b.setAttribute("aria-label", "Image " + (k + 1));
-        b.style.width = rCarnaval.largeur + "px";
         b.style.height = rCarnaval.hauteur + "px";
+        // SURVOL : meme effet que les series simples
+        b.addEventListener("mouseenter", function () {
+          plancheCarnaval.classList.add("survol");
+        });
+        b.addEventListener("mouseleave", function () {
+          plancheCarnaval.classList.remove("survol");
+        });
         const vignette = document.createElement("img");
         vignette.decoding = "async";
         vignette.src = chemin(k);
@@ -4459,8 +4514,8 @@
       if (ouvrir) {
         const r = reglagesPlanche(serie.dossier);
         plancheCarnaval.style.gap = r.marge + "px";
+        appliquerEffetPlanche(plancheCarnaval, serie.dossier);
         miniaturesCarnaval.forEach(function (b) {
-          b.style.width = r.largeur + "px";
           b.style.height = r.hauteur + "px";
         });
       }

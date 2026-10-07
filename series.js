@@ -183,7 +183,6 @@ const SERIES = [
       "house28.jpg",
       "house29.jpg",
       "house30.jpg",
-      "house31.jpg"
     ]
   },
   {
