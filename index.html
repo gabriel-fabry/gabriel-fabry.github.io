@@ -159,11 +159,24 @@
   /* La hauteur uniforme ne s applique qu aux series a une image
      par ecran : le duo PAO, la vitrine Carnaval/Old fashion et
      la photo dessous de l accueil ont leurs propres regles,
-     plus precises, posees apres celle-ci dans le CSS. */
+     plus precises, posees apres celle-ci dans le CSS.
+     Les VIGNETTES de la planche contact sont AUSSI exclues :
+     leur taille vient de PLANCHE_SERIES (regle ci-dessous,
+     selecteur plus precis : .index-miniatures button img). */
   main img {
     display: block;
     height: calc(100vh - 2 * var(--marge));
     width: auto;
+    max-width: none;
+  }
+  /* Exclusion explicite des vignettes : la regle uniforme ne
+     doit JAMAIS les toucher (sinon vignettes plein ecran ou
+     disparues selon le cascade). Le selecteur d ID-less mais
+     plus SPECIFIQUE gagne contre main img. */
+  main .index-miniatures button img {
+    height: 100% !important;
+    width: 100% !important;
+    object-fit: contain;
     max-width: none;
   }
   main figure.serie img { height: calc(100vh - 2 * var(--marge)); }
@@ -491,17 +504,19 @@
   }
   main .compteur button { pointer-events: auto; }
 
-  /* INDEX DE MINIATURES : a la fin de chaque serie (sauf PAO et
-     accueil), la planche de TOUTES les images en petit. Cliquer
-     une miniature affiche la grande image correspondante.
-     REGLAGE : TAILLE DES MINIATURES -- hauteur d une miniature
-     (44px) ; l air entre elles (6px) ; le contour de la
-     miniature ACTIVE (2px, couleur du texte). */
+  /* PLANCHE CONTACT DE FIN DE SERIE : pleine page, elle REMPLACE
+     l image. Grille SIMPLE : vignettes de TAILLE FIXE qui se
+     replacent toutes seules en rangrees (flex-wrap), marges
+     constantes. TOUT les reglages (taille, espacement, colonnes
+     maxi) sont dans l objet PLANCHE_SERIES du code JavaScript,
+     UNE ENTREE PAR SERIE -- voir le bloc REGLAGE la-bas. */
   .index-miniatures {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 16px;
+    align-content: flex-start;
+    align-items: flex-start;
+    height: calc(100vh - 2 * var(--marge));
+    overflow: hidden;   /* filet : jamais de chevauchement */
   }
   .index-miniatures button {
     padding: 0;
@@ -510,11 +525,19 @@
     line-height: 0;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+    flex: 0 0 auto;
+    overflow: hidden;
   }
   .index-miniatures button img {
+    /* ratio preserve DANS la case fixe : un panorama reste
+       entier, il ne s etale plus sur toute la page. Les
+       dimensions de la case viennent du JS (PLANCHE_SERIES) ;
+       la regle main .index-miniatures button img, plus precise,
+       protege les vignettes de la hauteur uniforme du site. */
     display: block;
-    height: 44px;
-    width: auto;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
   .index-miniatures button[aria-current="true"] {
     border-color: var(--texte);
@@ -2723,6 +2746,34 @@
   }
 
   /* --- SÃÂRIES CLASSIQUES --- */
+  /* --- REGLAGE : PLANCHE CONTACT (fin de serie) -------------
+     UNE ENTREE PAR SERIE, autonome : taille et espacement des
+     miniatures regles SERIE PAR SERIE. La cle est le DOSSIER de
+     la serie (meme nom que dans series.js).
+       largeur : largeur d une vignette en px (la case)
+       hauteur : hauteur d une vignette en px (la case)
+       marge   : espace entre les vignettes en px
+     Chaque vignette vit dans une CASE FIXE (largeur x hauteur)
+     et la photo garde son ratio DANS la case : un panorama
+     s y affiche entier, reduit, au lieu de s etaler sur toute
+     la page en bande geante.
+     Toute serie sans entree utilise "defaut". La grille se
+     replie toute seule : les cases se rangent en rangees,
+     d abord horizontalement, puis a la ligne suivante. */
+  const PLANCHE_SERIES = {
+    defaut:   { largeur: 140, hauteur: 110, marge: 14 },
+    Arles:    { largeur: 140, hauteur: 110, marge: 14 },
+    houses:   { largeur: 140, hauteur: 110, marge: 14 },
+    Cecifoot: { largeur: 140, hauteur: 110, marge: 14 },
+    Cammaron: { largeur: 140, hauteur: 110, marge: 14 },
+    Milk:     { largeur: 140, hauteur: 110, marge: 14 },
+    carnaval: { largeur: 140, hauteur: 110, marge: 14 }
+  };
+  function reglagesPlanche(dossier) {
+    const r = PLANCHE_SERIES[dossier];
+    return r || PLANCHE_SERIES.defaut;
+  }
+
   function dessiner(serie) {
     document.title = serie.titre + " - " + SITE.nom;
     if (serie.texte) {
@@ -2854,6 +2905,10 @@
     // en petit. Cliquer une miniature affiche la grande image
     // correspondante. On revient a la sequence par la zone clic
     // gauche, ou en cliquant une miniature.
+    // Dimensions de case posees DES LA CREATION (pas seulement
+    // a l ouverture) : la planche a ses tailles des le premier
+    // affichage, meme si on l ouvre avant tout chargement.
+    const r = reglagesPlanche(serie.dossier);
     const miniatures = [];
     function majMiniatures() {
       miniatures.forEach(function (b, k) {
@@ -2862,11 +2917,14 @@
     }
     const planche = document.createElement("div");
     planche.className = "index-miniatures";
+    planche.style.gap = r.marge + "px";
     for (let k = 0; k < total; k++) {
       (function (k) {
         const b = document.createElement("button");
         b.type = "button";
         b.setAttribute("aria-label", "Image " + (k + 1));
+        b.style.width = r.largeur + "px";
+        b.style.height = r.hauteur + "px";
         const vignette = document.createElement("img");
         vignette.decoding = "async";
         vignette.src = chemin(k);
@@ -2887,8 +2945,19 @@
     fig.appendChild(planche);
     planche.style.display = "none";  // cache tant qu on n a pas fini
     let surIndex = false;
+    // NOMBRE DE COLONNES : plus de calcul automatique -- la
+    // grille se replie toute seule (flex-wrap) et les reglages
+    // (taille, marge) viennent de PLANCHE_SERIES, serie par serie.
     function basculerIndex(ouvrir) {
       surIndex = ouvrir;
+      if (ouvrir) {
+        const r = reglagesPlanche(serie.dossier);
+        planche.style.gap = r.marge + "px";
+        miniatures.forEach(function (b) {
+          b.style.width = r.largeur + "px";
+          b.style.height = r.hauteur + "px";
+        });
+      }
       planche.style.display = ouvrir ? "flex" : "none";
       vitrine.style.display = ouvrir ? "none" : "";
       majMiniatures();
@@ -4355,11 +4424,15 @@
     }
     const plancheCarnaval = document.createElement("div");
     plancheCarnaval.className = "index-miniatures";
+    const rCarnaval = reglagesPlanche(serie.dossier);
+    plancheCarnaval.style.gap = rCarnaval.marge + "px";
     for (let k = 0; k < total; k++) {
       (function (k) {
         const b = document.createElement("button");
         b.type = "button";
         b.setAttribute("aria-label", "Image " + (k + 1));
+        b.style.width = rCarnaval.largeur + "px";
+        b.style.height = rCarnaval.hauteur + "px";
         const vignette = document.createElement("img");
         vignette.decoding = "async";
         vignette.src = chemin(k);
@@ -4378,8 +4451,19 @@
     fig.appendChild(plancheCarnaval);
     plancheCarnaval.style.display = "none";
     let surIndexCarnaval = false;
+    // Colonnes de la planche contact : plus de calcul -- la
+    // grille se replie toute seule et les reglages viennent de
+    // PLANCHE_SERIES (serie par serie)
     function basculerIndexCarnaval(ouvrir) {
       surIndexCarnaval = ouvrir;
+      if (ouvrir) {
+        const r = reglagesPlanche(serie.dossier);
+        plancheCarnaval.style.gap = r.marge + "px";
+        miniaturesCarnaval.forEach(function (b) {
+          b.style.width = r.largeur + "px";
+          b.style.height = r.hauteur + "px";
+        });
+      }
       plancheCarnaval.style.display = ouvrir ? "flex" : "none";
       duo.style.display = ouvrir ? "none" : "";
       majMiniaturesCarnaval();
