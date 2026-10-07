@@ -144,9 +144,45 @@ const SERIES = [
 		"milk8.jpg",
 		"milk9.jpg",]
   },
+  {
+    titre: "Houses",
+    dossier: "houses",
+    images: [
+		"house1.jpg",
+		"house2.jpg",
+		"house3.jpg",
+		"house4.jpg",
+		"house5.jpg",
+		"house6.jpg",
+		"house7.jpg",
+		"house8.jpg",
+		"house9.jpg",
+		"house10.jpg",
+		"house11.jpg",
+		"house12.jpg",
+		"house13.jpg",
+		"house14.jpg",
+		"house15.jpg",
+		"house16.jpg",
+		"house17.jpg",
+		"house18.jpg",
+		"house19.jpg",
+		"house20.jpg",
+		"house21.jpg",
+		"house22.jpg",
+		"house23.jpg",
+		"house24.jpg",
+		"house25.jpg",
+		"house26.jpg",
+		"house27.jpg",
+		"house28.jpg",
+		"house29.jpg",
+		"house30.jpg",
+		"house31.jpg"]
+  },
   
   {
-    titre: "Journal",
+    titre: "Journaux",
     sous: [
       { titre: "Journal #1", dossier: "journal-1", images: [] },
       { titre: "Journal #2", dossier: "journal-2", images: [] }
@@ -188,7 +224,7 @@ const SERIES = [
 		  "Arles12.jpeg",
 		  "Arles13.jpeg"] 
 	  },
-      { titre: "Portraits de famille", dossier: "portraits-de-famille", images: [] }
+       }
     ]
   }
 ];
