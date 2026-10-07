@@ -1838,6 +1838,11 @@
     // Images AJOUTÃÂES depuis la derniÃÂ¨re visite : glissÃÂ©es au
     // hasard dans la file restante, pour les voir sans attendre
     // la fin du cycle en cours.
+    // Images AJOUTEES depuis la derniere visite : glissees au
+    // hasard dans la file restante. AUCUNE priorite : les
+    // nouvelles attendent leur tour comme les autres -- une
+    // carte ne JAMAIS revenir avant que toute la file soit passee
+    // (cycle complet garanti, c est le principe du paquet).
     while (paquetAccueil.max < total) {
       paquetAccueil.max++;
       const pos = Math.floor(Math.random() * (paquetAccueil.reste.length + 1));
@@ -5017,6 +5022,19 @@
     majTextePixel(timerEl, String(timerJeu));
   }
 
+  // MOT DE FIN ADAPTE A L ECRAN : sur mobile, l echelle fixe (4)
+  // faisait deborder GAME OVER et surtout CONGRATULATIONS !
+  // (plus large que l ecran). L echelle est PLEINEE ici : jamais
+  // plus large que l ecran moins la marge. Les lettres pixel font
+  // 7 px de large par unite d echelle.
+  // REGLAGE : MARGE DU MOT DE FIN -- l air laisse autour (32px).
+  function echelleMotFin(texte, echelleVoulue) {
+    const margeMot = 32;
+    const maxEchelle = Math.floor(
+      (window.innerWidth - margeMot) / (7 * texte.length));
+    return Math.max(1, Math.min(echelleVoulue, maxEchelle));
+  }
+
   function declencherDefaite() {
     // Temps ÃÂ©coulÃÂ© : GAME OVER, cliquable pour recommencer
     etapeFin = "defaite";
@@ -5024,7 +5042,8 @@
 
     motEl = document.createElement("div");
     motEl.className = "mot-fin";
-    motEl.appendChild(creerTextePixel("GAME OVER", "#ff1744", 8, TAILLES_TEXTE.defaite));
+    motEl.appendChild(creerTextePixel("GAME OVER", "#ff1744", 8,
+      echelleMotFin("GAME OVER", TAILLES_TEXTE.defaite)));
     conteneurJeu.appendChild(motEl);
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { if (motEl) motEl.classList.add("visible"); });
@@ -5177,7 +5196,8 @@
     // Le mot de victoire apparaÃÂ®t au milieu de l'ÃÂ©cran, en typo pixel art
     motEl = document.createElement("div");
     motEl.className = "mot-fin";
-    motEl.appendChild(creerTextePixel(MOT_FIN, "#111111", 8, TAILLES_TEXTE.victoire));
+    motEl.appendChild(creerTextePixel(MOT_FIN, "#111111", 8,
+      echelleMotFin(MOT_FIN, TAILLES_TEXTE.victoire)));
     conteneurJeu.appendChild(motEl);
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { if (motEl) motEl.classList.add("visible"); });
