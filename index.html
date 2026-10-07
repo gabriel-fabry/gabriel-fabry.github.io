@@ -490,6 +490,35 @@
     z-index: 40;
   }
   main .compteur button { pointer-events: auto; }
+
+  /* INDEX DE MINIATURES : a la fin de chaque serie (sauf PAO et
+     accueil), la planche de TOUTES les images en petit. Cliquer
+     une miniature affiche la grande image correspondante.
+     REGLAGE : TAILLE DES MINIATURES -- hauteur d une miniature
+     (44px) ; l air entre elles (6px) ; le contour de la
+     miniature ACTIVE (2px, couleur du texte). */
+  .index-miniatures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 16px;
+  }
+  .index-miniatures button {
+    padding: 0;
+    border: 2px solid transparent;
+    background: none;
+    line-height: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .index-miniatures button img {
+    display: block;
+    height: 44px;
+    width: auto;
+  }
+  .index-miniatures button[aria-current="true"] {
+    border-color: var(--texte);
+  }
   .compteur button { border: 0; background: none; padding: 0 2px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
   .compteur button:hover { color: var(--texte); }
 
@@ -750,8 +779,8 @@
        de conteneur de defilement : les elements position:fixed
        restent intacts. */
     main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; min-height: auto; overflow-x: clip; }
-    main img { height: auto; max-height: none; }
-    main figure.serie img { height: auto; }
+    main img { height: auto; max-height: none; max-width: 100%; }
+    main figure.serie img { height: auto; max-width: 100%; }
     /* Sur mobile, la photo d'accueil tient dans l'ecran : les pixels
        grattes tombent sur un sol toujours visible, jamais sous l'ecran.
        On annule la hauteur fixe du desktop (100 vh - 2 marges) : la
@@ -2747,6 +2776,17 @@
 
     function avancer(sens) {
       if (aleatoire) { montrer(tirerAleatoire()); return; }
+      if (sens > 0 && i === total - 1 && total > 1) {
+        // DERNIERE image -> on ne repart PAS sur la 1ere :
+        // on ouvre l ECRAN D INDEX plein de miniatures
+        basculerIndex(true);
+        return;
+      }
+      if (sens < 0 && surIndex) {
+        // Sur l ecran d index, clic gauche = retour sequence
+        basculerIndex(false);
+        return;
+      }
       montrer(i + sens);
     }
 
@@ -2799,10 +2839,59 @@
     function montrer(n) {
       i = (n + total) % total;
       num.textContent = (i + 1) + " / " + total;
+      // Miniature active : l index suit l image affichee
+      majMiniatures();
       // Prechargement de l'image suivante (inutile en ordre aleatoire :
       // on ne sait pas laquelle viendra)
       if (total > 1 && !aleatoire) { const suivante = new Image(); suivante.src = chemin((i + 1) % total); }
       remplacerFondu(vitrine, img, chemin(i), SITE.nom + ", " + serie.titre + ", image " + (i + 1));
+    }
+
+    // INDEX DE MINIATURES : PAS sous l image -- en FIN DE
+    // SEQUENCE. Apres la DERNIERE image (13/13), au lieu de
+    // repartir sur la 1/13, la zone clic droite ouvre un ECRAN
+    // DE MINIATURES plein ecran : toutes les images de la serie
+    // en petit. Cliquer une miniature affiche la grande image
+    // correspondante. On revient a la sequence par la zone clic
+    // gauche, ou en cliquant une miniature.
+    const miniatures = [];
+    function majMiniatures() {
+      miniatures.forEach(function (b, k) {
+        b.setAttribute("aria-current", k === i ? "true" : "false");
+      });
+    }
+    const planche = document.createElement("div");
+    planche.className = "index-miniatures";
+    for (let k = 0; k < total; k++) {
+      (function (k) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("aria-label", "Image " + (k + 1));
+        const vignette = document.createElement("img");
+        vignette.decoding = "async";
+        vignette.src = chemin(k);
+        vignette.alt = "";
+        b.appendChild(vignette);
+        b.addEventListener("click", function () {
+          // Une miniature quitte l ecran d index et remonte
+          // a la grande image choisie
+          planche.style.display = "none";
+          vitrine.style.display = "";
+          montrer(k);
+          window.scrollTo(0, 0);
+        });
+        miniatures.push(b);
+        planche.appendChild(b);
+      })(k);
+    }
+    fig.appendChild(planche);
+    planche.style.display = "none";  // cache tant qu on n a pas fini
+    let surIndex = false;
+    function basculerIndex(ouvrir) {
+      surIndex = ouvrir;
+      planche.style.display = ouvrir ? "flex" : "none";
+      vitrine.style.display = ouvrir ? "none" : "";
+      majMiniatures();
     }
 
     suiv.addEventListener("click", function () { avancer(1); });
@@ -4213,8 +4302,8 @@
 
       conteneur.append(btnGauche, btnDroite);
 
-      btnGauche.addEventListener("click", function () { montrerDuo(indexDuo - 1); });
-      btnDroite.addEventListener("click", function () { montrerDuo(indexDuo + 1); });
+      btnGauche.addEventListener("click", function () { avancerCarnaval(-1); });
+      btnDroite.addEventListener("click", function () { avancerCarnaval(1); });
     }
 
     fig.appendChild(conteneur);
@@ -4250,10 +4339,67 @@
 
       remplacerFondu(cadre1, img1, src1, SITE.nom + ", " + serie.titre + " (Image " + (i1 + 1) + ")");
       remplacerFondu(cadre2, img2, src2, SITE.nom + ", " + serie.titre + " (Image " + (i2 + 1) + ")");
+      majMiniaturesCarnaval();
     }
 
-    suiv.addEventListener("click", function () { montrerDuo(indexDuo + 1); });
-    prec.addEventListener("click", function () { montrerDuo(indexDuo - 1); });
+    // INDEX DE MINIATURES (Carnaval) : PAS sous le duo -- en FIN
+    // DE SEQUENCE. Apres le DERNIER duo, le clic droit ouvre
+    // l ECRAN DE MINIATURES plein ecran. Chaque miniature est une
+    // image ; cliquer amene au DUO qui la contient.
+    const miniaturesCarnaval = [];
+    function majMiniaturesCarnaval() {
+      miniaturesCarnaval.forEach(function (b, k) {
+        b.setAttribute("aria-current",
+          Math.floor(k / 2) === indexDuo ? "true" : "false");
+      });
+    }
+    const plancheCarnaval = document.createElement("div");
+    plancheCarnaval.className = "index-miniatures";
+    for (let k = 0; k < total; k++) {
+      (function (k) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("aria-label", "Image " + (k + 1));
+        const vignette = document.createElement("img");
+        vignette.decoding = "async";
+        vignette.src = chemin(k);
+        vignette.alt = "";
+        b.appendChild(vignette);
+        b.addEventListener("click", function () {
+          plancheCarnaval.style.display = "none";
+          duo.style.display = "";
+          montrerDuo(Math.floor(k / 2));
+          window.scrollTo(0, 0);
+        });
+        miniaturesCarnaval.push(b);
+        plancheCarnaval.appendChild(b);
+      })(k);
+    }
+    fig.appendChild(plancheCarnaval);
+    plancheCarnaval.style.display = "none";
+    let surIndexCarnaval = false;
+    function basculerIndexCarnaval(ouvrir) {
+      surIndexCarnaval = ouvrir;
+      plancheCarnaval.style.display = ouvrir ? "flex" : "none";
+      duo.style.display = ouvrir ? "none" : "";
+      majMiniaturesCarnaval();
+    }
+
+    function avancerCarnaval(sens) {
+      if (sens > 0 && indexDuo === nbDuos - 1 && nbDuos > 1) {
+        // DERNIER duo -> ECRAN D INDEX, pas de retour au 1er duo
+        basculerIndexCarnaval(true);
+        return;
+      }
+      if (sens < 0 && surIndexCarnaval) {
+        basculerIndexCarnaval(false);
+        return;
+      }
+      montrerDuo(indexDuo + sens);
+    }
+
+    suiv.addEventListener("click", function () { avancerCarnaval(1); });
+    prec.addEventListener("click", function () { avancerCarnaval(-1); });
 
     contenu.appendChild(fig);
     montrerDuo(0);
