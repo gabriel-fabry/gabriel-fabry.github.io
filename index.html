@@ -146,8 +146,23 @@
 
   main .texte { max-width: 60ch; margin: 0 0 32px; color: var(--discret); white-space: pre-line; }
   main figure { margin: 0 0 36px; }
-  main img { display: block; max-width: 100%; max-height: 92vh; width: auto; height: auto; }
-  main figure.serie img { max-height: calc(100vh - 150px); }
+  /* REGLAGE : HAUTEUR UNIFORME DES IMAGES -- TOUTES les photos
+     des pages de serie ont la MEME HAUTEUR que la photo
+     d accueil (100vh moins les deux marges) : le bas de chaque
+     image s aligne au meme niveau que sur l accueil, cale sur le
+     chien, quelle que soit la photo (verticale, carree ou
+     panoramique -- l eventual debord d une panorama est rogne
+     a droite par la page, exactement comme sur l accueil).
+     width: auto garde les proportions : aucune deformation.
+     Les gabarits speciaux (PAO, Carnaval, vitrine Old fashion)
+     ont leurs propres regles et ne sont pas touches. */
+  main img {
+    display: block;
+    height: calc(100vh - 2 * var(--marge));
+    width: auto;
+    max-width: none;
+  }
+  main figure.serie img { height: calc(100vh - 2 * var(--marge)); }
   .vide { color: var(--discret); margin-top: 8px; }
 
   /* Canvas d'Accueil destructible */
@@ -715,8 +730,8 @@
        de conteneur de defilement : les elements position:fixed
        restent intacts. */
     main { margin-left: 0; padding: 0 var(--marge) 80px; max-width: none; min-height: auto; overflow-x: clip; }
-    main img { max-height: none; }
-    main figure.serie img { max-height: none; }
+    main img { height: auto; max-height: none; }
+    main figure.serie img { height: auto; }
     /* Sur mobile, la photo d'accueil tient dans l'ecran : les pixels
        grattes tombent sur un sol toujours visible, jamais sous l'ecran.
        On annule la hauteur fixe du desktop (100 vh - 2 marges) : la
