@@ -3537,10 +3537,13 @@
       const lignes = t.split(/\r?\n/).map(function (s) { return s.trim(); })
         .filter(function (s) { return s.length > 0; });
       if (lignes.length) chienBulles(lignes);
+      else console.warn("Chien : le fichier " + fichier + " est vide.");
       // fichier vide : pas de bulle (le chien reste juste eveille)
     }).catch(function () {
       // fichier absent : pas de bulle sur cette page. L accueil,
       // lui, garde toujours ses textes par defaut integres.
+      // Aide au diagnostic : visible dans la console (F12).
+      console.warn("Chien : fichier de texte introuvable ou illisible : " + fichier);
       if (surAccueil) chienBulles(BULLE_CHIEN_DEFAUT);
     });
   }
