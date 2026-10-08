@@ -2823,13 +2823,13 @@
      d abord horizontalement, puis a la ligne suivante. */
   const PLANCHE_SERIES = {
     defaut:   { hauteur: 110, marge: 14 },
-    Arles:    { hauteur: 200, marge: 14 },
+    arles:    { hauteur: 200, marge: 14 },
     houses:   { hauteur: 150, marge: 14 },
-    Cecifoot: { hauteur: 240, marge: 14 },
-    Cammaron: { hauteur: 150, marge: 14 },
-    Milk:     { hauteur: 300, marge: 14 },
+    cecifoot: { hauteur: 240, marge: 14 },
+    cammaron: { hauteur: 150, marge: 14 },
+    milk:     { hauteur: 300, marge: 14 },
     carnaval: { hauteur: 130, marge: 14 },
-	"18images": { hauteur: 200, marge: 10 }
+    "18images": { hauteur: 200, marge: 10 }
   };
   function reglagesPlanche(dossier) {
     const r = PLANCHE_SERIES[dossier];
@@ -2853,11 +2853,11 @@
      "defaut" s'applique à toutes les séries. Pour régler UNE série
      différemment, ajoute-la ci-dessous : seules les valeurs que tu y
      mets remplacent celles de "defaut".
-     Exemple :  Milk: { intensite: 0.5, entree: 400 }  */
+     Exemple :  milk: { intensite: 0.5, entree: 400 }  */
   const PLANCHE_EFFET = {
     defaut:   { intensite: 0.30, gris: 1, entree: 300, retour: 300 }
-    // Arles:    { intensite: 0.8, entree: 300, retour: 500 },
-    // Cecifoot: { intensite: 0.4 },
+    // arles:    { intensite: 0.8, entree: 300, retour: 500 },
+    // cecifoot: { intensite: 0.4 },
   };
   function appliquerEffetPlanche(el, dossier) {
     const e = Object.assign({}, PLANCHE_EFFET.defaut, PLANCHE_EFFET[dossier] || {});
