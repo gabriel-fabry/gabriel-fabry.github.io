@@ -131,7 +131,7 @@
   }
   nav ul ul { margin: 3px 0 10px 14px; }
   nav ul ul[hidden] { display: none; }
-  /* Plus d'ÃÂ©cart entre les titres des sÃÂ©ries et la section Contact */
+  /* Plus d'écart entre les titres des séries et la section Contact */
   #menu > ul > li:last-child { margin-top: 16px; }
 
   /* Colonne de droite */
@@ -209,7 +209,7 @@
   }
 
   /* Photo revelee par le grattage, posee derriere le canvas : elle
-     remplit exactement le cadre de la photo grattÃÂ©e (recadre au besoin) */
+     remplit exactement le cadre de la photo grattée (recadre au besoin) */
   .photo-dessous {
     position: absolute;
     top: 0; left: 0;
@@ -244,7 +244,7 @@
     left: var(--marge);
     /* Calage vertical affine a la main : pour l'ajuster,
        cette seule valeur. */
-    bottom: calc(var(--marge) + -8px);
+    bottom: calc(var(--marge) + -10px);
     width: 80px;
     height: 80px;
     image-rendering: pixelated;
@@ -334,7 +334,7 @@
   /* Icone souffle : DANS LA COLONNE DE GAUCHE, a droite du chien
      qui dort, et COLLEE AU BAS DE LA PHOTO. L'icone est posee
      DANS le cadre (position absolute -- le cadre epouse
-     exactement la photo grattÃÂ©e) : bottom: 0 cale son bas sur le
+     exactement la photo grattée) : bottom: 0 cale son bas sur le
      bas DE L'IMAGE elle-meme, et l'alignement defile avec la
      photo : plus aucun decalage, quel que soit l'ecran. */
   .figure-accueil {
@@ -347,9 +347,9 @@
      scroll inutile. La classe est posee par dessinerAccueil et
      retiree par afficher. */
   body.page-accueil main { padding-bottom: var(--marge); }
-  /* Cadre qui epouse exactement la photo grattÃÂ©e (le figure peut
+  /* Cadre qui epouse exactement la photo grattée (le figure peut
      contenir aussi l'emoji, plus bas, sur mobile) : la photo de
-     dessous est rognÃÂ©e sur la photo du dessus, jamais au-dela */
+     dessous est rognée sur la photo du dessus, jamais au-dela */
   .cadre-accueil {
     position: relative;
     display: inline-block;
@@ -379,7 +379,7 @@
   /* Icone de rafraichissement de la photo d'accueil : tire une
      NOUVELLE photo au hasard sans recharger la page. Pose JUSTE A
      GAUCHE de l'icone souffle, dans la colonne de gauche, son bas
-     ALIGNÃÂ sur le bas de la photo (position absolute dans le
+     ALIGNÉ sur le bas de la photo (position absolute dans le
      cadre, comme le souffle). */
   .bouton-rafraichir {
     position: absolute;    /* DANS le cadre : bas colle au bas de la photo */
@@ -545,30 +545,32 @@
     height: 100%;
     object-fit: contain;
   }
-  /* SURVOL DE VIGNETTE : quand le curseur est SUR une vignette,
-     toutes les AUTRES palelissent ; des qu il la quitte, tout
-     redevient normal. La classe .survol est posee par le JS sur
-     la planche (mouseenter/mouseleave d une vignette) : le CSS
-     seul ne peut pas remonter au parent depuis le bouton survole.
-     REGLAGE : OPACITE DU SURVOL -- plus petit = les autres
-     vignettes palissent davantage (0.35 = 35 % d opacite). */
-  .index-miniatures.survol button:not(:hover) {
-    opacity: var(--planche-opacite, 0.35);
-    /* DESATURATION : les vignettes non survolees perdent leur
-       couleur (1 = noir et blanc complet, 0 = couleur intacte). */
-    filter: grayscale(var(--planche-gris, 1));
-  }
-  /* TRANSITION : retour a la normale (quand on quitte une vignette)
-     et entree dans la paleur (quand on en survole une) ont chacune
-     leur duree, reglees dans PLANCHE_EFFET (JavaScript). */
+  /* EFFET DE PLANCHE : toutes les vignettes sont par défaut PÂLES et
+     en NIVEAUX DE GRIS ; la vignette sous le curseur (ou au focus
+     clavier) se « colorise » : couleur et opacité pleines.
+     Les réglages (intensité, gris, durées) sont dans PLANCHE_EFFET
+     (JavaScript) et arrivent ici par des variables CSS.
+     Réservé aux appareils avec un vrai survol (souris) : sur un écran
+     tactile sans survol, les vignettes restent en couleur normale. */
   .index-miniatures button {
-    filter: grayscale(0);
-    transition: opacity var(--planche-retour, .15s) ease,
-                filter var(--planche-retour, .15s) ease;
+    transition: opacity var(--planche-retour, .3s) ease,
+                filter var(--planche-retour, .3s) ease;
   }
-  .index-miniatures.survol button {
-    transition: opacity var(--planche-entree, .15s) ease,
-                filter var(--planche-entree, .15s) ease;
+  .index-miniatures button:hover,
+  .index-miniatures button:focus-visible {
+    transition: opacity var(--planche-entree, .3s) ease,
+                filter var(--planche-entree, .3s) ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .index-miniatures button {
+      opacity: var(--planche-opacite, 0.7);
+      filter: grayscale(var(--planche-gris, 1));
+    }
+    .index-miniatures button:hover,
+    .index-miniatures button:focus-visible {
+      opacity: 1;
+      filter: grayscale(0);
+    }
   }
   .compteur button { border: 0; background: none; padding: 0 2px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
   .compteur button:hover { color: var(--texte); }
@@ -643,7 +645,7 @@
   .mot-fin.visible { opacity: 1; }
   .mot-fin canvas { display: block; image-rendering: pixelated; }
 
-  /* HUD : compteur de mouches mortes + timer, en haut ÃÂ  droite, en typo pixel art */
+  /* HUD : compteur de mouches mortes + timer, en haut à droite, en typo pixel art */
   #hud-jeu {
     position: fixed;
     top: 20px; right: 32px;
@@ -660,10 +662,10 @@
   #hud-compteur canvas,
   #hud-timer canvas { display: block; image-rendering: pixelated; }
 
-  /* Barre de vie du boss, en bas de l'ÃÂ©cran */
+  /* Barre de vie du boss, en bas de l'écran */
   #barre-vie-boss {
     position: fixed;
-    bottom: 14px; left: 0; right: 0; /* dÃÂ©collÃÂ©e du bord bas de l'ÃÂ©cran */
+    bottom: 14px; left: 0; right: 0; /* décollée du bord bas de l'écran */
     text-align: center;
     z-index: 9100;
     pointer-events: none;
@@ -678,7 +680,7 @@
     transition: width .12s steps(2, jump-none);
   }
 
-  /* Barre de coup chargÃÂ© (sous la tapette), pixel art */
+  /* Barre de coup chargé (sous la tapette), pixel art */
   #barre-charge {
     position: fixed;
     width: 44px; height: 8px;
@@ -697,7 +699,7 @@
     50% { border-color: var(--rouge); background: #111111; }
   }
 
-  /* Tapette animÃÂ©e : elle remplace le curseur pendant la charge du coup */
+  /* Tapette animée : elle remplace le curseur pendant la charge du coup */
   html.tapette-animee,
   html.tapette-animee *,
   html.zone-tapette.tapette-animee,
@@ -750,7 +752,7 @@
     40%, 60% { transform: translate3d(6px, -3px, 0); }
   }
 
-  /* Screen Shake renforcÃÂ© (coup chargÃÂ©) */
+  /* Screen Shake renforcé (coup chargé) */
   body.screen-shake-fort {
     animation: shake-fort-anim 0.4s cubic-bezier(.36,.07,.19,.97) both;
   }
@@ -918,7 +920,7 @@
 
 <aside>
   <a class="nom" href="#" id="nom"></a>
-  <nav id="menu" aria-label="SÃÂ©ries"></nav>
+  <nav id="menu" aria-label="Séries"></nav>
 </aside>
 
 <main id="contenu" tabindex="-1"></main>
@@ -1009,8 +1011,8 @@
   nom.addEventListener("blur", decolorerNom);
 
   nom.addEventListener("click", function (e) {
-    // Cliquer sur le nom ramÃÂ¨ne toujours ÃÂ  la page d'accueil.
-    // Si on est dÃÂ©jÃÂ  sur l'accueil, on recharge la page ÃÂ  la place,
+    // Cliquer sur le nom ramène toujours à la page d'accueil.
+    // Si on est déjà sur l'accueil, on recharge la page à la place,
     // ce qui tire une nouvelle image au hasard.
     e.preventDefault();
     const dossierCourant = decodeURIComponent(location.hash.slice(1));
@@ -1030,10 +1032,10 @@
     const a = document.createElement("a");
     a.href = "#" + serie.dossier;
     a.textContent = serie.titre;
-    // Cliquer sur la section oÃÂ¹ l'on est DÃÂJÃÂ recharge la page :
-    // on revoit la sÃÂ©rie depuis le dÃÂ©but, photo et grille
-    // refaites ÃÂ  neuf (mÃÂªme principe que le nom du site,
-    // qui recharge l'accueil quand on y est dÃÂ©jÃÂ ).
+    // Cliquer sur la section où l'on est DÉJÀ recharge la page :
+    // on revoit la série depuis le début, photo et grille
+    // refaites à neuf (même principe que le nom du site,
+    // qui recharge l'accueil quand on y est déjà).
     a.addEventListener("click", function (e) {
       if (location.hash === "#" + serie.dossier) {
         e.preventDefault();
@@ -1245,7 +1247,7 @@
   /* --- MOTEUR DE PARTICULES (GRATTAGE & TAPETTE) --- */
   const canvasExp = document.getElementById("canvas-explosion");
   const ctxExp = canvasExp ? canvasExp.getContext("2d") : null;
-  let particulesExp = []; // Pixels ÃÂ©phÃÂ©mÃÂ¨res (impact tapette)
+  let particulesExp = []; // Pixels éphémères (impact tapette)
   let particulesOnde = []; // Onde de pixels noirs qui se propage depuis l'impact
   let animExpId = null;
 
@@ -1255,24 +1257,24 @@
   // grain ; TAS_SOL : decalage du sol imaginaire, 0 = colle au
   // bas de l'image).
   const TAS_TAILLE = 3; // Taille d'un pixel du tas (px)
-  const TAS_BIN = 3;    // Largeur d'une tranche = taille du pixel : dÃÂ©pÃÂ´ts pleins, tas dense
+  const TAS_BIN = 3;    // Largeur d'une tranche = taille du pixel : dépôts pleins, tas dense
   const TAS_SOL = 0;    // Sol imaginaire : 0 = la premiere rangee de
                         // depots posee au dernier pixel du canvas, le
                         // monticule affleure EXACTEMENT le bas de
                         // l'image, quelle que soit sa hauteur (sur
                         // mobile, 2px de sol laissaient un petit
                         // espace blanc visible sous le tas)
-  let tasCanvas = null;   // Canvas offscreen oÃÂ¹ le monticule est dessinÃÂ© de faÃÂ§on permanente
+  let tasCanvas = null;   // Canvas offscreen où le monticule est dessiné de façon permanente
   let tasCtx = null;
   let tasVue = null;      // Canvas d'affichage du monticule, pose DANS le cadre de la photo
   let tasVueCtx = null;
   let tasElement = null;  // L'image d'accueil : ancre du monticule (suit le scroll de la page)
-  let tasDebord = 0;        // Largeur de dÃÂ©bord de chaque cÃÂ´tÃÂ© de l'image (px)
-  let tasLargeurImage = 0;  // Largeur affichÃÂ©e de l'image
-  let tasHauteurImage = 0;  // Hauteur affichÃÂ©e de l'image
+  let tasDebord = 0;        // Largeur de débord de chaque côté de l'image (px)
+  let tasLargeurImage = 0;  // Largeur affichée de l'image
+  let tasHauteurImage = 0;  // Hauteur affichée de l'image
   let tasHauteurs = [];   // Hauteur du monticule par tranche
   let tasActif = false;
-  let particulesTas = []; // Pixels arrachÃÂ©s en cours de chute
+  let particulesTas = []; // Pixels arrachés en cours de chute
 
   function redimensionnerCanvasExp() {
     if (!canvasExp) return;
@@ -1312,7 +1314,7 @@
 
   function creerPixelPhysique(x, y, couleur) {
     if (!ctxExp) return;
-    // Explosion rouge par dÃÂ©faut (jeu), ou couleur imposÃÂ©e (terre du chien)
+    // Explosion rouge par défaut (jeu), ou couleur imposée (terre du chien)
     particulesExp.push({
       x: x,
       y: y,
@@ -1328,11 +1330,11 @@
 
   function creerOndeImpact(x, y, numero) {
     // Onde de pixels noirs qui se propage depuis le point d'impact
-    // et disparaÃÂ®t. RÃÂ©servÃÂ©e au coup chargÃÂ© : trois ondes successives,
-    // chacune plus dense et plus large que la prÃÂ©cÃÂ©dente.
+    // et disparaît. Réservée au coup chargé : trois ondes successives,
+    // chacune plus dense et plus large que la précédente.
     if (!ctxExp) return;
     numero = numero || 0;
-    const nb = 46 + numero * 10;           // densitÃÂ© croissante
+    const nb = 46 + numero * 10;           // densité croissante
     const rayonDepart = 12 + numero * 18;  // chaque onde part de plus loin
     const vitesse = 5.5;
 
@@ -1358,7 +1360,7 @@
     tasElement = element;
     tasLargeurImage = Math.round(rect.width);
     tasHauteurImage = Math.round(rect.height);
-    // Le monticule peut s'ÃÂ©tendre en dehors des cÃÂ´tÃÂ©s de l'image
+    // Le monticule peut s'étendre en dehors des côtés de l'image
     tasDebord = Math.round(tasLargeurImage * 0.25);
     if (!tasCanvas) tasCanvas = document.createElement("canvas");
     tasCanvas.width = tasLargeurImage + tasDebord * 2;
@@ -1418,12 +1420,12 @@
     for (let i = particulesTas.length - 1; i >= 0; i--) {
       const p = particulesTas[i];
 
-      // GravitÃÂ©
+      // Gravité
       p.vy += 0.15;
       p.x += p.vx;
       p.y += p.vy;
 
-      // Rester dans les limites du tas (dÃÂ©bord compris)
+      // Rester dans les limites du tas (débord compris)
       if (p.x < TAS_TAILLE) { p.x = TAS_TAILLE; p.vx = Math.abs(p.vx) * 0.5; }
       if (p.x > tasCanvas.width - TAS_TAILLE) { p.x = tasCanvas.width - TAS_TAILLE; p.vx = -Math.abs(p.vx) * 0.5; }
 
@@ -1436,7 +1438,7 @@
         const plusBasse = Math.min(hauteurGauche, hauteurDroite);
 
         // Physique du tas : le pixel roule vers la tranche plus basse,
-        // ce qui forme un monticule en pente plutÃÂ´t que des colonnes
+        // ce qui forme un monticule en pente plutôt que des colonnes
         if (tasHauteurs[bin] - plusBasse > TAS_TAILLE && p.roulements < 8) {
           p.roulements++;
           p.x += (hauteurGauche <= hauteurDroite) ? -TAS_BIN : TAS_BIN;
@@ -1445,7 +1447,7 @@
           p.vy = 0.2;
           p.vx = 0;
         } else {
-          // DÃÂ©pÃÂ´t dÃÂ©finitif : le pixel remplit toute la tranche (tas dense, sans interstices)
+          // Dépôt définitif : le pixel remplit toute la tranche (tas dense, sans interstices)
           tasHauteurs[bin] += TAS_TAILLE;
           tasCtx.globalAlpha = 1;
           tasCtx.fillStyle = p.couleur;
@@ -1460,7 +1462,7 @@
         }
       }
 
-      // Dessin en coordonnÃÂ©es page (suit le scroll, dÃÂ©bord compris)
+      // Dessin en coordonnées page (suit le scroll, débord compris)
       tasVueCtx.fillStyle = p.couleur;
       tasVueCtx.fillRect(Math.round(p.x - TAS_TAILLE / 2), Math.round(p.y), TAS_TAILLE, TAS_TAILLE);
     }
@@ -1757,7 +1759,7 @@
     if (!ctxExp) return;
     ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
 
-    // 1. Le monticule, ancrÃÂ© au bas de l'image (suit le scroll de la page)
+    // 1. Le monticule, ancré au bas de l'image (suit le scroll de la page)
     if (tasActif && tasCanvas && tasElement && tasVueCtx) {
       const rect = tasElement.getBoundingClientRect();
       if (Math.round(rect.width) !== tasLargeurImage || Math.round(rect.height) !== tasHauteurImage) {
@@ -1773,12 +1775,12 @@
       }
     }
 
-    // 2. Pixels ÃÂ©phÃÂ©mÃÂ¨res (impact tapette)
+    // 2. Pixels éphémères (impact tapette)
     for (let i = particulesExp.length - 1; i >= 0; i--) {
       const p = particulesExp[i];
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.2; // GravitÃÂ© bien marquÃÂ©e : les pixels retombent
+      p.vy += 0.2; // Gravité bien marquée : les pixels retombent
       p.vie -= p.decroissance;
       if (p.vie <= 0) {
         particulesExp.splice(i, 1);
@@ -1861,37 +1863,37 @@
     if (ctxExp) ctxExp.clearRect(0, 0, canvasExp.width, canvasExp.height);
   }
 
-  /* --- PAQUET DE CARTES DE L'ACCUEIL (anti-rÃÂ©pÃÂ©tition) ---
-     Le dossier d'accueil est mÃÂ©langÃÂ© une fois pour toutes
-     (Fisher-Yates), puis les photos sont tirÃÂ©es dans cet ordre :
+  /* --- PAQUET DE CARTES DE L'ACCUEIL (anti-répétition) ---
+     Le dossier d'accueil est mélangé une fois pour toutes
+     (Fisher-Yates), puis les photos sont tirées dans cet ordre :
      chaque image passe EXACTEMENT UNE fois par cycle -- une photo
-     ne peut pas revenir avant que le dossier ENTIER soit passÃÂ©
+     ne peut pas revenir avant que le dossier ENTIER soit passé
      (180 images = 90 couples de visites ; 500 = 250). Quand le
-     paquet est ÃÂ©puisÃÂ©, on remÃÂ©lange et le tour recommence : la
-     premiÃÂ¨re carte d'un nouveau cycle n'est jamais la derniÃÂ¨re
-     servie du prÃÂ©cÃÂ©dent.
+     paquet est épuisé, on remélange et le tour recommence : la
+     première carte d'un nouveau cycle n'est jamais la dernière
+     servie du précédent.
 
      La photo D'AU-DESSUS et celle D'EN-DESSOUS (celle que le
-     grattage dÃÂ©couvre) sortent de la MÃÂME file, l'une aprÃÂ¨s
+     grattage découvre) sortent de la MÊME file, l'une après
      l'autre : les deux photos d'une visite sont toujours
-     diffÃÂ©rentes, et aucun couple ne se rÃÂ©pÃÂ¨te.
+     différentes, et aucun couple ne se répète.
 
-     La file est dÃÂ©clarÃÂ©e ICI, au niveau du script entier, et non
+     La file est déclarée ICI, au niveau du script entier, et non
      dans dessinerAccueil : elle survit ainsi aux navigations
-     d'une page ÃÂ  l'autre (accueil, sÃÂ©ries, contact) mÃÂªme quand
-     le stockage du navigateur est indisponible. Elle est ÃÂ©crite
+     d'une page à l'autre (accueil, séries, contact) même quand
+     le stockage du navigateur est indisponible. Elle est écrite
      en double exemplaire :
-     - localStorage, rapide, mais liÃÂ© ÃÂ  l'origine EXACTE
+     - localStorage, rapide, mais lié à l'origine EXACTE
        (protocole ET port : localhost:8000 et localhost:8080
        n'ont AUCUN stockage commun) ;
-     - un cookie, liÃÂ© au seul domaine : si le site est essayÃÂ©
-       depuis un port diffÃÂ©rent, le cycle POURSUIT quand mÃÂªme.
+     - un cookie, lié au seul domaine : si le site est essayé
+       depuis un port différent, le cycle POURSUIT quand même.
        (Limite ~4 Ko : la file de 500 images tient.)
-     Si tout est bloquÃÂ© (navigation privÃÂ©e stricte), la file ne
-     vit plus qu'en mÃÂ©moire le temps de l'onglet : dans une mÃÂªme
-     session aucune rÃÂ©pÃÂ©tition n'est possible, mais un
+     Si tout est bloqué (navigation privée stricte), la file ne
+     vit plus qu'en mémoire le temps de l'onglet : dans une même
+     session aucune répétition n'est possible, mais un
      rechargement complet repart d'un paquet neuf.
-     Les images ajoutÃÂ©es au dossier au fil du temps sont glissÃÂ©es
+     Les images ajoutées au dossier au fil du temps sont glissées
      au hasard DANS la file restante : elles attendent le prochain
      tirage, pas la fin du cycle en cours. */
   let paquetAccueil = null; // { max, reste, derniere }
@@ -1900,7 +1902,7 @@
       // ~2 ans de conservation, pour tout le domaine
       document.cookie = "accueil-paquet=" + encodeURIComponent(texte) +
         ";path=/;max-age=63072000;SameSite=Lax";
-    } catch (e) { /* cookies bloquÃÂ©s */ }
+    } catch (e) { /* cookies bloqués */ }
   }
   function lireCookiePaquet() {
     try {
@@ -1908,14 +1910,14 @@
       if (morceaux.length > 1) {
         return decodeURIComponent(morceaux[1].split(";")[0]);
       }
-    } catch (e) { /* cookies bloquÃÂ©s */ }
+    } catch (e) { /* cookies bloqués */ }
     return null;
   }
   function chargerPaquetAccueil() {
     let brut = null;
     try {
       brut = JSON.parse(localStorage.getItem("accueil-paquet"));
-    } catch (e) { /* stockage indisponible ou clÃÂ© absente */ }
+    } catch (e) { /* stockage indisponible ou clé absente */ }
     if (!brut) {
       // localStorage muet : le cookie prend le relais
       const texte = lireCookiePaquet();
@@ -1933,12 +1935,12 @@
     const texte = JSON.stringify(paquetAccueil);
     try {
       localStorage.setItem("accueil-paquet", texte);
-      localStorage.removeItem("accueil-historique"); // ancien systÃÂ¨me, ne sert plus
+      localStorage.removeItem("accueil-historique"); // ancien système, ne sert plus
     } catch (e) { /* stockage indisponible : le cookie seul survivra */ }
     ecrireCookiePaquet(texte);
   }
   function melangerAccueil(liste) {
-    // Fisher-Yates : toutes les permutations sont ÃÂ©quiprobables.
+    // Fisher-Yates : toutes les permutations sont équiprobables.
     for (let i = liste.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       const temp = liste[i];
@@ -1949,12 +1951,12 @@
   }
   function preparerPaquetAccueil(total) {
     if (!paquetAccueil) paquetAccueil = chargerPaquetAccueil() || { max: 0, reste: [], derniere: null };
-    // Dossier raccourci (images retirÃÂ©es) : on nettoie la file.
+    // Dossier raccourci (images retirées) : on nettoie la file.
     if (total < paquetAccueil.max) {
       paquetAccueil.reste = paquetAccueil.reste.filter(function (n) { return n <= total; });
       paquetAccueil.max = total;
     }
-    // Images AJOUTÃÂES depuis la derniÃÂ¨re visite : glissÃÂ©es au
+    // Images AJOUTÉES depuis la dernière visite : glissées au
     // hasard dans la file restante, pour les voir sans attendre
     // la fin du cycle en cours.
     // Images AJOUTEES depuis la derniere visite : glissees au
@@ -1967,9 +1969,9 @@
       const pos = Math.floor(Math.random() * (paquetAccueil.reste.length + 1));
       paquetAccueil.reste.splice(pos, 0, paquetAccueil.max);
     }
-    // File ÃÂ©puisÃÂ©e : on remÃÂ©lange TOUT le dossier. La premiÃÂ¨re
-    // carte ne doit pas ÃÂªtre la derniÃÂ¨re servie -- sinon la mÃÂªme
-    // photo repasserait deux fois de suite, ÃÂ  la frontiÃÂ¨re des
+    // File épuisée : on remélange TOUT le dossier. La première
+    // carte ne doit pas être la dernière servie -- sinon la même
+    // photo repasserait deux fois de suite, à la frontière des
     // deux cycles.
     if (paquetAccueil.reste.length === 0 && total > 0) {
       const cartes = [];
@@ -1985,11 +1987,11 @@
     sauvegarderPaquetAccueil();
   }
   function tirerCarteAccueil(poolNumeros) {
-    // Prend la PREMIÃÂRE carte de la file qui convient au tirage
+    // Prend la PREMIÈRE carte de la file qui convient au tirage
     // (verticale seulement pour la photo du dessus, sur mobile) ;
-    // les cartes sautÃÂ©es restent en tÃÂªte de file : elles serviront
-    // aux prochains tirages -- jamais deux fois la mÃÂªme. File vide
-    // au moment du tirage : on remÃÂ©lange d'abord.
+    // les cartes sautées restent en tête de file : elles serviront
+    // aux prochains tirages -- jamais deux fois la même. File vide
+    // au moment du tirage : on remélange d'abord.
     if (paquetAccueil.reste.length === 0) preparerPaquetAccueil(paquetAccueil.max);
     let carte = null;
     for (let i = 0; i < paquetAccueil.reste.length; i++) {
@@ -1999,8 +2001,8 @@
       }
     }
     if (carte === null) {
-      // Plus AUCUNE carte du pool dans la file (derniÃÂ¨res images
-      // horizontales d'un cycle, sur mobile) : on sert la tÃÂªte.
+      // Plus AUCUNE carte du pool dans la file (dernières images
+      // horizontales d'un cycle, sur mobile) : on sert la tête.
       carte = paquetAccueil.reste.shift();
     }
     paquetAccueil.derniere = carte;
@@ -2028,7 +2030,7 @@
 
     // Cadre intermediaire : il contient uniquement le canvas (et la
     // photo de dessous). C'est sur lui que la photo de dessous est
-    // rognÃÂ©e : elle correspond toujours exactement a la photo grattÃÂ©e,
+    // rognée : elle correspond toujours exactement a la photo grattée,
     // meme quand le figure contient aussi l'emoji en dessous (mobile).
     const cadre = document.createElement("div");
     cadre.className = "cadre-accueil";
@@ -2075,10 +2077,10 @@
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
-    // Image d'accueil alÃÂ©atoire ÃÂ  chaque visite : accueil00001.jpg, accueil00002.jpg...
-    // Le nombre d'images n'a pas besoin d'ÃÂªtre connu ÃÂ  l'avance : on compte
-    // celles prÃÂ©sentes en chargeant accueil00001.jpg, puis 00002, puis 00003... jusqu'ÃÂ 
-    // la premiÃÂ¨re absente, puis le tirage passe par le paquet melange (voir paquetAccueil, plus haut) pour eviter tout retour trop rapide d une meme photo.
+    // Image d'accueil aléatoire à chaque visite : accueil00001.jpg, accueil00002.jpg...
+    // Le nombre d'images n'a pas besoin d'être connu à l'avance : on compte
+    // celles présentes en chargeant accueil00001.jpg, puis 00002, puis 00003... jusqu'à
+    // la première absente, puis le tirage passe par le paquet melange (voir paquetAccueil, plus haut) pour eviter tout retour trop rapide d une meme photo.
     const src = "images/accueil/" + encodeURIComponent(SITE.accueil);
     const photo = new Image();
     photo.decoding = "async";
@@ -2305,10 +2307,10 @@
       preparerPaquetAccueil(total);
       // Sur MOBILE, la photo DU DESSUS n'est jamais HORIZONTALE :
       // on ne tire que parmi les images VERTICALES (elles seront
-      // de toute faÃÂ§on recadrÃÂ©es en 5 x 7 par chargerEtDessiner).
-      // La photo D'EN-DESSOUS, elle, peut ÃÂªtre horizontale : le
-      // grattage la dÃÂ©couvre, aucune contrainte de taille pour
-      // elle. La frontiÃÂ¨re mobile est la mÃÂªme que la mise en page
+      // de toute façon recadrées en 5 x 7 par chargerEtDessiner).
+      // La photo D'EN-DESSOUS, elle, peut être horizontale : le
+      // grattage la découvre, aucune contrainte de taille pour
+      // elle. La frontière mobile est la même que la mise en page
       // (max-width: 760px).
       const mobile = !!(window.matchMedia &&
         window.matchMedia("(max-width: 760px)").matches);
@@ -2341,10 +2343,10 @@
         });
         if (verticales.length > 0) pool = verticales;
       }
-      // Deux cartes de suite dans la mÃÂªme file : celle DU DESSUS,
-      // puis celle que le grattage dÃÂ©couvrira. S'il n'y a qu'une
-      // image au dossier, la photo du dessous est la mÃÂªme que celle
-      // du dessus (effet neutralisÃÂ©, comme avant).
+      // Deux cartes de suite dans la même file : celle DU DESSUS,
+      // puis celle que le grattage découvrira. S'il n'y a qu'une
+      // image au dossier, la photo du dessous est la même que celle
+      // du dessus (effet neutralisé, comme avant).
       const numDessus = tirerCarteAccueil(pool);
       const numDessous = tirerCarteAccueil(toutes);
       photoNumDessus = numDessus;
@@ -2511,7 +2513,7 @@
                 pBuffer[index + 2]
               ).toString(16).slice(1);
 
-              // Le pixel arrachÃÂ© tombe et grossit le monticule en bas de l'image
+              // Le pixel arraché tombe et grossit le monticule en bas de l'image
               if (!tasActif) initialiserTas(canvas);
               creerParticuleTas(tasDebord + px / echelleX, py / echelleY, hexColor);
             }
@@ -2803,7 +2805,7 @@
     if (precharge.complete) pret();
   }
 
-  /* --- SÃÂRIES CLASSIQUES --- */
+  /* --- SÉRIES CLASSIQUES --- */
   /* --- REGLAGE : PLANCHE CONTACT (fin de serie) -------------
      UNE ENTREE PAR SERIE, autonome : taille et espacement des
      miniatures regles SERIE PAR SERIE. La cle est le DOSSIER de
@@ -2821,37 +2823,37 @@
      d abord horizontalement, puis a la ligne suivante. */
   const PLANCHE_SERIES = {
     defaut:   { hauteur: 110, marge: 14 },
-    Arles:    { hauteur: 110, marge: 14 },
+    Arles:    { hauteur: 200, marge: 14 },
     houses:   { hauteur: 150, marge: 14 },
-    Cecifoot: { hauteur: 230, marge: 14 },
+    Cecifoot: { hauteur: 240, marge: 14 },
     Cammaron: { hauteur: 150, marge: 14 },
     Milk:     { hauteur: 300, marge: 14 },
-    carnaval: { hauteur: 130, marge: 14 }
+    carnaval: { hauteur: 130, marge: 14 },
+	"18images": { hauteur: 200, marge: 10 }
   };
   function reglagesPlanche(dossier) {
     const r = PLANCHE_SERIES[dossier];
     return r || PLANCHE_SERIES.defaut;
   }
 
-  /* REGLAGE : EFFET DE PALEUR DES PLANCHES CONTACT
-     Quand on survole une vignette, toutes les autres palissent.
-       intensite : force de la paleur, de 0 a 1
-                   0   = aucun effet (les autres ne bougent pas)
-                   0.5 = les autres a moitie effacees
-                   0.65 = reglage d origine (35 % d opacite restante)
-                   1   = les autres totalement invisibles
-       gris       : desaturation des vignettes non survolees, de 0 a 1
-                   0 = couleur intacte, 0.5 = a moitie en noir et
-                   blanc, 1 = noir et blanc complet
-       entree    : duree EN MILLISECONDES du passage vers la paleur
-                   (quand le curseur arrive sur une vignette)
-                   0 = instantane, 150 = rapide, 600 = lent
-       retour    : duree EN MILLISECONDES du retour a la normale
-                   (quand le curseur quitte la vignette)
-     "defaut" s applique a toutes les series. Pour regler UNE
-     serie differemment, ajoute-la dans PLANCHE_EFFET : seules les
-     valeurs que tu y mets remplacent celles de "defaut".
-     Exemple :  Milk: { intensite: 0.9, entree: 400 }  */
+  /* RÉGLAGE : EFFET DES PLANCHES CONTACT
+     Par défaut, toutes les vignettes sont pâles et en niveaux de gris ;
+     celle sous le curseur retrouve sa couleur et son opacité pleines.
+       intensite : pâleur des vignettes au repos, de 0 à 1
+                   0   = aucune pâleur (opacité pleine)
+                   0.3 = opacité 70 %
+                   1   = vignettes totalement invisibles
+       gris      : désaturation des vignettes au repos, de 0 à 1
+                   0 = couleur intacte, 1 = noir et blanc complet
+       entree    : durée EN MILLISECONDES de la colorisation
+                   (le curseur arrive sur une vignette)
+                   0 = instantané, 150 = rapide, 600 = lent
+       retour    : durée EN MILLISECONDES du retour au gris pâle
+                   (le curseur quitte la vignette)
+     "defaut" s'applique à toutes les séries. Pour régler UNE série
+     différemment, ajoute-la ci-dessous : seules les valeurs que tu y
+     mets remplacent celles de "defaut".
+     Exemple :  Milk: { intensite: 0.5, entree: 400 }  */
   const PLANCHE_EFFET = {
     defaut:   { intensite: 0.30, gris: 1, entree: 300, retour: 300 }
     // Arles:    { intensite: 0.8, entree: 300, retour: 500 },
@@ -2888,7 +2890,7 @@
     if (total === 0) {
       const p = document.createElement("p");
       p.className = "vide";
-      p.textContent = "BientÃÂ´t.";
+      p.textContent = "Bientôt.";
       contenu.appendChild(p);
       return;
     }
@@ -2957,7 +2959,7 @@
       const btnGauche = document.createElement("button");
       btnGauche.type = "button";
       btnGauche.className = "zone-clic gauche";
-      btnGauche.setAttribute("aria-label", "Image prÃÂ©cÃÂ©dente");
+      btnGauche.setAttribute("aria-label", "Image précédente");
 
       const btnDroite = document.createElement("button");
       btnDroite.type = "button";
@@ -2978,7 +2980,7 @@
     prec.type = "button";
     prec.id = "prec";
     prec.innerHTML = "&#8249;";
-    prec.setAttribute("aria-label", "Image prÃÂ©cÃÂ©dente");
+    prec.setAttribute("aria-label", "Image précédente");
     const num = document.createElement("span");
     const suiv = document.createElement("button");
     suiv.type = "button";
@@ -3027,14 +3029,6 @@
         b.type = "button";
         b.setAttribute("aria-label", "Image " + (k + 1));
         b.style.height = r.hauteur + "px";
-        // SURVOL : poser/retirer la classe sur la PLANCHE fait
-        // paler toutes les vignettes SAUF celle sous le curseur
-        b.addEventListener("mouseenter", function () {
-          planche.classList.add("survol");
-        });
-        b.addEventListener("mouseleave", function () {
-          planche.classList.remove("survol");
-        });
         const vignette = document.createElement("img");
         vignette.decoding = "async";
         vignette.src = chemin(k);
@@ -3367,7 +3361,6 @@
   //                                 le dossier d images)
   // Fichier absent ou vide : le chien se reveille SANS bulle sur
   // cette page (aucun blocage, rien a declarer).
-  const BULLE_CHIEN_FICHIER = "textes/chien-accueil.txt";
   const BULLE_CHIEN_DEFAUT = [
     "Hello !",
     "Bienvenue sur mon site, n'h\u00e9sitez pas \u00e0 me r\u00e9veiller si vous voulez plus d'infos.",
@@ -4422,7 +4415,7 @@
                               // detruit par le laser revient toujours
     chienPlancheEl = null;     // le div est retire du DOM par afficher()
   }
-  /* --- SÃÂRIE CARNAVAL --- */
+  /* --- SÉRIE CARNAVAL --- */
   function dessinerCarnaval(serie) {
     document.title = serie.titre + " - " + SITE.nom;
 
@@ -4436,7 +4429,7 @@
     if (total === 0) {
       const p = document.createElement("p");
       p.className = "vide";
-      p.textContent = "BientÃÂ´t.";
+      p.textContent = "Bientôt.";
       contenu.appendChild(p);
       return;
     }
@@ -4475,7 +4468,7 @@
       const btnGauche = document.createElement("button");
       btnGauche.type = "button";
       btnGauche.className = "zone-clic gauche";
-      btnGauche.setAttribute("aria-label", "Duo prÃÂ©cÃÂ©dent");
+      btnGauche.setAttribute("aria-label", "Duo précédent");
 
       const btnDroite = document.createElement("button");
       btnDroite.type = "button";
@@ -4496,7 +4489,7 @@
     prec.type = "button";
     prec.id = "prec";
     prec.innerHTML = "&#8249;";
-    prec.setAttribute("aria-label", "Duo prÃÂ©cÃÂ©dent");
+    prec.setAttribute("aria-label", "Duo précédent");
     const num = document.createElement("span");
     const suiv = document.createElement("button");
     suiv.type = "button";
@@ -4546,13 +4539,6 @@
         b.type = "button";
         b.setAttribute("aria-label", "Image " + (k + 1));
         b.style.height = rCarnaval.hauteur + "px";
-        // SURVOL : meme effet que les series simples
-        b.addEventListener("mouseenter", function () {
-          plancheCarnaval.classList.add("survol");
-        });
-        b.addEventListener("mouseleave", function () {
-          plancheCarnaval.classList.remove("survol");
-        });
         const vignette = document.createElement("img");
         vignette.decoding = "async";
         vignette.src = chemin(k);
@@ -4614,7 +4600,7 @@
     // toutes les pages, pas seulement le Carnaval.)
   }
 
-  /* --- SÃÂRIE PAO --- */
+  /* --- SÉRIE PAO --- */
   function dessinerPAO(serie) {
     document.title = serie.titre + " - " + SITE.nom;
     if (serie.texte) {
@@ -4663,12 +4649,12 @@
     const btnGauche = document.createElement("button");
     btnGauche.type = "button";
     btnGauche.className = "zone-clic gauche";
-    btnGauche.setAttribute("aria-label", "Tirage prÃÂ©cÃÂ©dent ou alÃÂ©atoire");
+    btnGauche.setAttribute("aria-label", "Tirage précédent ou aléatoire");
 
     const btnDroite = document.createElement("button");
     btnDroite.type = "button";
     btnDroite.className = "zone-clic droite";
-    btnDroite.setAttribute("aria-label", "Nouveau tirage alÃÂ©atoire");
+    btnDroite.setAttribute("aria-label", "Nouveau tirage aléatoire");
 
     // Les ZONES DE CLIC sont la vraie navigation de la serie :
     // moitie gauche = tirage precedent, moitie droite = nouveau
@@ -4733,27 +4719,27 @@
   let idAnimJeu = null;
   let conteneurJeu = null;
   let mouches = [];        // Toutes les mouches en jeu (vivantes et mortes)
-  let niveau = 1;          // Niveau = nombre de mouches simultanÃÂ©es
-  const NIVEAU_MAX = 50;   // Au-delÃÂ , le jeu se remet ÃÂ  zÃÂ©ro
+  let niveau = 1;          // Niveau = nombre de mouches simultanées
+  const NIVEAU_MAX = 50;   // Au-delà, le jeu se remet à zéro
   let estEnFreeze = false;
-  const DEMI_MOUCHE = 3.5; // MoitiÃÂ© de la taille de la mouche (7 px)
+  const DEMI_MOUCHE = 3.5; // Moitié de la taille de la mouche (7 px)
   const MOT_FIN = "CONGRATULATIONS !"; // En lettres capitales, comme un cri de victoire
-  const PV_BOSS = 20;      // Cliques nÃÂ©cessaires pour tuer le boss
+  const PV_BOSS = 20;      // Cliques nécessaires pour tuer le boss
   let etapeFin = null;     // null | "boss" | "mot" : phase de fin de partie
-  let motEl = null;        // L'ÃÂ©lÃÂ©ment texte "congratulations !" (typo du site)
-  let bossEl = null;       // La grosse mouche formÃÂ©e par les cadavres
+  let motEl = null;        // L'élément texte "congratulations !" (typo du site)
+  let bossEl = null;       // La grosse mouche formée par les cadavres
   let bossX = 0, bossY = 0;
   let bossVX = 0, bossVY = 0;
   let bossCibleX = 0, bossCibleY = 0;
   let bossPV = 0;
   let timerBoss = 0;
-  let phase2Boss = false;  // Phase 2 du boss : dÃÂ©clenchÃÂ©e ÃÂ  mi-vie
+  let phase2Boss = false;  // Phase 2 du boss : déclenchée à mi-vie
   let pauseBoss = 0;       // Pause dramatique au passage en phase 2
-  let bossChute = false;   // Le boss tuÃÂ© bascule et tombe lentement au sol
+  let bossChute = false;   // Le boss tué bascule et tombe lentement au sol
   let bossAuSol = false;   // Le boss repose au sol, pattes en l'air
   let rotationChuteBoss = 0;    // Virevolte : rotation pendant la chute
   let vitesseRotationChute = 12; // Vitesse et sens de la virevolte
-  let freezeBossImpact = 0;   // LÃÂ©ger freeze frame du boss ÃÂ  chaque coup reÃÂ§u
+  let freezeBossImpact = 0;   // Léger freeze frame du boss à chaque coup reçu
 
   // Le boss vit encore et vole (ni en chute, ni au sol) : le chien
   // qui dort le vise au lieu du pointeur. Les fonctions qui
@@ -4769,11 +4755,11 @@
   let compteurMouchesEl = null;
   let timerEl = null;
   let mouchesMortes = 0;
-  let timerJeu = 99;       // Une fois ÃÂ  0 : GAME OVER
+  let timerJeu = 99;       // Une fois à 0 : GAME OVER
   let intervalTimer = null;
   let jeuCommence = false; // Compteur + timer n'apparaissent qu'au premier coup
 
-  // Coup chargÃÂ© : maintenir le clic 2 secondes pour une zone de frappe 200 % plus grande
+  // Coup chargé : maintenir le clic 2 secondes pour une zone de frappe 200 % plus grande
   const DUREE_CHARGE = 2000; // en millisecondes
   // REGLAGE : DELAI D'APPARITION DE LA BARRE DE CHARGE -- la barre
   // reste cachee ce temps (ms) apres le clic ; la charge, elle,
@@ -4784,10 +4770,10 @@
   let debutCharge = 0;
   let barreChargeEl = null;
   let remplieChargeEl = null;
-  let tapetteEl = null;    // La tapette animÃÂ©e qui remplace le curseur
+  let tapetteEl = null;    // La tapette animée qui remplace le curseur
   let animChargeCreee = false;  // coup2 deja affiche pour ce clic ?
   let tapetteChargeStop = null;   // stop() de l anim du coup charge
-  let reculCharge = -1;    // ÃÂtape de recul (0 ÃÂ  3) de la tapette
+  let reculCharge = -1;    // Étape de recul (0 à 3) de la tapette
 
   // REGLAGE : TAPETTE -- trois fichiers du dossier sprites/ :
   //   tapettemaster.png : image CARREE simple = le CURSEUR quand
@@ -5015,7 +5001,7 @@
   let barreVieEl = null;
   let barreRemplieEl = null;
 
-  // ModÃÂ¨le SVG Pixel Art ultra minimaliste (7x7 px, quelques pixels seulement)
+  // Modèle SVG Pixel Art ultra minimaliste (7x7 px, quelques pixels seulement)
   const SVG_PIXEL_FLY = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7 7" width="7" height="7">
     <g class="ailes">
       <rect x="0" y="1" width="2" height="2" fill="#ffffff" opacity="0.8" />
@@ -5025,7 +5011,7 @@
     <rect x="2" y="2" width="3" height="4" fill="#111111" />
   </svg>`;
 
-  // Le boss : mÃÂªme esprit pixel art, plus dÃÂ©taillÃÂ©
+  // Le boss : même esprit pixel art, plus détaillé
   // (contour gris autour des ailes pour les distinguer, deux yeux rouges)
   const SVG_BOSS = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
     <g class="ailes">
@@ -5041,7 +5027,7 @@
     <rect x="8" y="2" width="1" height="1" fill="#ff1744" />
   </svg>`;
 
-  // Le boss mort, posÃÂ© sur le dos au sol : les pattes en l'air au-dessus de lui
+  // Le boss mort, posé sur le dos au sol : les pattes en l'air au-dessus de lui
   const SVG_BOSS_MORT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
     <g class="ailes">
       <rect x="0" y="9" width="4" height="4" fill="#808080" />
@@ -5065,7 +5051,7 @@
   }
 
   function declencherScreenShakeFort() {
-    // Secousse d'ÃÂ©cran renforcÃÂ©e (coup chargÃÂ©)
+    // Secousse d'écran renforcée (coup chargé)
     document.body.classList.remove("screen-shake-fort");
     void document.body.offsetWidth;
     document.body.classList.add("screen-shake-fort");
@@ -5111,7 +5097,7 @@
     mouches = [];
     creerMouche();
 
-    // Le HUD (compteur + timer) n'apparaÃÂ®tra qu'au premier coup portÃÂ© ÃÂ  une mouche
+    // Le HUD (compteur + timer) n'apparaîtra qu'au premier coup porté à une mouche
     mouchesMortes = 0;
     timerJeu = 99;
     jeuCommence = false;
@@ -5157,7 +5143,7 @@
   }
 
   function reinitialiserNiveau() {
-    // Fin de partie : on repart de zÃÂ©ro
+    // Fin de partie : on repart de zéro
     mouches.forEach(function (m) { m.el.remove(); });
     mouches = [];
     if (motEl) { motEl.remove(); motEl = null; }
@@ -5168,8 +5154,8 @@
     niveau = 1;
     estEnFreeze = false;
     etapeFin = null;
-    // Comme au tout dÃÂ©but : le HUD disparaÃÂ®t et le jeu
-    // attendra ÃÂ  nouveau le premier coup portÃÂ© ÃÂ  une mouche
+    // Comme au tout début : le HUD disparaît et le jeu
+    // attendra à nouveau le premier coup porté à une mouche
     if (hudEl) { hudEl.remove(); hudEl = null; }
     compteurMouchesEl = null;
     timerEl = null;
@@ -5185,8 +5171,8 @@
 
   function demarrerHUD() {
     // HUD : compteur de mouches mortes + timer de 99 secondes,
-    // en haut ÃÂ  droite, en typo pixel art, sans libellÃÂ©.
-    // CrÃÂ©ÃÂ© uniquement au moment du premier coup portÃÂ© ÃÂ  une mouche.
+    // en haut à droite, en typo pixel art, sans libellé.
+    // Créé uniquement au moment du premier coup porté à une mouche.
     hudEl = document.createElement("div");
     hudEl.id = "hud-jeu";
 
@@ -5201,7 +5187,7 @@
     hudEl.append(compteurMouchesEl, timerEl);
     conteneurJeu.appendChild(hudEl);
 
-    // Le curseur ne devient une tapette qu'ÃÂ  partir de ce premier coup
+    // Le curseur ne devient une tapette qu'à partir de ce premier coup
     document.documentElement.classList.add("zone-tapette");
 
     clearInterval(intervalTimer);
@@ -5221,7 +5207,7 @@
     victoire:  4    // CONGRATULATIONS ! (fin de partie)
   };
   function majTextePixel(conteneur, texte) {
-    // Met ÃÂ  jour un texte pixel art (compteur, timer)
+    // Met à jour un texte pixel art (compteur, timer)
     if (conteneur) conteneur.replaceChildren(creerTextePixel(texte, "#111111", 8,
       conteneur === timerEl ? TAILLES_TEXTE.timer : TAILLES_TEXTE.compteur));
   }
@@ -5388,7 +5374,7 @@
   }
 
   function tickTimer() {
-    // Le temps ne s'ÃÂ©coule plus pendant le combat de boss ni aprÃÂ¨s la partie
+    // Le temps ne s'écoule plus pendant le combat de boss ni après la partie
     if (!conteneurJeu || etapeFin) return;
     timerJeu--;
     if (timerJeu <= 0) {
@@ -5414,7 +5400,7 @@
   }
 
   function declencherDefaite() {
-    // Temps ÃÂ©coulÃÂ© : GAME OVER, cliquable pour recommencer
+    // Temps écoulé : GAME OVER, cliquable pour recommencer
     etapeFin = "defaite";
     annulerCharge();
 
@@ -5438,19 +5424,19 @@
     // Le boss repose au sol, pattes en l'air : il ne bouge plus
     if (bossAuSol) return;
 
-    // LÃÂ©ger freeze frame aprÃÂ¨s un coup reÃÂ§u : l'impact est plus lisible
+    // Léger freeze frame après un coup reçu : l'impact est plus lisible
     if (freezeBossImpact > 0) {
       freezeBossImpact--;
       return;
     }
 
-    // Le boss tuÃÂ© : il ne vole plus, il bascule sur le dos et chute lentement
+    // Le boss tué : il ne vole plus, il bascule sur le dos et chute lentement
     if (bossChute) {
       updateChuteBoss();
       return;
     }
 
-    // Phase 2 : pause dramatique au moment du dÃÂ©clenchement
+    // Phase 2 : pause dramatique au moment du déclenchement
     if (pauseBoss > 0) {
       pauseBoss--;
       return;
@@ -5467,7 +5453,7 @@
       timerBoss = 0;
     }
 
-    // Lent au dÃÂ©part, plus rapide en phase 2 (mais toujours attrapable)
+    // Lent au départ, plus rapide en phase 2 (mais toujours attrapable)
     const vitesseMax = phase2Boss ? 5.2 : 3.0;
     bossVX += (dx / (dist || 1)) * (phase2Boss ? 1.3 : 0.75);
     bossVY += (dy / (dist || 1)) * (phase2Boss ? 1.3 : 0.75);
@@ -5494,31 +5480,31 @@
   }
 
   function frapperBoss(degats) {
-    bossPV -= (degats || 1); // Le coup chargÃÂ© (degats = 2) compte pour deux coups
+    bossPV -= (degats || 1); // Le coup chargé (degats = 2) compte pour deux coups
     actualiserBarreVie();
     if ((degats || 1) > 1) declencherScreenShake();
     else secousseCurseur();
-    freezeBossImpact = 5; // lÃÂ©ger freeze frame du boss : ÃÂ§a claque
+    freezeBossImpact = 5; // léger freeze frame du boss : ça claque
 
     for (let i = 0; i < 12; i++) {
       creerPixelPhysique(bossX + (Math.random() - 0.5) * 30, bossY + (Math.random() - 0.5) * 30);
     }
 
-    // Flash du boss ÃÂ  chaque coup reÃÂ§u
+    // Flash du boss à chaque coup reçu
     bossEl.classList.remove("touche");
     void bossEl.offsetWidth;
     bossEl.classList.add("touche");
 
-    // ÃÂ mi-vie : phase 2 du boss
+    // À mi-vie : phase 2 du boss
     // (pause dramatique, puis il devient plus rapide et plus rouge)
     if (bossPV > 0 && bossPV <= PV_BOSS / 2 && !phase2Boss) {
       phase2Boss = true;
       bossEl.classList.add("phase2");
-      pauseBoss = 120; // pause plus longue : on a le temps de voir sa colÃÂ¨re
+      pauseBoss = 120; // pause plus longue : on a le temps de voir sa colère
       declencherScreenShake();
 
-      // Le boss se secoue violemment et des pixels rouges s'en ÃÂ©chappent
-      // en plusieurs vagues, pendant toute la durÃÂ©e de la colÃÂ¨re
+      // Le boss se secoue violemment et des pixels rouges s'en échappent
+      // en plusieurs vagues, pendant toute la durée de la colère
       bossEl.classList.remove("secoue");
       void bossEl.offsetWidth;
       bossEl.classList.add("secoue");
@@ -5539,7 +5525,7 @@
   }
 
   function updateChuteBoss() {
-    // Chute lente, faÃÂ§on feuille morte : le boss retombe sur le dos
+    // Chute lente, façon feuille morte : le boss retombe sur le dos
     // Le sol du boss : il repose sur la MEME LIGNE que le chien qui
     // dort (fixe en bas a gauche, a --marge = 32 px du bas de
     // l'ecran). Le BAS du boss affleure le bas de la planche du
@@ -5548,7 +5534,7 @@
 
     if (bossY >= sol) {
       // Une fois au sol : le boss se pose sur le dos, pattes en l'air,
-      // et le mot de victoire apparaÃÂ®t au milieu de l'ÃÂ©cran
+      // et le mot de victoire apparaît au milieu de l'écran
       bossY = sol;
       bossChute = false;
       bossAuSol = true;
@@ -5562,16 +5548,16 @@
       return;
     }
 
-    bossVY = Math.min(bossVY + 0.12, 1.6); // accÃÂ©lÃÂ©ration faible : chute lente
-    bossY += bossVY;                       // tout droit, sans dÃÂ©rive
-    rotationChuteBoss += vitesseRotationChute; // ...mais en virevoltant sur lui-mÃÂªme
+    bossVY = Math.min(bossVY + 0.12, 1.6); // accélération faible : chute lente
+    bossY += bossVY;                       // tout droit, sans dérive
+    rotationChuteBoss += vitesseRotationChute; // ...mais en virevoltant sur lui-même
 
     // Virevolte pendant la chute
     bossEl.style.transform = `translate3d(${bossX - 21}px, ${bossY - 21}px, 0) rotate(${rotationChuteBoss}deg)`;
   }
 
   function afficherMotFin() {
-    // Le mot de victoire apparaÃÂ®t au milieu de l'ÃÂ©cran, en typo pixel art
+    // Le mot de victoire apparaît au milieu de l'écran, en typo pixel art
     motEl = document.createElement("div");
     motEl.className = "mot-fin";
     motEl.appendChild(creerTextePixel(MOT_FIN, "#111111", 8,
@@ -5592,32 +5578,32 @@
     declencherScreenShake();
     if (barreVieEl) { barreVieEl.remove(); barreVieEl = null; barreRemplieEl = null; }
 
-    // Le boss ne disparaÃÂ®t pas : il se retourne sur le dos et tombe
-    // tout droit, sans virevolter, jusqu'au sol oÃÂ¹ il finit pattes en l'air.
-    // Le mot de victoire n'apparaÃÂ®t qu'une fois qu'il a touchÃÂ© le sol.
+    // Le boss ne disparaît pas : il se retourne sur le dos et tombe
+    // tout droit, sans virevolter, jusqu'au sol où il finit pattes en l'air.
+    // Le mot de victoire n'apparaît qu'une fois qu'il a touché le sol.
     bossChute = true;
-    bossVX = 0; // aucune dÃÂ©rive : chute verticale
+    bossVX = 0; // aucune dérive : chute verticale
     bossVY = Math.max(0.5, bossVY);
-    rotationChuteBoss = 0; // dÃÂ©part de la virevolte
+    rotationChuteBoss = 0; // départ de la virevolte
     vitesseRotationChute = (Math.random() < 0.5 ? -1 : 1) * (10 + Math.random() * 8);
     bossEl.classList.remove("touche");
-    bossEl.classList.add("morte"); // arrÃÂªte le battement des ailes
+    bossEl.classList.add("morte"); // arrête le battement des ailes
   }
 
   function declencherFin() {
-    // Garde-fou : si plusieurs mouches meurent d'un mÃÂªme coup chargÃÂ©
-    // au moment fatidique, la fin ne doit ÃÂªtre dÃÂ©clenchÃÂ©e qu'une seule fois
-    // (sinon une seconde barre de vie orpheline apparaÃÂ®t et reste pleine)
+    // Garde-fou : si plusieurs mouches meurent d'un même coup chargé
+    // au moment fatidique, la fin ne doit être déclenchée qu'une seule fois
+    // (sinon une seconde barre de vie orpheline apparaît et reste pleine)
     if (etapeFin) return;
 
-    // Les 50 mouches sont tuÃÂ©es : les cadavres s'agglutinent pour former le boss
+    // Les 50 mouches sont tuées : les cadavres s'agglutinent pour former le boss
     etapeFin = "boss";
 
-    // Le timer disparaÃÂ®t et n'est plus pris en compte pendant le combat de boss
+    // Le timer disparaît et n'est plus pris en compte pendant le combat de boss
     if (timerEl) timerEl.style.display = "none";
 
-    // PV du boss : ÃÂ  rÃÂ©gler AVANT de crÃÂ©er la barre de vie,
-    // pour qu'elle apparaisse pleine dÃÂ¨s la naissance du boss
+    // PV du boss : à régler AVANT de créer la barre de vie,
+    // pour qu'elle apparaisse pleine dès la naissance du boss
     bossPV = PV_BOSS;
     creerBarreVie();
 
@@ -5634,10 +5620,10 @@
       m.cibleFinY = cy + (Math.random() - 0.5) * 50;
       m.progression = 0;
       m.vitesseFin = 0.012 + Math.random() * 0.018;
-      m.delaiFin = Math.floor(Math.random() * 45); // dÃÂ©parts dÃÂ©calÃÂ©s, en virevoltant
+      m.delaiFin = Math.floor(Math.random() * 45); // départs décalés, en virevoltant
     });
 
-    // Le boss naÃÂ®t au centre, formÃÂ© par l'agglutination des cadavres
+    // Le boss naît au centre, formé par l'agglutination des cadavres
     bossEl = document.createElement("div");
     bossEl.className = "mouche boss";
     bossEl.innerHTML = SVG_BOSS;
@@ -5660,11 +5646,11 @@
   let zoneTapetteActive = null;  // dernier etat de la classe zone-tapette
 
   function gererSurvolSource(e) {
-    // Une fois la premiÃÂ¨re mouche tuÃÂ©e (jeu dÃÂ©marrÃÂ©), le curseur
+    // Une fois la première mouche tuée (jeu démarré), le curseur
     // est toujours une tapette, sauf sur le menu de gauche (aside / nav).
-    // La classe n'est retouchÃÂ©e que si l'ÃÂ©tat CHANGE : rÃÂ©ÃÂ©crire la
-    // classe de <html> ÃÂ  chaque dÃÂ©placement du pointeur forÃÂ§ait le
-    // navigateur ÃÂ  recalculer le curseur sans arrÃÂªt -- c'est ce qui
+    // La classe n'est retouchée que si l'état CHANGE : réécrire la
+    // classe de <html> à chaque déplacement du pointeur forçait le
+    // navigateur à recalculer le curseur sans arrêt -- c'est ce qui
     // le faisait clignoter.
     const surMenu = !!(e.target && e.target.closest && e.target.closest("aside"));
     const actif = jeuCommence && !surMenu && !bossChute && !bossAuSol;
@@ -5673,13 +5659,13 @@
       document.documentElement.classList.toggle("zone-tapette", actif);
     }
 
-    // La barre de coup chargÃÂ© et la tapette animÃÂ©e suivent le curseur
+    // La barre de coup chargé et la tapette animée suivent le curseur
     if (barreChargeEl) positionnerBarreCharge(e.clientX, e.clientY);
     if (tapetteEl) positionnerTapette(e.clientX, e.clientY);
   }
 
   function demarrerCharge(e) {
-    // DÃÂ©but du coup chargÃÂ© : la tapette animÃÂ©e remplace le curseur,
+    // Début du coup chargé : la tapette animée remplace le curseur,
     // elle clignote pendant la charge, et la barre pixel art se remplit
     if (chargeActive) return;
     chargeActive = true;
@@ -5715,7 +5701,7 @@
 
   function annulerCharge() {
     // Interruption brutale (fin de partie, sortie de page) :
-    // tout disparaÃÂ®t immÃÂ©diatement, sans animation
+    // tout disparaît immédiatement, sans animation
     chargeActive = false;
     if (tapetteChargeStop) { tapetteChargeStop(); tapetteChargeStop = null; }
     if (barreChargeEl) { barreChargeEl.remove(); barreChargeEl = null; }
@@ -5726,7 +5712,7 @@
   }
 
   function arreterChargeVisuel(e) {
-    // RelÃÂ¢chement du clic : la tapette s'abat d'un coup sec, puis disparaÃÂ®t
+    // Relâchement du clic : la tapette s'abat d'un coup sec, puis disparaît
     if (barreChargeEl) { barreChargeEl.remove(); barreChargeEl = null; remplieChargeEl = null; }
     document.documentElement.classList.remove("tapette-animee");
     if (tapetteChargeStop) { tapetteChargeStop(); tapetteChargeStop = null; }
@@ -5744,7 +5730,7 @@
   }
 
   function relacherClic(e) {
-    // RelÃÂ¢chement du clic : si la charge est complÃÂ¨te (2 s),
+    // Relâchement du clic : si la charge est complète (2 s),
     // la tapette s'abat sur une zone 200 % plus grande
     if (!chargeActive) return;
     const chargeComplete = (performance.now() - debutCharge) >= DUREE_CHARGE;
@@ -5754,8 +5740,8 @@
   }
 
   function frapperCharge(e) {
-    // Coup chargÃÂ© : zone de frappe 200 % plus grande que le coup normal,
-    // secousse renforcÃÂ©e et explosion de pixels bien plus gÃÂ©nÃÂ©reuse
+    // Coup chargé : zone de frappe 200 % plus grande que le coup normal,
+    // secousse renforcée et explosion de pixels bien plus généreuse
     if (etapeFin === "mot" || etapeFin === "defaite") return;
     if (etapeFin === "boss" && (bossChute || bossAuSol)) return;
 
@@ -5768,14 +5754,14 @@
       }, o * 150);
     }
 
-    // Grande explosion de pixels rouges au point d'impact, mÃÂªme sans mouche touchÃÂ©e
+    // Grande explosion de pixels rouges au point d'impact, même sans mouche touchée
     for (let i = 0; i < 30; i++) {
       creerPixelPhysique(e.clientX + (Math.random() - 0.5) * 44, e.clientY + (Math.random() - 0.5) * 44);
     }
 
     if (etapeFin === "boss") {
       // Zone de destruction 200 % plus grande sur le boss (90 px au lieu de 30),
-      // et le coup chargÃÂ© retire 3 unitÃÂ©s de vie
+      // et le coup chargé retire 3 unités de vie
       if (bossEl && Math.hypot(e.clientX - bossX, e.clientY - bossY) < 90) {
         frapperBoss(3);
       }
@@ -5785,7 +5771,7 @@
     if (estEnFreeze) return;
 
     // Zone de destruction 200 % plus grande (84 px au lieu de 28) :
-    // on peut ÃÂ©liminer un petit nuage de mouches d'un seul coup chargÃÂ©
+    // on peut éliminer un petit nuage de mouches d'un seul coup chargé
     for (const m of mouches) {
       if (m.etat === "morte" || m.etat === "touchee") continue;
       if (Math.hypot(e.clientX - m.x, e.clientY - m.y) < 84) {
@@ -5796,7 +5782,7 @@
 
   function frapperMouche(e) {
     // Fin de partie : cliquer sur "congratulations !" ou "GAME OVER"
-    // pour recommencer, avec secousse d'ÃÂ©cran
+    // pour recommencer, avec secousse d'écran
     if (etapeFin === "mot" || etapeFin === "defaite") {
       if (motEl) {
         const r = motEl.getBoundingClientRect();
@@ -5810,7 +5796,7 @@
     }
 
     // Boss : il faut 20 cliques pour le tuer
-    // (une fois tuÃÂ©, pendant sa chute, on ne peut plus le frapper)
+    // (une fois tué, pendant sa chute, on ne peut plus le frapper)
     if (etapeFin === "boss") {
       if (bossEl && !bossChute && Math.hypot(e.clientX - bossX, e.clientY - bossY) < 30) {
         frapperBoss();
@@ -5822,7 +5808,7 @@
 
     if (estEnFreeze) return;
 
-    // Rayon de collision prÃÂ©cis ajustÃÂ© pour la petite mouche
+    // Rayon de collision précis ajusté pour la petite mouche
     for (const m of mouches) {
       if (m.etat === "morte" || m.etat === "touchee") continue;
       if (Math.hypot(e.clientX - m.x, e.clientY - m.y) < 28) {
@@ -5831,13 +5817,13 @@
     }
 
     // Maintenir le clic pour charger un coup de zone 200 % plus grande,
-    // mais seulement une fois la premiÃÂ¨re mouche tuÃÂ©e
+    // mais seulement une fois la première mouche tuée
     if (jeuCommence) demarrerCharge(e);
   }
 
   function tuerMouche(m, chargee) {
-    // Une fois la fin dÃÂ©clenchÃÂ©e, les mouches restantes d'un mÃÂªme coup
-    // n'ont plus rien ÃÂ  faire ici : elles partent rejoindre le boss
+    // Une fois la fin déclenchée, les mouches restantes d'un même coup
+    // n'ont plus rien à faire ici : elles partent rejoindre le boss
     if (etapeFin) return;
 
     m.etat = "touchee";
@@ -5847,8 +5833,8 @@
     // mouche (planche sprites/tapette.png)
     tapetteFrappe(m.x, m.y);
 
-    // La partie ne commence qu'au premier coup portÃÂ© ÃÂ  une mouche :
-    // compteur et timer apparaissent ÃÂ  ce moment-lÃÂ , et pas avant
+    // La partie ne commence qu'au premier coup porté à une mouche :
+    // compteur et timer apparaissent à ce moment-là, et pas avant
     if (!jeuCommence) {
       jeuCommence = true;
       demarrerHUD();
@@ -5860,15 +5846,15 @@
     // 1. Frame Freeze (micro-pause visuelle au moment du choc)
     estEnFreeze = true;
 
-    // 2. Shake d'ÃÂ©cran immÃÂ©diat
+    // 2. Shake d'écran immédiat
     if (!chargee) secousseCurseur(); // coup charge : le shake d ecran est deja fait par frapperCharge
 
-    // 3. ÃÂjection de particules pixel art rouges, qui retombent
+    // 3. Éjection de particules pixel art rouges, qui retombent
     for (let i = 0; i < 16; i++) {
       creerPixelPhysique(m.x, m.y);
     }
 
-    // Reprise aprÃÂ¨s l'effet de freeze
+    // Reprise après l'effet de freeze
     setTimeout(function () {
       estEnFreeze = false;
       if (!m.el.isConnected || etapeFin) return;
@@ -5878,10 +5864,10 @@
       m.el.classList.add("morte");
     }, 70); // Frame Freeze de 70ms
 
-    // ÃÂ chaque mort, une nouvelle mouche apparaÃÂ®t, plus une supplÃÂ©mentaire :
-    // plus on tue de mouches, plus il y en a ÃÂ  l'ÃÂ©cran (niveau = mouches vivantes)
+    // À chaque mort, une nouvelle mouche apparaît, plus une supplémentaire :
+    // plus on tue de mouches, plus il y en a à l'écran (niveau = mouches vivantes)
     if (niveau >= NIVEAU_MAX) {
-      // Les 50 mouches sont tuÃÂ©es : les cadavres s'agglutinent en un boss
+      // Les 50 mouches sont tuées : les cadavres s'agglutinent en un boss
       declencherFin();
     } else {
       niveau++;
@@ -5902,7 +5888,7 @@
       if (bossEl) updateBoss();
     }
 
-    // Barre de coup chargÃÂ© : remplissage + tapette qui recule en trois temps
+    // Barre de coup chargé : remplissage + tapette qui recule en trois temps
     if (chargeActive && remplieChargeEl) {
       const progression = Math.min(1, (performance.now() - debutCharge) / DUREE_CHARGE);
       remplieChargeEl.style.width = (progression * 100) + "%";
@@ -5925,8 +5911,8 @@
       }
       if (progression >= 1 && barreChargeEl) barreChargeEl.classList.add("chargee");
 
-      // Recul rÃÂ©parti aux tiers du temps de charge :
-      // la tapette se prÃÂ©pare ÃÂ  frapper vers la droite, de plus en plus loin
+      // Recul réparti aux tiers du temps de charge :
+      // la tapette se prépare à frapper vers la droite, de plus en plus loin
       const etape = Math.min(3, Math.floor(progression * 3));
       if (tapetteEl && etape !== reculCharge) {
         reculCharge = etape;
@@ -5951,7 +5937,7 @@
       const dy = m.cibleY - m.y;
       const dist = Math.hypot(dx, dy);
 
-      // Changement frÃÂ©quent et erratique de cible (nervositÃÂ©)
+      // Changement fréquent et erratique de cible (nervosité)
       if (dist < 30 || m.timerEtat > 35 || Math.random() < 0.04) {
         nouvelleCibleMouche(m);
         m.timerEtat = 0;
@@ -5963,7 +5949,7 @@
         }
       }
 
-      // Vitesse faible : la premiÃÂ¨re partie du jeu reste facile
+      // Vitesse faible : la première partie du jeu reste facile
       const vitesseMax = 6.0;
       m.vx += (dx / (dist || 1)) * 1.1;
       m.vy += (dy / (dist || 1)) * 1.1;
@@ -5981,7 +5967,7 @@
       m.x += m.vx;
       m.y += m.vy;
 
-      // Rebond sur les bords de l'ÃÂ©cran
+      // Rebond sur les bords de l'écran
       const bord = 15;
       if (m.x < bord) { m.x = bord; m.vx *= -1; }
       if (m.x > window.innerWidth - bord) { m.x = window.innerWidth - bord; m.vx *= -1; }
@@ -6008,7 +5994,7 @@
       }
 
     } else if (m.etat === "virevolte") {
-      // Fin de partie : le cadavre virevolte jusqu'ÃÂ  sa place dans le mot
+      // Fin de partie : le cadavre virevolte jusqu'à sa place dans le mot
       if (m.delaiFin > 0) {
         m.delaiFin--;
         return;
@@ -6016,19 +6002,19 @@
       if (m.progression < 1) {
         m.progression = Math.min(1, m.progression + m.vitesseFin);
         const t = m.progression;
-        const aise = t * t * (3 - 2 * t); // dÃÂ©cÃÂ©lÃÂ©ration douce
+        const aise = t * t * (3 - 2 * t); // décélération douce
         const tour = t * Math.PI * 4;     // deux tours complets en arrivant
         const amplitude = 30 * (1 - aise);
         m.x = m.departX + (m.cibleFinX - m.departX) * aise + Math.cos(tour) * amplitude;
         m.y = m.departY + (m.cibleFinY - m.departY) * aise + Math.sin(tour) * amplitude;
         m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(${180 + t * 540}deg)`;
       } else {
-        // ArrivÃÂ© ÃÂ  destination : la mouche se met en orbite autour du boss (puis du mot)
+        // Arrivé à destination : la mouche se met en orbite autour du boss (puis du mot)
         m.etat = "orbite";
         m.angleOrbite = Math.atan2(m.y - bossY, m.x - bossX);
         m.rayonOrbite = 50 + Math.random() * 110;
         m.vitesseOrbite = (Math.random() < 0.5 ? -1 : 1) * (0.008 + Math.random() * 0.03);
-        // ParamÃÂ¨tres de chaos : rayon oscillant, tangage et dÃÂ©rive erratiques
+        // Paramètres de chaos : rayon oscillant, tangage et dérive erratiques
         m.bobPhase = Math.random() * Math.PI * 2;
         m.bobVitesse = 0.05 + Math.random() * 0.12;
         m.amplitudeRayon = 12 + Math.random() * 26;
@@ -6038,8 +6024,8 @@
 
     } else if (m.etat === "orbite") {
       // Les mouches mortes tournent autour du boss, puis autour du mot,
-      // de faÃÂ§on chaotique : rayon oscillant, vitesse instable,
-      // demi-tours brusques et changements de trajectoire imprÃÂ©vus
+      // de façon chaotique : rayon oscillant, vitesse instable,
+      // demi-tours brusques et changements de trajectoire imprévus
       m.angleOrbite += m.vitesseOrbite + (Math.random() - 0.5) * 0.05;
       m.bobPhase += m.bobVitesse;
       m.tangagePhase += m.tangageVitesse;
@@ -6057,10 +6043,10 @@
       m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(${180 + Math.sin(m.tangagePhase) * 30}deg)`;
 
     } else if (m.etat === "morte") {
-      const sol = window.innerHeight - 41; // Sol invisible, alignÃÂ© sur la hauteur VISUELLE du chien : son sprite a du vide transparent dessous, ses pattes sont ~9 px plus haut que sa ligne CSS (--marge du bas)
+      const sol = window.innerHeight - 41; // Sol invisible, aligné sur la hauteur VISUELLE du chien : son sprite a du vide transparent dessous, ses pattes sont ~9 px plus haut que sa ligne CSS (--marge du bas)
 
       if (!m.reposeAuSol) {
-        // Chute aprÃÂ¨s impact, avec lÃÂ©gÃÂ¨re dÃÂ©rive horizontale
+        // Chute après impact, avec légère dérive horizontale
         m.vy += 1.8;
         m.y += m.vy;
         m.vx *= 0.98;
@@ -6077,14 +6063,14 @@
             m.vy = 0;
             m.vx = 0;
             m.reposeAuSol = true;
-            // Le cadavre reste dÃÂ©finitivement au sol
+            // Le cadavre reste définitivement au sol
           }
         }
 
         m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(180deg) scale(0.9)`;
       } else {
         // La mouche morte repose sur le dos, sur le sol invisible, pour toujours
-        // (recalcul uniquement si la fenÃÂªtre est redimensionnÃÂ©e)
+        // (recalcul uniquement si la fenêtre est redimensionnée)
         if (m.y !== sol) {
           m.y = sol;
           m.el.style.transform = `translate3d(${m.x - DEMI_MOUCHE}px, ${m.y - DEMI_MOUCHE}px, 0) rotate(180deg) scale(0.9)`;

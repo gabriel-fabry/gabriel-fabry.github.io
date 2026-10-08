@@ -218,7 +218,7 @@ const SERIES = [
     sous: [
       {
         titre: "18 images",
-        dossier: "18-images-de-peaux-secretes",
+        dossier: "18images",
         images: [
           "Edition_1 0.jpg",
           "Edition_1 1.jpg",
