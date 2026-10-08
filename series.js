@@ -196,7 +196,7 @@ const SERIES = [
     titre: "Auto-editions",
     sous: [
       {
-        titre: "18 images de peaux secretes",
+        titre: "18 images",
         dossier: "18-images-de-peaux-secretes",
         images: [
           "Edition_1 0.jpg",
@@ -213,7 +213,7 @@ const SERIES = [
         ]
       },
       {
-        titre: "Arles",
+        titre: "Arles 2025.12",
         dossier: "Arles",
         images: [
           "Arles1.jpeg",
