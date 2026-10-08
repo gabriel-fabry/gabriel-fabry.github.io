@@ -2734,8 +2734,28 @@
       if (fait) return;
       fait = true;
 
+      // GHOSTING : le calque de l ancienne photo est FIGE a la taille
+      // et a la position EXACTES qu elle avait a l ecran. Sans ca,
+      // il se calait sur la boite de la NOUVELLE image (100 % x
+      // 100 %) et se redimensionnait pendant le fondu des que les
+      // deux photos n avaient pas le meme format.
+      const ancienL = imgEl.offsetWidth;
+      const ancienH = imgEl.offsetHeight;
+      const ancienX = imgEl.offsetLeft;
+      const ancienY = imgEl.offsetTop;
+
       const calque = imgEl.cloneNode();
       calque.className = "superpose";
+      if (ancienL > 0 && ancienH > 0) {
+        calque.style.left = ancienX + "px";
+        calque.style.top = ancienY + "px";
+        calque.style.width = ancienL + "px";
+        calque.style.height = ancienH + "px";
+        calque.style.maxWidth = "none";
+        calque.style.maxHeight = "none";
+        calque.style.objectFit = "fill";   // meme ratio : aucune deformation
+      }
+      calque.style.pointerEvents = "none";
       cadre.appendChild(calque);
 
       imgEl.src = nouvelleSrc;
@@ -2748,11 +2768,21 @@
       calque.addEventListener("transitionend", function () { calque.remove(); });
     };
 
+    // La nouvelle image est DECODEE avant de lancer le fondu :
+    // sinon elle peut s afficher une frame en retard (boite vide
+    // ou de mauvaise taille) et la page saute pendant la transition.
     const precharge = new Image();
-    precharge.onload = appliquer;
+    const pret = function () {
+      if (precharge.decode) {
+        precharge.decode().then(appliquer, appliquer);
+      } else {
+        appliquer();
+      }
+    };
+    precharge.onload = pret;
     precharge.onerror = function () { fait = true; imgEl.src = nouvelleSrc; imgEl.alt = altTexte; };
     precharge.src = nouvelleSrc;
-    if (precharge.complete) appliquer();
+    if (precharge.complete) pret();
   }
 
   /* --- SÃÂRIES CLASSIQUES --- */
@@ -2802,7 +2832,7 @@
      valeurs que tu y mets remplacent celles de "defaut".
      Exemple :  Milk: { intensite: 0.9, entree: 400 }  */
   const PLANCHE_EFFET = {
-    defaut:   { intensite: 0.30, entree: 300, retour: 300 }
+    defaut:   { intensite: 0.65, entree: 150, retour: 150 }
     // Arles:    { intensite: 0.8, entree: 300, retour: 500 },
     // Cecifoot: { intensite: 0.4 },
   };
