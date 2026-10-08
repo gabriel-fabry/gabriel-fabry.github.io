@@ -2814,6 +2814,15 @@
     el.style.setProperty("--planche-retour", Math.max(0, e.retour) + "ms");
   }
 
+  /* PLANCHE CONTACT : DESKTOP SEULEMENT. Sur mobile (meme seuil que
+     le CSS : max-width 760px), il n y a pas d ecran de miniatures :
+     apres la derniere image, on reboucle sur la premiere. Evalue a
+     chaque clic, donc suit un changement de taille de fenetre. */
+  function planchePermise() {
+    return !(window.matchMedia &&
+             window.matchMedia("(max-width: 760px)").matches);
+  }
+
   function dessiner(serie) {
     document.title = serie.titre + " - " + SITE.nom;
     if (serie.texte) {
@@ -2867,7 +2876,7 @@
 
     function avancer(sens) {
       if (aleatoire) { montrer(tirerAleatoire()); return; }
-      if (sens > 0 && i === total - 1 && total > 1) {
+      if (sens > 0 && i === total - 1 && total > 1 && planchePermise()) {
         // DERNIERE image -> on ne repart PAS sur la 1ere :
         // on ouvre l ECRAN D INDEX plein de miniatures
         basculerIndex(true);
@@ -4525,7 +4534,7 @@
     }
 
     function avancerCarnaval(sens) {
-      if (sens > 0 && indexDuo === nbDuos - 1 && nbDuos > 1) {
+      if (sens > 0 && indexDuo === nbDuos - 1 && nbDuos > 1 && planchePermise()) {
         // DERNIER duo -> ECRAN D INDEX, pas de retour au 1er duo
         basculerIndexCarnaval(true);
         return;
