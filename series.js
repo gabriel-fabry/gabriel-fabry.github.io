@@ -103,7 +103,7 @@ const SERIES = [
   },
   {
     titre: "Cammaron",
-    dossier: "Cammaron",
+    dossier: "cammaron",
     images: [
       "camarron1.jpg",
       "camarron2.jpg",
@@ -136,7 +136,7 @@ const SERIES = [
   },
   {
     titre: "Cecifoot",
-    dossier: "Cecifoot",
+    dossier: "cecifoot",
     images: [
       "Cecifoot_00.jpg",
       "Cecifoot_01.jpg",
@@ -157,7 +157,7 @@ const SERIES = [
   },
   {
     titre: "Le Maitre des Pages",
-    dossier: "Milk",
+    dossier: "milk",
     images: [
       "milk1.jpg",
       "milk2.jpg",
@@ -235,7 +235,7 @@ const SERIES = [
       },
       {
         titre: "Arles 2025.12",
-        dossier: "Arles",
+        dossier: "arles",
         images: [
           "Arles1.jpeg",
           "Arles2.jpeg",
