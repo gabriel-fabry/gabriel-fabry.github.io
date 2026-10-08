@@ -552,12 +552,24 @@
      seul ne peut pas remonter au parent depuis le bouton survole.
      REGLAGE : OPACITE DU SURVOL -- plus petit = les autres
      vignettes palissent davantage (0.35 = 35 % d opacite). */
-  .index-miniatures.survol button:not(:hover) { opacity: var(--planche-opacite, 0.35); }
+  .index-miniatures.survol button:not(:hover) {
+    opacity: var(--planche-opacite, 0.35);
+    /* DESATURATION : les vignettes non survolees perdent leur
+       couleur (1 = noir et blanc complet, 0 = couleur intacte). */
+    filter: grayscale(var(--planche-gris, 1));
+  }
   /* TRANSITION : retour a la normale (quand on quitte une vignette)
      et entree dans la paleur (quand on en survole une) ont chacune
      leur duree, reglees dans PLANCHE_EFFET (JavaScript). */
-  .index-miniatures button { transition: opacity var(--planche-retour, .15s) ease; }
-  .index-miniatures.survol button { transition: opacity var(--planche-entree, .15s) ease; }
+  .index-miniatures button {
+    filter: grayscale(0);
+    transition: opacity var(--planche-retour, .15s) ease,
+                filter var(--planche-retour, .15s) ease;
+  }
+  .index-miniatures.survol button {
+    transition: opacity var(--planche-entree, .15s) ease,
+                filter var(--planche-entree, .15s) ease;
+  }
   .compteur button { border: 0; background: none; padding: 0 2px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
   .compteur button:hover { color: var(--texte); }
 
@@ -2814,7 +2826,7 @@
     Cecifoot: { hauteur: 230, marge: 14 },
     Cammaron: { hauteur: 150, marge: 14 },
     Milk:     { hauteur: 300, marge: 14 },
-    carnaval: { hauteur: 170, marge: 14 }
+    carnaval: { hauteur: 130, marge: 14 }
   };
   function reglagesPlanche(dossier) {
     const r = PLANCHE_SERIES[dossier];
@@ -2828,6 +2840,9 @@
                    0.5 = les autres a moitie effacees
                    0.65 = reglage d origine (35 % d opacite restante)
                    1   = les autres totalement invisibles
+       gris       : desaturation des vignettes non survolees, de 0 a 1
+                   0 = couleur intacte, 0.5 = a moitie en noir et
+                   blanc, 1 = noir et blanc complet
        entree    : duree EN MILLISECONDES du passage vers la paleur
                    (quand le curseur arrive sur une vignette)
                    0 = instantane, 150 = rapide, 600 = lent
@@ -2838,7 +2853,7 @@
      valeurs que tu y mets remplacent celles de "defaut".
      Exemple :  Milk: { intensite: 0.9, entree: 400 }  */
   const PLANCHE_EFFET = {
-    defaut:   { intensite: 0.30, entree: 300, retour: 300 }
+    defaut:   { intensite: 0.30, gris: 1, entree: 300, retour: 300 }
     // Arles:    { intensite: 0.8, entree: 300, retour: 500 },
     // Cecifoot: { intensite: 0.4 },
   };
@@ -2846,6 +2861,8 @@
     const e = Object.assign({}, PLANCHE_EFFET.defaut, PLANCHE_EFFET[dossier] || {});
     const intensite = Math.min(1, Math.max(0, e.intensite));
     el.style.setProperty("--planche-opacite", String(1 - intensite));
+    const gris = Math.min(1, Math.max(0, e.gris));
+    el.style.setProperty("--planche-gris", String(gris));
     el.style.setProperty("--planche-entree", Math.max(0, e.entree) + "ms");
     el.style.setProperty("--planche-retour", Math.max(0, e.retour) + "ms");
   }
