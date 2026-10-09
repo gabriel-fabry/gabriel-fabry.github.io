@@ -1,11 +1,11 @@
 Hello !
 Bienvenue sur mon site, je m'appelle Gabriel Fabry, je suis photographe et je fais des images.
-Les photograhies que vous voyez sur la droite sont tirées au hasard d'une collection.
+Les photographies que vous voyez sur la droite sont tirées au hasard d'une collection.
 Il y a des personnes, des objets, des paysages et des images.
 Des personnes tenant des objets, des objets dans des paysages, des paysages dans des objets et des images d'autres personnes.
 Elles constituent un ensemble de choses.
 Vous pouvez les gratter pour découvrir celles qui se cachent en dessous.
 Soufflez sur les pixels pour nettoyer la photo en activant le micro avec l'icône de souffle.
 Vous pouvez recharger une nouvelle paire avec le bouton de la flèche.
-N'hésitez pas à me réveiller si vous voulez plus d'informations sur les séries, il suffit de cliquer sur moi trois fois !
+N'hésitez pas à me réveiller si vous voulez plus d'informations sur les séries, il suffit de cliquer sur moi !
 Bon, à plus tard, je retourne me coucher...
