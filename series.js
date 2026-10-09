@@ -172,7 +172,7 @@ const SERIES = [
   },
   {
     titre: "Homes",
-    dossier: "houses",
+    dossier: "homes",
     images: [
       "house1.jpg",
       "house2.jpg",
