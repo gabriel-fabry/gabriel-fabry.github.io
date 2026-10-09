@@ -446,6 +446,11 @@
        le curseur. */
     cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='32'%20height='32'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%23ff1744'%20text-anchor='middle'%3E%E2%80%B9%3C/text%3E%3C/svg%3E") 16 16, pointer;
   }
+  /* Zone gauche qui OUVRE LA PLANCHE (index) au lieu de reculer :
+     le curseur devient une petite grille rouge de 4 carres. */
+  .zone-clic.gauche.vers-index {
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='32'%20height='32'%20viewBox='0%200%2032%2032'%3E%3Cg%20fill='%23ff1744'%3E%3Crect%20x='6'%20y='6'%20width='9'%20height='9'/%3E%3Crect%20x='17'%20y='6'%20width='9'%20height='9'/%3E%3Crect%20x='6'%20y='17'%20width='9'%20height='9'/%3E%3Crect%20x='17'%20y='17'%20width='9'%20height='9'/%3E%3C/g%3E%3C/svg%3E") 16 16, pointer;
+  }
   .zone-clic.droite {
     right: 0;
     /* Chevron vert, meme encodage integral. */
@@ -2827,16 +2832,25 @@
   const PLANCHE_SERIES = {
     defaut:   { hauteur: 110, marge: 14 },
     arles:    { hauteur: 200, marge: 14 },
-    houses:   { hauteur: 150, marge: 14 },
-    cecifoot: { hauteur: 240, marge: 14 },
-    cammaron: { hauteur: 150, marge: 14 },
-    milk:     { hauteur: 300, marge: 14 },
-    carnaval: { hauteur: 130, marge: 14 },
+    homes:    { hauteur: 150, marge: 14 },
+    cecifoot: { hauteur: 260, marge: 14 },
+    cammaron: { hauteur: 130, marge: 14 },
+    milk:     { hauteur: 320, marge: 14 },
+    carnaval: { hauteur: 140, marge: 14 },
     "18images": { hauteur: 200, marge: 10 }
   };
+  // Cherche l entree d un dossier SANS tenir compte des majuscules :
+  // "Arles", "arles" et "ARLES" donnent le meme reglage. Evite qu un
+  // changement de casse dans series.js fasse retomber sur "defaut".
+  function entreeDossier(table, dossier) {
+    const cle = String(dossier).toLowerCase();
+    for (const nom in table) {
+      if (nom !== "defaut" && nom.toLowerCase() === cle) return table[nom];
+    }
+    return null;
+  }
   function reglagesPlanche(dossier) {
-    const r = PLANCHE_SERIES[dossier];
-    return r || PLANCHE_SERIES.defaut;
+    return entreeDossier(PLANCHE_SERIES, dossier) || PLANCHE_SERIES.defaut;
   }
 
   /* RÉGLAGE : EFFET DES PLANCHES CONTACT
@@ -2863,7 +2877,7 @@
     // cecifoot: { intensite: 0.4 },
   };
   function appliquerEffetPlanche(el, dossier) {
-    const e = Object.assign({}, PLANCHE_EFFET.defaut, PLANCHE_EFFET[dossier] || {});
+    const e = Object.assign({}, PLANCHE_EFFET.defaut, entreeDossier(PLANCHE_EFFET, dossier) || {});
     const intensite = Math.min(1, Math.max(0, e.intensite));
     el.style.setProperty("--planche-opacite", String(1 - intensite));
     const gris = Math.min(1, Math.max(0, e.gris));
@@ -2971,7 +2985,17 @@
 
       conteneur.append(btnGauche, btnDroite);
 
-      btnGauche.addEventListener("click", function () { avancer(-1); });
+      // CLIC SUR LA MOITIE GAUCHE :
+      //  - sur la PREMIERE image seulement : ouvre la planche (index)
+      //  - partout ailleurs : image precedente, comme avant
+      //  - sur la planche : retour aux images
+      // Sur mobile (pas de planche) et pour la serie en ordre
+      // aleatoire : toujours "image precedente".
+      btnGauche.addEventListener("click", function () {
+        if (surIndex) { basculerIndex(false); return; }
+        if (i === 0 && planchePermise() && !aleatoire) { basculerIndex(true); return; }
+        avancer(-1);
+      });
       btnDroite.addEventListener("click", function () { avancer(1); });
     }
 
@@ -2994,9 +3018,20 @@
     if (total > 1) fig.appendChild(compteur);
 
     let i = 0;
+    // Zone gauche : curseur "grille" (= ouvre la planche) UNIQUEMENT sur
+    // la premiere image ; sur les autres, le chevron rouge habituel.
+    function majZoneGauche() {
+      const z = conteneur.querySelector(".zone-clic.gauche");
+      if (!z) return;
+      const versIndex = i === 0 && planchePermise() && !aleatoire;
+      z.classList.toggle("vers-index", versIndex);
+      z.setAttribute("aria-label", versIndex ? "Index des images" : "Image précédente");
+    }
+
     function montrer(n) {
       i = (n + total) % total;
       num.textContent = (i + 1) + " / " + total;
+      majZoneGauche();
       // Miniature active : l index suit l image affichee
       majMiniatures();
       // Prechargement de l'image suivante (inutile en ordre aleatoire :
@@ -4502,7 +4537,16 @@
 
       conteneur.append(btnGauche, btnDroite);
 
-      btnGauche.addEventListener("click", function () { avancerCarnaval(-1); });
+      // CLIC SUR LA MOITIE GAUCHE :
+      //  - sur le PREMIER duo seulement : ouvre la planche (index)
+      //  - partout ailleurs : duo precedent, comme avant
+      //  - sur la planche : retour aux duos
+      // Sur mobile (pas de planche) : toujours "duo precedent".
+      btnGauche.addEventListener("click", function () {
+        if (surIndexCarnaval) { basculerIndexCarnaval(false); return; }
+        if (indexDuo === 0 && planchePermise()) { basculerIndexCarnaval(true); return; }
+        avancerCarnaval(-1);
+      });
       btnDroite.addEventListener("click", function () { avancerCarnaval(1); });
     }
 
@@ -4527,9 +4571,19 @@
 
     let indexDuo = 0;
 
+    // Zone gauche : curseur "grille" UNIQUEMENT sur le premier duo.
+    function majZoneGaucheCarnaval() {
+      const z = conteneur.querySelector(".zone-clic.gauche");
+      if (!z) return;
+      const versIndex = indexDuo === 0 && planchePermise();
+      z.classList.toggle("vers-index", versIndex);
+      z.setAttribute("aria-label", versIndex ? "Index des images" : "Duo précédent");
+    }
+
     function montrerDuo(n) {
       indexDuo = (n + nbDuos) % nbDuos;
       num.textContent = (indexDuo + 1) + " / " + nbDuos;
+      majZoneGaucheCarnaval();
 
       const i1 = indexDuo * 2;
       const i2 = i1 + 1;
