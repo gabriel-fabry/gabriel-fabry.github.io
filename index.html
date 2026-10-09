@@ -3478,8 +3478,14 @@
         return;
       }
       chienMontrerBulle(textes[i], function () {
-        // Texte termine : position normale (sprite 6), le chien
-        // ne parle PLUS (l animation s arrete avec le texte).
+        // Texte termine : STOP NET de l animation "parle" (la
+        // boucle sprites 6/7 tourne tant que chienDortGen n a
+        // pas change -- c est le changement de generation qui la
+        // tue). Le chien se fige en position eveil (sprite 6).
+        // Il ne reparlera qu au debut de la bulle suivante
+        // (chienParler est rappele par chienMontrerBulle).
+        chienDortGen++;
+        chienStopMinuteurs();
         chienAfficherSprite(ANIMATION_CHIEN.eveilleSprite);
         // La bulle reste affichee et attend le CLIC SUR LA
         // BULLE, meme pour la DERNIERE : ce clic-la (et lui seul)
