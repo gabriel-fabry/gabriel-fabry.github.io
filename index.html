@@ -283,7 +283,10 @@
     border-radius: 10px;
     padding: 10px 14px;
     z-index: 55;             /* au-dessus du chien (z-index 50) */
-    pointer-events: none;
+    pointer-events: auto;    /* CLIC sur la bulle : texte complet puis
+                                bulle suivante (le clic traverse la
+                                bulle vers le chien est interdit) */
+    cursor: pointer;
     box-sizing: border-box;
   }
   /* Petite queue de bulle qui pointe vers le chien. Le padding
@@ -3086,11 +3089,15 @@
      ANIMATION_CHIEN ci-dessous : sequences, durees de chaque
      sprite, comportement.
 
-     Cycle : il dort (sprites 1 et 2) ; 3 clics le reveillent (il
-     tremble a chaque clic) ; eveille (sprite 6), il se rendort au
-     bout de 5 s sans clic (sprite 3, puis dodo) ; un clic le fait
-     parler (sprites 6 et 7), un autre le rend eveille ; 10 clics
-     de suite le reveillent en cyclope (sprites 8 et 9) : son oeil
+     Cycle : il dort (sprites 1 et 2) ; UN SEUL clic le reveille
+     (il tremble) ; ses bulles s ecrivent lettre par lettre
+     (sprites 6 et 7 tant que le texte s ecrit, puis sprite 6
+     immobile une fois termine) ; on passe a la bulle suivante
+     UNIQUEMENT EN CLIQUANT SUR LA BULLE ; cliquer sur le CHIEN
+     pendant les bulles le fait trembler et compte vers le
+     cyclope (10 clics) ; la DERNIERE bulle terminee, il se
+     rendort immediatement (sprite 3, puis dodo).
+     10 clics de suite le reveillent en cyclope (sprites 8 et 9) : son oeil
      rouge suit le pointeur (sprites 10 a 17 : N, NE, E, SE, S,
      SO, O, NO) pendant 10 s -- la GROSSE MOUCHE s'il est en
      plein combat contre THE FLY KING : son oeil la suit, elle,
@@ -3152,7 +3159,7 @@
                                // SE, S, SO, O, NO (sprites 10 a 17)
 
     // ---- Comportement ----
-    clicsReveil: 3,        // clics (avec tremblement) pour le reveiller
+    clicsReveil: 1,        // UN SEUL clic suffit pour le reveiller
     eveilMs: 5000,         // sans clic, il se rendort apres ce delai
     clicsCyclope: 10,      // clics de suite eveille pour l'oeil rouge
     suiteMs: 3000,         // ecart maxi entre deux clics "de suite"
@@ -3463,53 +3470,51 @@
       if (gen !== chienBulleGen) return;
       chienBulleVider();
       if (i >= textes.length) {
-        // DERNIERE BULLE PASSEE : le chien ne se rendort PAS
-        // aussitot -- il reste EVEILLE (timer normal de 5 s).
-        // On peut donc continuer a lui cliquer dessus : chaque
-        // clic compte vers le cyclope (10 clics -> oeil rouge ->
-        // laser), comme le promet le texte de la bulle. Sans
-        // clic, il s endort de lui meme au bout du timer.
+        // DERNIERE BULLE PASSEE : le chien se rendort
+        // IMMEDIATEMENT (file vide ou dernier clic) -- il ne
+        // reste plus eveille sans raison.
         chienBulleActive = false;
-        chienEveille();
+        chienSEndormir();
         return;
       }
       chienMontrerBulle(textes[i], function () {
-        // texte termine : position normale (sprite 6), puis
-        // apres un court instant, bulle suivante
+        // Texte termine : position normale (sprite 6), le chien
+        // ne parle PLUS (l animation s arrete avec le texte).
         chienAfficherSprite(ANIMATION_CHIEN.eveilleSprite);
-        chienBulleSuite = function () { i++; suivante(); };
-        chienBulleTimeout = setTimeout(function () {
+        // La bulle reste affichee et attend le CLIC SUR LA
+        // BULLE, meme pour la DERNIERE : ce clic-la (et lui seul)
+        // ferme la bulle et endort le chien immediatement.
+        chienBulleSuite = function () {
+          if (i + 1 >= textes.length) {
+            // DERNIERE bulle cliquee : dodo immediat.
+            chienBulleActive = false;
+            chienBulleVider();
+            chienSEndormir();
+          } else {
+            i++;
+            suivante();
+          }
+        };
+        chienBulleEl.addEventListener("click", function () {
           if (gen !== chienBulleGen) return;
-          chienBulleTimeout = null;
+          // Texte encore en cours d ecriture : il s affiche D
+          // UN COUP (le prochain clic passera a la suite).
+          if (chienBulleFrappe) {
+            clearInterval(chienBulleFrappe);
+            chienBulleFrappe = null;
+            chienBulleSpan.textContent = chienBulleTexte;
+            const fin = chienBulleFinFrappe;
+            chienBulleFinFrappe = null;
+            if (fin) fin();
+            return;
+          }
           const s = chienBulleSuite;
           chienBulleSuite = null;
           if (s) s();
-        }, BULLE_CHIEN_TEMPS.entreBulles);
+        });
       }, gen);
     };
     suivante();
-  }
-
-  function chienBulleAvancer() {
-    // Clic pendant une sequence de bulles : le texte en cours
-    // s affiche d un coup ; s il est deja fini, on passe
-    // aussitot a la bulle suivante (comme dans un vrai RPG).
-    if (chienBulleFrappe) {
-      clearInterval(chienBulleFrappe);
-      chienBulleFrappe = null;
-      chienBulleSpan.textContent = chienBulleTexte;
-      const fin = chienBulleFinFrappe;
-      chienBulleFinFrappe = null;
-      if (fin) fin();
-      return;
-    }
-    if (chienBulleTimeout) {
-      clearTimeout(chienBulleTimeout);
-      chienBulleTimeout = null;
-      const s = chienBulleSuite;
-      chienBulleSuite = null;
-      if (s) s();
-    }
   }
 
   function chienDemarrerBulles() {
@@ -4320,9 +4325,20 @@
 
   function chienCliquer() {
     const maintenant = Date.now();
-    // Sequence de bulles en cours : un clic l AVANCE (texte
-    // complet d un coup, puis bulle suivante) -- comme un RPG.
-    if (chienBulleActive) { chienBulleAvancer(); return; }
+    // Pendant une sequence de bulles, le clic NE FAIT PAS
+    // avancer le texte : il fait TREMBLER le chien et COMPTE
+    // vers le cyclope (10 clics -> oeil rouge -> laser).
+    if (chienBulleActive) {
+      chienTrembler();
+      if (maintenant - chienDernierClic > ANIMATION_CHIEN.suiteMs) chienClicsSuite = 0;
+      chienDernierClic = maintenant;
+      chienClicsSuite++;
+      if (chienClicsSuite >= ANIMATION_CHIEN.clicsCyclope) {
+        chienClicsSuite = 0;
+        chienCyclope();
+      }
+      return;
+    }
     // Clics "de suite" : au moindre ecart trop grand, le compte
     // repart de zero.
     if (maintenant - chienDernierClic > ANIMATION_CHIEN.suiteMs) chienClicsSuite = 0;

@@ -135,7 +135,7 @@ const SERIES = [
     ]
   },
   {
-    titre: "Cecifoot",
+    titre: "Cécifoot",
     dossier: "cecifoot",
     images: [
       "Cecifoot_00.jpg",
@@ -156,7 +156,7 @@ const SERIES = [
     ]
   },
   {
-    titre: "Le Maitre des Pages",
+    titre: "Le maître des pages",
     dossier: "milk",
     images: [
       "milk1.jpg",
