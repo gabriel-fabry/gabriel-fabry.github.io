@@ -146,7 +146,7 @@ const SERIES = [
     ]
   },
   {
-    titre: "Cécifoot",
+    titre: "Voy (ou voile)",
     dossier: "cecifoot",
     images: [
       "Cecifoot_00.jpg",
