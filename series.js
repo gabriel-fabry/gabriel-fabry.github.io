@@ -178,7 +178,8 @@ const SERIES = [
       "milk6.jpg",
       "milk7.jpg",
       "milk8.jpg",
-      "milk9.jpg"
+      "milk9.jpg",
+		"milk10.jpg"
     ]
   },
   {
