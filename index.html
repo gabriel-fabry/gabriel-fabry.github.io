@@ -182,6 +182,19 @@
   main figure.serie img { height: calc(100vh - 2 * var(--marge)); }
   .vide { color: var(--discret); margin-top: 8px; }
 
+  /* Fondu du bouton reload : photos attenuees pendant le
+     chargement, puis retour a 1 en transition a l'echange. */
+  .cadre-accueil > #canvas-accueil,
+  .cadre-accueil > .photo-dessous,
+  .cadre-accueil > .tas-affichage {
+    transition: opacity 0.4s ease;
+  }
+  .cadre-accueil.en-fondu > #canvas-accueil,
+  .cadre-accueil.en-fondu > .photo-dessous,
+  .cadre-accueil.en-fondu > .tas-affichage {
+    opacity: 0.25;
+  }
+
   /* Canvas d'Accueil destructible */
   #canvas-accueil {
     display: block;
@@ -2002,15 +2015,26 @@
     // au moment du tirage : on remélange d'abord.
     if (paquetAccueil.reste.length === 0) preparerPaquetAccueil(paquetAccueil.max);
     let carte = null;
-    for (let i = 0; i < paquetAccueil.reste.length; i++) {
-      if (poolNumeros.indexOf(paquetAccueil.reste[i]) !== -1) {
-        carte = paquetAccueil.reste.splice(i, 1)[0];
-        break;
+    const chercherCarte = function () {
+      for (let i = 0; i < paquetAccueil.reste.length; i++) {
+        if (poolNumeros.indexOf(paquetAccueil.reste[i]) !== -1) {
+          return paquetAccueil.reste.splice(i, 1)[0];
+        }
       }
+      return null;
+    };
+    carte = chercherCarte();
+    if (carte === null && paquetAccueil.max > 0) {
+      // Plus AUCUNE carte du pool dans la file (dernières images
+      // horizontales d'un cycle, sur mobile) : on remélange le
+      // dossier au lieu de servir la tête (qui pourrait être
+      // horizontale), puis on cherche à nouveau.
+      paquetAccueil.reste = [];
+      preparerPaquetAccueil(paquetAccueil.max);
+      carte = chercherCarte();
     }
     if (carte === null) {
-      // Plus AUCUNE carte du pool dans la file (dernières images
-      // horizontales d'un cycle, sur mobile) : on sert la tête.
+      // Dernier recours (pool vide) : on sert la tête.
       carte = paquetAccueil.reste.shift();
     }
     paquetAccueil.derniere = carte;
@@ -2195,7 +2219,26 @@
       }
     }
 
+    // GARDE-FOU MOBILE : la photo DU DESSUS ne doit jamais etre
+    // horizontale. Si, malgre le filtre du tirage (dimensions encore
+    // inconnues), une image horizontale arrive, on la note et on
+    // re-tire AVANT tout affichage -- l'ecran garde l'ancienne photo.
+    let retiragesHorizontales = 0;
     photo.onload = function () {
+      if (echangeEnAttente && photoNumDessus !== null &&
+          window.matchMedia &&
+          window.matchMedia("(max-width: 760px)").matches &&
+          photo.naturalWidth > photo.naturalHeight &&
+          retiragesHorizontales < 5 &&
+          paquetAccueil && paquetAccueil.max > 1) {
+        retiragesHorizontales++;
+        dimsAccueil[nomImageAccueil(photoNumDessus)] =
+          { l: photo.naturalWidth, h: photo.naturalHeight };
+        enregistrerDimsAccueil();
+        tirerImageAccueil(paquetAccueil.max);
+        return;
+      }
+      retiragesHorizontales = 0;
       if (echangeEnAttente) {
         // tirage en cours : on attend aussi la dessous, puis
         // echange en une seule frame (finaliserEchangeAccueil)
@@ -2220,6 +2263,7 @@
         photoNumDessus = null;
         photoNumDessous = null;
         echangeEnAttente = false;
+        finFonduAccueil();
         srcDessousAttente = null;
         reinitialiserPhysique(); // retombe sur l image par defaut : monticule nettoye
         photo.src = src;
@@ -2369,8 +2413,23 @@
       photo.src = nomImageAccueil(numDessus);
       chargerNouvelleDessous(nomImageAccueil(numDessous));
     }
+    // FONDU DU RELOAD : au clic, la photo s'attenue legerement ;
+    // a l'echange (une seule frame), l'opacite revient a 1 en
+    // transition -- la nouvelle photo apparait en fondu.
+    let minuteurFondu = null;
+    function debutFonduAccueil() {
+      if (mouvementReduit.matches) return;
+      cadre.classList.add("en-fondu");
+      clearTimeout(minuteurFondu);
+      minuteurFondu = setTimeout(finFonduAccueil, 4000); // securite
+    }
+    function finFonduAccueil() {
+      clearTimeout(minuteurFondu);
+      cadre.classList.remove("en-fondu");
+    }
     function finaliserEchangeAccueil() {
       if (!nouveauDessusPret || !nouveauDessousPrete) return;
+      finFonduAccueil();
       echangeEnAttente = false;
       nouveauDessusPret = false;
       nouveauDessousPrete = false;
@@ -2698,6 +2757,7 @@
       photoSale = true;
       estEnTrainDeCliquer = false;
       precedentGrattage = null;
+      if (totalAccueil > 0) debutFonduAccueil();
       // ANTI-BLANC : on ne touche PAS a imgDessous ici. Son ancien
       // bitmap reste affiche pendant tout le chargement ; le swap
       // n a lieu qu une fois la nouvelle dessous PRE-CHARGEE, au
