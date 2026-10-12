@@ -182,19 +182,6 @@
   main figure.serie img { height: calc(100vh - 2 * var(--marge)); }
   .vide { color: var(--discret); margin-top: 8px; }
 
-  /* Fondu du bouton reload : photos attenuees pendant le
-     chargement, puis retour a 1 en transition a l'echange. */
-  .cadre-accueil > #canvas-accueil,
-  .cadre-accueil > .photo-dessous,
-  .cadre-accueil > .tas-affichage {
-    transition: opacity 0.4s ease;
-  }
-  .cadre-accueil.en-fondu > #canvas-accueil,
-  .cadre-accueil.en-fondu > .photo-dessous,
-  .cadre-accueil.en-fondu > .tas-affichage {
-    opacity: 0.25;
-  }
-
   /* Canvas d'Accueil destructible */
   #canvas-accueil {
     display: block;
@@ -2413,23 +2400,80 @@
       photo.src = nomImageAccueil(numDessus);
       chargerNouvelleDessous(nomImageAccueil(numDessous));
     }
-    // FONDU DU RELOAD : au clic, la photo s'attenue legerement ;
-    // a l'echange (une seule frame), l'opacite revient a 1 en
-    // transition -- la nouvelle photo apparait en fondu.
-    let minuteurFondu = null;
+    // FONDU DU RELOAD : entre le RESULTAT affiche (photo du dessus
+    // avec ou sans grattage, dessous revelee, monticule) et la
+    // PROCHAINE photo du dessus. A l'echange, une CAPTURE de
+    // l'ancien etat est posee par-dessus ; la nouvelle photo est
+    // mise en place derriere, puis la capture s'efface. La photo de
+    // dessous de la nouvelle image n'est donc jamais visible
+    // pendant le fondu.
+    let fonduReloadDemande = false;
     function debutFonduAccueil() {
-      if (mouvementReduit.matches) return;
-      cadre.classList.add("en-fondu");
-      clearTimeout(minuteurFondu);
-      minuteurFondu = setTimeout(finFonduAccueil, 4000); // securite
+      fonduReloadDemande = !mouvementReduit.matches;
     }
     function finFonduAccueil() {
-      clearTimeout(minuteurFondu);
-      cadre.classList.remove("en-fondu");
+      fonduReloadDemande = false;
+    }
+    function prendreCalqueFondu() {
+      if (!fonduReloadDemande) return null;
+      fonduReloadDemande = false;
+      try {
+        const r = cadre.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return null;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const c = document.createElement("canvas");
+        c.width = Math.round(r.width * dpr);
+        c.height = Math.round(r.height * dpr);
+        const g = c.getContext("2d");
+        g.scale(dpr, dpr);
+        // 1) photo de dessous (object-fit: cover)
+        if (imgDessous.complete && imgDessous.naturalWidth > 0 &&
+            imgDessous.style.visibility !== "hidden") {
+          const b = imgDessous.getBoundingClientRect();
+          const nw = imgDessous.naturalWidth;
+          const nh = imgDessous.naturalHeight;
+          const k = Math.max(b.width / nw, b.height / nh);
+          const sw = b.width / k;
+          const sh = b.height / k;
+          g.drawImage(imgDessous, (nw - sw) / 2, (nh - sh) / 2, sw, sh,
+            b.left - r.left, b.top - r.top, b.width, b.height);
+        }
+        // 2) photo du dessus (avec les zones grattees)
+        const bc = canvas.getBoundingClientRect();
+        g.drawImage(canvas, bc.left - r.left, bc.top - r.top,
+          bc.width, bc.height);
+        // 3) monticule
+        const tas = cadre.querySelectorAll("canvas.tas-affichage");
+        for (let i = 0; i < tas.length; i++) {
+          const bt = tas[i].getBoundingClientRect();
+          if (bt.width > 0 && bt.height > 0) {
+            g.drawImage(tas[i], bt.left - r.left, bt.top - r.top,
+              bt.width, bt.height);
+          }
+        }
+        c.style.cssText = "position:absolute;left:0;top:0;width:" +
+          r.width + "px;height:" + r.height +
+          "px;z-index:5;pointer-events:none;opacity:1;";
+        cadre.appendChild(c);
+        return c;
+      } catch (e) {
+        return null;
+      }
+    }
+    function lancerFonduAccueil(calque) {
+      if (!calque) return;
+      void calque.offsetWidth; // fixe l'etat de depart (opacite 1)
+      calque.style.transition = "opacity 0.45s ease";
+      calque.style.opacity = "0";
+      const retirer = function () {
+        if (calque.parentNode) calque.parentNode.removeChild(calque);
+      };
+      calque.addEventListener("transitionend", retirer);
+      setTimeout(retirer, 800); // securite
     }
     function finaliserEchangeAccueil() {
       if (!nouveauDessusPret || !nouveauDessousPrete) return;
-      finFonduAccueil();
+      const calqueFondu = prendreCalqueFondu(); // AVANT tout changement
       echangeEnAttente = false;
       nouveauDessusPret = false;
       nouveauDessousPrete = false;
@@ -2443,6 +2487,7 @@
         imgDessous.src = urlDessous;
         imgDessous.style.visibility = "visible";
       }
+      lancerFonduAccueil(calqueFondu);
     }
     function chargerNouvelleDessous(url) {
       srcDessousAttente = url;
