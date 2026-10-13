@@ -144,6 +144,14 @@
     z-index: 1;
   }
 
+  /* PLANCHE OUVERTE : la colonne de droite n a plus de plafond de
+     largeur et sa marge de droite est la meme que celle de gauche
+     (var(--marge)) : les miniatures vont jusqu au bout a droite. */
+  body.planche-ouverte main {
+    max-width: none;
+    padding-right: var(--marge);
+  }
+
   main .texte { max-width: 60ch; margin: 0 0 32px; color: var(--discret); white-space: pre-line; }
   main figure { margin: 0; }
   /* REGLAGE : HAUTEUR UNIFORME DES IMAGES -- TOUTES les photos
@@ -449,8 +457,25 @@
   /* Zone gauche qui OUVRE LA PLANCHE (index) au lieu de reculer :
      le curseur devient une petite grille rouge de 4 carres. */
   .zone-clic.gauche.vers-index {
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='32'%20height='32'%20viewBox='0%200%2032%2032'%3E%3Cg%20fill='%23ff1744'%3E%3Crect%20x='6'%20y='6'%20width='9'%20height='9'/%3E%3Crect%20x='17'%20y='6'%20width='9'%20height='9'/%3E%3Crect%20x='6'%20y='17'%20width='9'%20height='9'/%3E%3Crect%20x='17'%20y='17'%20width='9'%20height='9'/%3E%3C/g%3E%3C/svg%3E") 16 16, pointer;
+    /* Le curseur systeme est masque : le mot "index" (element
+       #curseur-index, anime en JavaScript) le remplace. */
+    cursor: none;
   }
+  /* Mot "index" qui suit la souris au-dessus de la zone gauche de la
+     premiere image. Memes police et taille que le titre du site. */
+  #curseur-index {
+    position: fixed;
+    left: 0; top: 0;
+    z-index: 9990;
+    display: none;
+    pointer-events: none;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transform: translate(12px, -50%);
+  }
+  #curseur-index .lettre { display: inline-block; transition: color .25s ease; }
   .zone-clic.droite {
     right: 0;
     /* Chevron vert, meme encodage integral. */
@@ -580,7 +605,7 @@
       filter: grayscale(0);
     }
   }
-  .compteur button { border: 0; background: none; padding: 0 2px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
+  .compteur button { border: 0; background: none; padding: 0 8px; font: inherit; color: var(--discret); -webkit-tap-highlight-color: transparent; cursor: pointer; }
   .compteur button:hover { color: var(--texte); }
 
   #canvas-explosion {
@@ -998,6 +1023,117 @@
     lettres.forEach(function (s) { s.style.color = ""; });
   }
 
+  // COMPTEUR D'IMAGES : le numero courant est complete par des zeros
+  // a gauche (01, 02 ... 09) pour avoir toujours au moins deux
+  // chiffres (et autant que le total), ainsi la largeur du compteur ne bouge pas.
+  // Largeur du texte du compteur FIGEE : la plus large des deux
+  // versions ("00 / 31" ou "index"). Ainsi la fleche de gauche ne
+  // bouge pas quand on passe sur la planche, et "index" est centre
+  // pile entre les deux fleches.
+  function figerLargeurCompteur(num, total) {
+    if (num.dataset.fige || !num.isConnected) return;
+    const garde = num.textContent;
+    num.style.display = "inline-block";
+    num.style.textAlign = "center";
+    num.style.fontVariantNumeric = "tabular-nums";
+    num.style.width = "";
+    let max = 0;
+    ["index", numeroCompteur(0, total)].forEach(function (t) {
+      num.textContent = t;
+      max = Math.max(max, num.getBoundingClientRect().width);
+    });
+    num.textContent = garde;
+    if (max > 0) {
+      num.style.width = Math.ceil(max) + "px";
+      num.dataset.fige = "1";
+    }
+  }
+  function numeroCompteur(n, total) {
+    const largeur = Math.max(2, String(total).length);
+    return String(n).padStart(largeur, "0") + " / " + String(total).padStart(largeur, "0");
+  }
+
+  // CURSEUR "INDEX" : sur la moitie gauche de la premiere image, le
+  // mot "index" suit la souris et change de couleur avec la MEME
+  // vague rouge/vert/bleu que le titre (memes couleurs, meme vitesse
+  // VAGUE_VITESSE). BANDE_INDEX = nombre de lettres par bande de
+  // couleur (le mot n'a que 5 lettres, donc bandes plus courtes
+  // que celles du titre).
+  const BANDE_INDEX = 2;
+  const curseurIndex = document.createElement("div");
+  curseurIndex.id = "curseur-index";
+  curseurIndex.setAttribute("aria-hidden", "true");
+  const lettresIndex = [];
+  "index".split("").forEach(function (c) {
+    const s = document.createElement("span");
+    s.className = "lettre";
+    s.textContent = c;
+    s.style.transition = "color " +
+      Math.min(250, Math.round(VAGUE_VITESSE * 0.6)) + "ms ease";
+    curseurIndex.appendChild(s);
+    lettresIndex.push(s);
+  });
+  document.body.appendChild(curseurIndex);
+
+  let etapeIndex = 0;
+  let minuteurIndex = null;
+  function colorerIndex() {
+    const cycle = PALETTE_RVB.length * BANDE_INDEX;
+    lettresIndex.forEach(function (s, i) {
+      const pos = ((i - etapeIndex) % cycle + cycle) % cycle;
+      s.style.color = PALETTE_RVB[Math.floor(pos / BANDE_INDEX)];
+    });
+    etapeIndex++;
+  }
+  function montrerCurseurIndex(x, y) {
+    curseurIndex.style.left = x + "px";
+    curseurIndex.style.top = y + "px";
+    if (minuteurIndex === null) {
+      curseurIndex.style.display = "block";
+      colorerIndex();
+      if (!mouvementReduit.matches) minuteurIndex = setInterval(colorerIndex, VAGUE_VITESSE);
+      else minuteurIndex = 0;
+    }
+  }
+  function cacherCurseurIndex() {
+    if (minuteurIndex !== null) {
+      if (minuteurIndex) clearInterval(minuteurIndex);
+      minuteurIndex = null;
+    }
+    curseurIndex.style.display = "none";
+  }
+  function zoneIndexSous(el) {
+    return el && el.closest ? el.closest(".zone-clic.gauche.vers-index") : null;
+  }
+  // Derniere position connue de la souris : permet de reafficher le mot
+  // "index" quand la page change SOUS une souris immobile (retour de
+  // la planche aux images, changement d'image), sans attendre un
+  // mouvement.
+  let sourisX = null, sourisY = null;
+  function reevaluerCurseurIndex() {
+    if (sourisX === null) return;
+    if (zoneIndexSous(document.elementFromPoint(sourisX, sourisY))) {
+      montrerCurseurIndex(sourisX, sourisY);
+    } else {
+      cacherCurseurIndex();
+    }
+  }
+  function reevaluerCurseurIndexPlusTard() {
+    reevaluerCurseurIndex();
+    requestAnimationFrame(reevaluerCurseurIndex);
+  }
+  document.addEventListener("mousemove", function (e) {
+    sourisX = e.clientX; sourisY = e.clientY;
+    if (zoneIndexSous(e.target)) montrerCurseurIndex(e.clientX, e.clientY);
+    else cacherCurseurIndex();
+  }, { passive: true });
+  document.addEventListener("mouseleave", function () {
+    sourisX = sourisY = null;
+    cacherCurseurIndex();
+  });
+  window.addEventListener("blur", cacherCurseurIndex);
+  window.addEventListener("hashchange", cacherCurseurIndex);
+
   let minuteurNom = null;
   const mouvementReduit = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -1177,6 +1313,9 @@
     // reduit le padding du bas pour que la page tienne pile a
     // l'ecran) : on l'enleve a chaque changement de page.
     document.body.classList.remove("page-accueil");
+    // La planche contact n existe que sur sa page : on retire sa classe
+    // a chaque changement de page.
+    document.body.classList.remove("planche-ouverte");
     // Le bouton rafraichir ne vit que sur la page d'accueil : il
     // est retire des qu'on change de page (dessinerAccueil le
     // recree en revenant).
@@ -3131,11 +3270,13 @@
       const versIndex = i === 0 && planchePermise() && !aleatoire;
       z.classList.toggle("vers-index", versIndex);
       z.setAttribute("aria-label", versIndex ? "Index des images" : "Image précédente");
+      reevaluerCurseurIndexPlusTard();
     }
 
     function montrer(n) {
       i = (n + total) % total;
-      num.textContent = (i + 1) + " / " + total;
+      num.textContent = numeroCompteur(i + 1, total);
+      figerLargeurCompteur(num, total);
       majZoneGauche();
       // Miniature active : l index suit l image affichee
       majMiniatures();
@@ -3207,10 +3348,12 @@
         });
       }
       planche.style.display = ouvrir ? "flex" : "none";
+      document.body.classList.toggle("planche-ouverte", ouvrir);
       vitrine.style.display = ouvrir ? "none" : "";
       // Le compteur affiche "index" a la place du numero sur la planche
-      num.textContent = ouvrir ? "index" : (i + 1) + " / " + total;
+      num.textContent = ouvrir ? "index" : numeroCompteur(i + 1, total);
       majMiniatures();
+      reevaluerCurseurIndexPlusTard();
     }
 
     suiv.addEventListener("click", function () { avancer(1); });
@@ -4683,11 +4826,13 @@
       const versIndex = indexDuo === 0 && planchePermise();
       z.classList.toggle("vers-index", versIndex);
       z.setAttribute("aria-label", versIndex ? "Index des images" : "Duo précédent");
+      reevaluerCurseurIndexPlusTard();
     }
 
     function montrerDuo(n) {
       indexDuo = (n + nbDuos) % nbDuos;
-      num.textContent = (indexDuo + 1) + " / " + nbDuos;
+      num.textContent = numeroCompteur(indexDuo + 1, nbDuos);
+      figerLargeurCompteur(num, nbDuos);
       majZoneGaucheCarnaval();
 
       const i1 = indexDuo * 2;
@@ -4756,10 +4901,12 @@
         });
       }
       plancheCarnaval.style.display = ouvrir ? "flex" : "none";
+      document.body.classList.toggle("planche-ouverte", ouvrir);
       duo.style.display = ouvrir ? "none" : "";
       // Le compteur affiche "index" a la place du numero sur la planche
-      num.textContent = ouvrir ? "index" : (indexDuo + 1) + " / " + nbDuos;
+      num.textContent = ouvrir ? "index" : numeroCompteur(indexDuo + 1, nbDuos);
       majMiniaturesCarnaval();
+      reevaluerCurseurIndexPlusTard();
     }
 
     function avancerCarnaval(sens) {
