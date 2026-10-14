@@ -102,7 +102,7 @@ const SERIES = [
     images: Array.from({ length: 72 }, (_, i) => `${i + 1}.jpg`)
   },
   {
-    titre: "Cammaron",
+    titre: "Camarón",
     dossier: "cammaron",
     images: [
       "cammaron1.jpg",
@@ -146,7 +146,7 @@ const SERIES = [
     ]
   },
   {
-    titre: "Voy (ou voile)",
+    titre: "Voy",
     dossier: "cecifoot",
     images: [
       "cecifoot1.jpg",
