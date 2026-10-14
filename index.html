@@ -286,9 +286,9 @@
     left: var(--marge);
     bottom: calc(var(--marge) + 94px); /* au-dessus du chien (80px + air) */
     max-width: var(--largeur-menu);
-    background: #eaf2fb;
-    border: 2px solid #111111;
-    border-radius: 10px;
+    background: #ffffff;
+    border: 0px solid #111111;
+    border-radius: 5px;
     padding: 10px 14px;
     z-index: 55;             /* au-dessus du chien (z-index 50) */
     pointer-events: auto;    /* CLIC sur la bulle : texte complet puis
@@ -328,7 +328,7 @@
     border-left: var(--fleche-taille, 6px) solid transparent;
     border-right: var(--fleche-taille, 6px) solid transparent;
     border-top: calc(var(--fleche-taille, 6px) * 1.2) solid #111111;
-    transform: translateX(-50%);
+    transform: translateX(-50%);	
     pointer-events: none;
     /* NOUVEAU : rebord blanc de 1px tout autour du triangle */
     filter:
@@ -3651,7 +3651,7 @@
 
   // REGLAGE : BULLE DU CHIEN -- STYLE DU TEXTE
   const BULLE_CHIEN_STYLE = {
-    taille: 14,         // taille de police en px
+    taille: 16,         // taille de police en px
     gras: false,        // texte en gras ?
     italique: false,    // texte en italique ?
     souligne: false,   // texte souligne ?
@@ -3694,7 +3694,7 @@
   };
   // REGLAGE : BULLE DU CHIEN -- TEMPS
   const BULLE_CHIEN_TEMPS = {
-    frappe: 38,         // delai entre chaque lettre (ms)
+    frappe: 55,         // delai entre chaque lettre (ms)
     entreBulles: 1400   // delai entre la fin d une bulle et la suivante (ms)
   };
   // Fichier des textes : UNE LIGNE = UNE BULLE. Un fichier PAR
