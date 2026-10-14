@@ -301,6 +301,7 @@
      interne et la largeur maxi de la bulle sont regles par le
      code (chercher REGLAGE : BULLE DU CHIEN -- MARGES). */
   .bulle-chien::after {
+	display: none;   /* DÉSACTIVÉ : retire la queue pour tester */
     content: "";
     position: absolute;
     left: 28px;
@@ -313,6 +314,32 @@
     transform: rotate(45deg);
   }
   .bulle-chien span { display: block; white-space: pre-wrap; }
+  /* Petite fleche noire (triangle vers le bas) qui clignote au
+     milieu du rebord sud de la bulle quand le texte est fini :
+     "clique pour passer a la suite". Sa taille, sa position et sa
+     CADENCE se reglent dans le JavaScript (chercher
+     REGLAGE : BULLE DU CHIEN -- FLECHE). */
+  .bulle-fleche {
+    position: absolute;
+    left: 50%;
+    bottom: 4px;
+    width: 0;
+    height: 0;
+    border-left: var(--fleche-taille, 6px) solid transparent;
+    border-right: var(--fleche-taille, 6px) solid transparent;
+    border-top: calc(var(--fleche-taille, 6px) * 1.2) solid #111111;
+    transform: translateX(-50%);
+    pointer-events: none;
+    /* NOUVEAU : rebord blanc de 1px tout autour du triangle */
+    filter:
+      drop-shadow( 1px 0 0 #ffffff) drop-shadow(-1px 0 0 #ffffff)
+      drop-shadow( 0 1px 0 #ffffff) drop-shadow( 0 -1px 0 #ffffff);
+    animation: bulle-fleche-clignote var(--fleche-periode, 800ms) linear infinite;
+  }
+  @keyframes bulle-fleche-clignote {
+    0%, 49%   { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
   /* Planches du chien : une seule image (sprites/chien.png),
      tous les sprites cote a cote. Le JavaScript choisit le sprite
      par la position du fond en pourcentage (section
@@ -3376,10 +3403,10 @@
      (il tremble) ; ses bulles s ecrivent lettre par lettre
      (sprites 6 et 7 tant que le texte s ecrit, puis sprite 6
      immobile une fois termine) ; on passe a la bulle suivante
-     UNIQUEMENT EN CLIQUANT SUR LA BULLE ; cliquer sur le CHIEN
-     pendant les bulles le fait trembler et compte vers le
-     cyclope (10 clics) ; la DERNIERE bulle terminee, il se
-     rendort immediatement (sprite 3, puis dodo).
+     EN CLIQUANT SUR LA BULLE OU SUR LE CHIEN (le chien tremble
+     au passage ; pendant l ecriture, un clic affiche le texte
+     d un coup) ; apres le DERNIER clic, il se rendort
+     immediatement (sprite 3, puis dodo).
      10 clics de suite le reveillent en cyclope (sprites 8 et 9) : son oeil
      rouge suit le pointeur (sprites 10 a 17 : N, NE, E, SE, S,
      SO, O, NO) pendant 10 s -- la GROSSE MOUCHE s'il est en
@@ -3627,8 +3654,35 @@
     taille: 14,         // taille de police en px
     gras: false,        // texte en gras ?
     italique: false,    // texte en italique ?
-    souligne: false    // texte souligne ?
+    souligne: false,   // texte souligne ?
+    // TYPO (police) des bulles. Vide "" = meme police que le reste
+    // du site. Sinon, ecris une famille CSS avec une police de
+    // secours, par exemple :
+    //   famille: '"Press Start 2P", monospace'
+    //   famille: 'Georgia, serif'
+    //   famille: '"Courier New", monospace'
+    // Pour une police qui n est PAS installee chez les visiteurs
+    // (ex. une police pixel), il faut la charger : voir le bloc
+    // @font-face / Google Fonts explique dans le message.
+    famille: ""
   };
+  // REGLAGE : BULLE DU CHIEN -- FLECHE
+  // Petite fleche noire clignotante, en bas au milieu de la bulle,
+  // visible quand le texte est fini (= "clique pour la suite").
+  const BULLE_CHIEN_FLECHE = {
+    periode: 800,    // CADENCE du clignotement : duree d un cycle
+                     // complet allume + eteint (ms). Plus petit =
+                     // plus rapide (400 = nerveux, 1200 = calme).
+    taille: 8,       // demi-largeur du triangle (px) : 6 = 12 px large
+	  bas: -7           // distance entre la fleche et le bord bas (px)
+  };
+  // Si une police perso est choisie, on la charge tout de suite :
+  // la bulle mesure son texte AVANT d ecrire, il faut donc que la
+  // police soit prete a ce moment-la.
+  if (BULLE_CHIEN_STYLE.famille && document.fonts && document.fonts.load) {
+    document.fonts.load(BULLE_CHIEN_STYLE.taille + "px " + BULLE_CHIEN_STYLE.famille)
+      .catch(function () {});
+  }
   // REGLAGE : BULLE DU CHIEN -- MARGES
   const BULLE_CHIEN_MARGES = {
     interne: 14,     // air DANS la bulle, autour du texte (padding, px)
@@ -3689,10 +3743,44 @@
     chienBulleSuite = null;
   }
 
+  function chienBulleMontrerFleche() {
+    // Fleche clignotante : apparait quand le texte est fini
+    if (!chienBulleEl || chienBulleEl.querySelector(".bulle-fleche")) return;
+    const f = document.createElement("div");
+    f.className = "bulle-fleche";
+    f.style.setProperty("--fleche-periode", BULLE_CHIEN_FLECHE.periode + "ms");
+    f.style.setProperty("--fleche-taille", BULLE_CHIEN_FLECHE.taille + "px");
+    f.style.bottom = BULLE_CHIEN_FLECHE.bas + "px";
+    chienBulleEl.appendChild(f);
+  }
+
+  function chienBulleAvancer() {
+    // Appelee par un clic sur la BULLE ou sur le CHIEN.
+    // - texte en cours d ecriture : il s affiche d un coup ;
+    // - texte fini : on passe a la bulle suivante (ou le chien
+    //   se rendort si c etait la derniere).
+    if (!chienBulleActive || !chienBulleEl) return;
+    if (chienBulleFrappe) {
+      clearInterval(chienBulleFrappe);
+      chienBulleFrappe = null;
+      chienBulleSpan.textContent = chienBulleTexte;
+      const fin = chienBulleFinFrappe;
+      chienBulleFinFrappe = null;
+      if (fin) fin();
+      return;
+    }
+    const s = chienBulleSuite;
+    chienBulleSuite = null;
+    if (s) s();
+  }
+
   function chienMontrerBulle(texte, finTexte, gen) {
     chienBulleTexte = texte;
     chienBulleEl = document.createElement("div");
     chienBulleEl.className = "bulle-chien";
+    // Clic sur la bulle = avancer (le clic sur le CHIEN appelle la
+    // meme fonction, voir chienCliquer).
+    chienBulleEl.addEventListener("click", chienBulleAvancer);
     chienBulleSpan = document.createElement("span");
     // Marges de la bulle (REGLAGE : BULLE DU CHIEN -- MARGES) :
     // padding interne + largeur maxi coherente des deux cotes
@@ -3705,6 +3793,7 @@
       (largeurColonne - 2 * BULLE_CHIEN_MARGES.autour) + "px";
     // Style du texte (REGLAGE : BULLE DU CHIEN -- STYLE DU TEXTE)
     chienBulleSpan.style.fontSize = BULLE_CHIEN_STYLE.taille + "px";
+    if (BULLE_CHIEN_STYLE.famille) chienBulleSpan.style.fontFamily = BULLE_CHIEN_STYLE.famille;
     chienBulleSpan.style.fontWeight = BULLE_CHIEN_STYLE.gras ? "bold" : "normal";
     chienBulleSpan.style.fontStyle = BULLE_CHIEN_STYLE.italique ? "italic" : "normal";
     chienBulleSpan.style.textDecoration = BULLE_CHIEN_STYLE.souligne ? "underline" : "none";
@@ -3784,23 +3873,9 @@
             suivante();
           }
         };
-        chienBulleEl.addEventListener("click", function () {
-          if (gen !== chienBulleGen) return;
-          // Texte encore en cours d ecriture : il s affiche D
-          // UN COUP (le prochain clic passera a la suite).
-          if (chienBulleFrappe) {
-            clearInterval(chienBulleFrappe);
-            chienBulleFrappe = null;
-            chienBulleSpan.textContent = chienBulleTexte;
-            const fin = chienBulleFinFrappe;
-            chienBulleFinFrappe = null;
-            if (fin) fin();
-            return;
-          }
-          const s = chienBulleSuite;
-          chienBulleSuite = null;
-          if (s) s();
-        });
+        // Texte fini : la fleche clignote, on attend un clic
+        // (bulle ou chien).
+        chienBulleMontrerFleche();
       }, gen);
     };
     suivante();
@@ -4614,18 +4689,13 @@
 
   function chienCliquer() {
     const maintenant = Date.now();
-    // Pendant une sequence de bulles, le clic NE FAIT PAS
-    // avancer le texte : il fait TREMBLER le chien et COMPTE
-    // vers le cyclope (10 clics -> oeil rouge -> laser).
+    // Pendant une sequence de bulles, le clic sur le chien le
+    // fait TREMBLER et FAIT AVANCER le texte (comme un clic sur
+    // la bulle). Le compteur du cyclope ne tourne plus pendant
+    // les bulles.
     if (chienBulleActive) {
       chienTrembler();
-      if (maintenant - chienDernierClic > ANIMATION_CHIEN.suiteMs) chienClicsSuite = 0;
-      chienDernierClic = maintenant;
-      chienClicsSuite++;
-      if (chienClicsSuite >= ANIMATION_CHIEN.clicsCyclope) {
-        chienClicsSuite = 0;
-        chienCyclope();
-      }
+      chienBulleAvancer();
       return;
     }
     // Clics "de suite" : au moindre ecart trop grand, le compte
