@@ -222,21 +222,21 @@
      Active/desactive par la constante INFRAROUGE_EFFET (true/false)
      dans le code. Desactive, le calque n est jamais cree : le site
      reste exactement comme avant. */
+  /* EFFET NEGATIF AU SURVOL : copie PLEINE TAILLE de l image, posee
+     exactement par-dessus, inversee en negatif par le CSS. Le
+     decoupage en cercle se fait par clip-path: circle() -- un
+     vrai decoupage vectoriel, bord 100 % net, AUCUN gradient, et
+     l interieur est l image inversee pleine, sans attenuation.
+     La position du cercle est reglee en JavaScript (suivi du
+     curseur). */
   .filtre-ir {
     position: absolute;
     top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
     pointer-events: none;
-    /* EFFET NEGATIF : inversion pure et simple des couleurs.
-       Un seul filtre = une seule passe GPU, tres peu couteuse.
-       (L ancien filtre "fausse infrarouge" enchainait 6 traitements
-       par frame : c etait lui, la lenteur.) */
+    /* Le filtre NEGATIF : une seule passe GPU, tres peu couteuse */
     filter: invert(1);
-    /* Le masque (le trou qui suit le curseur) est pose par le
-       JavaScript au moment de l activation. Hors curseur,
-       le trou est rejete hors image : rien n est revele. */
+    /* La taille de la copie (identique a l image d origine) et la
+       position du cercle sont posees par le JavaScript. */
   }
 
   /* Photo revelee par le grattage, posee derriere le canvas : elle
@@ -3190,10 +3190,12 @@
   }
 
   // REGLAGE : INFRAROUGE AU SURVOL -- interrupteur general de
-  // l effet. true  = le curseur revele une version "infrarouge"
-  //               de l image de serie dans un rond autour de lui ;
+  // l effet. true  = le curseur revele une version "negative"
+  //               de l image de serie dans un rond net autour de lui ;
   // false = l effet n existe pas : aucun calque cree, aucun
   //               ecouteur pose, le site reste exactement comme avant.
+  // NOTE : effet actuellement DESACTIVE (false) : garde tel quel
+  // pour une future serie. Repasse la valeur a true pour l activer.
   const INFRAROUGE_EFFET = false;
 
   // REGLAGE : INFRAROUGE -- rayon du cercle revele (px) et douceur
@@ -3204,63 +3206,66 @@
     bord: 0    // cercle net : opaque jusqu au bord, pas de fondu
   };
 
-  // Pose le calque infrarouge sur une image de serie. Le calque
-  // est une COPIE de l image (meme src), filtree par le CSS
-  // (.filtre-ir) et masquee partout SAUF dans un rond autour du
-  // curseur. La src du calque suit les changements d image (le
-  // calque ecoute "load" de l image d origine) : l effet marche
-  // sur toute la sequence.
-  // IMPORTANT : les mouvements de souris sont ecoutes sur la ZONE
-  // (le conteneur parent), PAS sur l image -- les boutons de
+  // Pose l effet negatif au survol sur une image de serie.
+  // PRINCIPE : une COPIE PLEINE TAILLE de l image, inversee par le
+  // CSS (filter: invert(1)) et posee EXACTEMENT par-dessus l
+  // originale (meme taille, meme position). La copie est ENTIERE
+  // clippee en cercle (clip-path: circle()) : on ne voit que le
+  // rond sous le curseur -- bord vectoriel 100 % net, interieur
+  // plein, aucun gradient, aucune fusion. Le cercle suit le
+  // curseur ; hors de l image, la copie est cachee.
+  // Les mouvements de souris sont ecoutes sur la ZONE (le
+  // conteneur parent), PAS sur l image -- les boutons de
   // navigation .zone-clic couvrent chaque moitie de l image et
-  // captent tous les mouvements : un ecouteur sur l image ne
-  // recevrait jamais rien.
+  // captent tous les mouvements.
   function activerInfrarouge(image, cadre, zone) {
     if (!INFRAROUGE_EFFET || !image || !cadre) return;
     if (cadre.querySelector(".filtre-ir")) return;  // deja pose
     const cibleMouvement = zone || cadre;
     if (getComputedStyle(cadre).position === "static") {
-      cadre.style.position = "relative";  // ancre du calque
+      cadre.style.position = "relative";  // ancre de la copie
     }
     const imgIR = document.createElement("img");
     imgIR.alt = "";
     imgIR.className = "filtre-ir";
-    // La src du calque : celle de l image si elle existe deja,
-    // sinon on attend son premier chargement (au premier affichage,
-    // l image n a pas encore de src quand la vitrine est creee).
-    if (image.getAttribute("src")) imgIR.src = image.src;
+    imgIR.style.display = "none";   // cachee tant que le curseur est absent
     cadre.appendChild(imgIR);
-    const synchroniser = function () {
-      if (image.getAttribute("src") && imgIR.src !== image.src) {
-        imgIR.src = image.src;
-      }
+    // La copie prend la src de l image (des qu elle existe) et la
+    // suit a chaque changement de photo de la serie.
+    const synchroniserSrc = function () {
+      const s = image.getAttribute("src");
+      if (s && imgIR.getAttribute("src") !== s) imgIR.src = s;
     };
-    image.addEventListener("load", synchroniser);
-    // Le masque : rond de rayon regle, centre sur le curseur.
-    // Hors curseur (defaut), le centre est rejete a -100px :
-    // le rond ne touche jamais l image.
-    // BORD 100% NET : arrets en PIXELS, deux couleurs qui se
-    // touchent au MEME point (rayon px) : noir PLEIN de 0 au
-    // rayon, puis transparent PILE au rayon. Aucune distance
-    // pour fondre = coupe franche, l interieur est opaque a
-    // 100 % partout. (Un fondu reviendrait en reculant le 1er
-    // arret : black calc(rayon - 15px).)
-    const masque = "radial-gradient(circle var(--ir-x, -100px) var(--ir-y, -100px)," +
-                   " rgba(0,0,0,1) 0, rgba(0,0,0,1) " + INFRAROUGE.rayon + "px," +
-                   " rgba(0,0,0,0) " + INFRAROUGE.rayon + "px)";
-    imgIR.style.maskImage = masque;
-    imgIR.style.webkitMaskImage = masque;
-    // Le trou suit le curseur : ecoute sur la ZONE (boutons de
-    // navigation compris -- les evenements remontent jusqu au
-    // conteneur, la position est mesuree contre l image elle-meme).
-    cibleMouvement.addEventListener("mousemove", function (e) {
+    synchroniserSrc();
+    image.addEventListener("load", synchroniserSrc);
+    // Aligne la copie SUR l image d origine : meme taille affichee,
+    // meme coin haut-gauche. Les deux se superposent exactement --
+    // le clip-path decoupe ensuite le cercle au bon endroit.
+    const aligner = function (cx, cy) {
       const r = image.getBoundingClientRect();
-      cadre.style.setProperty("--ir-x", (e.clientX - r.left) + "px");
-      cadre.style.setProperty("--ir-y", (e.clientY - r.top) + "px");
+      const rc = cadre.getBoundingClientRect();
+      imgIR.style.width = r.width + "px";
+      imgIR.style.height = r.height + "px";
+      imgIR.style.left = Math.round(r.left - rc.left) + "px";
+      imgIR.style.top = Math.round(r.top - rc.top) + "px";
+      // Le cercle : centre sur le curseur, rayon regle, dans les
+      // coordonnees de la COPIE (elle est calee sur l image, donc
+      // curseur - bord de l image).
+      const x = Math.round(cx - r.left);
+      const y = Math.round(cy - r.top);
+      imgIR.style.clipPath =
+        "circle(" + INFRAROUGE.rayon + "px at " + x + "px " + y + "px)";
+    };
+    // Le cercle suit le curseur : ecoute sur la ZONE (boutons de
+    // navigation compris -- les evenements remontent jusqu au
+    // conteneur).
+    cibleMouvement.addEventListener("mousemove", function (e) {
+      synchroniserSrc();
+      aligner(e.clientX, e.clientY);
+      imgIR.style.display = "block";
     }, { passive: true });
     cibleMouvement.addEventListener("mouseleave", function () {
-      cadre.style.setProperty("--ir-x", "-100px");
-      cadre.style.setProperty("--ir-y", "-100px");
+      imgIR.style.display = "none";
     });
   }
 
