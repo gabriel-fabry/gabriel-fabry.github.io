@@ -3209,18 +3209,33 @@
   // (.filtre-ir) et masquee partout SAUF dans un rond autour du
   // curseur. La src du calque suit les changements d image (le
   // calque ecoute "load" de l image d origine) : l effet marche
-  // sur toute la sequence, planche comprise.
-  function activerInfrarouge(image, cadre) {
+  // sur toute la sequence.
+  // IMPORTANT : les mouvements de souris sont ecoutes sur la ZONE
+  // (le conteneur parent), PAS sur l image -- les boutons de
+  // navigation .zone-clic couvrent chaque moitie de l image et
+  // captent tous les mouvements : un ecouteur sur l image ne
+  // recevrait jamais rien.
+  function activerInfrarouge(image, cadre, zone) {
     if (!INFRAROUGE_EFFET || !image || !cadre) return;
     if (cadre.querySelector(".filtre-ir")) return;  // deja pose
+    const cibleMouvement = zone || cadre;
     if (getComputedStyle(cadre).position === "static") {
       cadre.style.position = "relative";  // ancre du calque
     }
     const imgIR = document.createElement("img");
     imgIR.alt = "";
     imgIR.className = "filtre-ir";
-    imgIR.src = image.src;   // meme photo, filtree en infrarouge
+    // La src du calque : celle de l image si elle existe deja,
+    // sinon on attend son premier chargement (au premier affichage,
+    // l image n a pas encore de src quand la vitrine est creee).
+    if (image.getAttribute("src")) imgIR.src = image.src;
     cadre.appendChild(imgIR);
+    const synchroniser = function () {
+      if (image.getAttribute("src") && imgIR.src !== image.src) {
+        imgIR.src = image.src;
+      }
+    };
+    image.addEventListener("load", synchroniser);
     // Le masque : rond de rayon regle, centre sur le curseur.
     // Hors curseur (defaut), le centre est rejete a -100px :
     // le rond ne touche jamais l image.
@@ -3228,20 +3243,15 @@
                    " rgba(0,0,0,1) " + Math.round(INFRAROUGE.bord * 100) + "%, rgba(0,0,0,0) 100%)";
     imgIR.style.maskImage = masque;
     imgIR.style.webkitMaskImage = masque;
-    // La src du calque suit les changements d image de la serie
-    // (fonction montrer -> remplacerFondu) : a chaque nouvelle
-    // photo, l infrarouge montre la meme.
-    image.addEventListener("load", function () {
-      if (imgIR.src !== image.src) imgIR.src = image.src;
-    });
-    // Le trou suit le curseur (mouvement sur le cadre, calque compris
-    // -- il ne capte pas les clics, pointer-events: none)
-    cadre.addEventListener("mousemove", function (e) {
+    // Le trou suit le curseur : ecoute sur la ZONE (boutons de
+    // navigation compris -- les evenements remontent jusqu au
+    // conteneur, la position est mesuree contre l image elle-meme).
+    cibleMouvement.addEventListener("mousemove", function (e) {
       const r = image.getBoundingClientRect();
       cadre.style.setProperty("--ir-x", (e.clientX - r.left) + "px");
       cadre.style.setProperty("--ir-y", (e.clientY - r.top) + "px");
     }, { passive: true });
-    cadre.addEventListener("mouseleave", function () {
+    cibleMouvement.addEventListener("mouseleave", function () {
       cadre.style.setProperty("--ir-x", "-100px");
       cadre.style.setProperty("--ir-y", "-100px");
     });
@@ -3323,10 +3333,11 @@
     img.decoding = "async";
     vitrine.appendChild(img);
     conteneur.appendChild(vitrine);
-    // INFRAROUGE AU SURVOL : pose ici, des la creation de la vitrine
-    // (cadre deja position: relative par le CSS .vitrine). Si
-    // INFRAROUGE_EFFET est false, la fonction rend la main aussitot.
-    activerInfrarouge(img, vitrine);
+    // INFRAROUGE AU SURVOL : pose ici, des la creation. Le troisieme
+    // argument est le CONTENEUR (parent des boutons de navigation) :
+    // c est lui qui ecoute la souris, car les zones de clic couvrent
+    // l image. Si INFRAROUGE_EFFET est false, rien ne se passe.
+    activerInfrarouge(img, vitrine, conteneur);
 
     if (total > 1) {
       const btnGauche = document.createElement("button");
