@@ -216,6 +216,29 @@
     cursor: grabbing !important;
   }
 
+  /* FILTRE INFRAROUGE AU SURVOL : calque pose PAR-DESSUS l image de
+     serie, revele en rond autour du curseur (rayon et douceur du
+     bord regles dans le JavaScript, chercher REGLAGE : INFRAROUGE).
+     Active/desactive par la constante INFRAROUGE_EFFET (true/false)
+     dans le code. Desactive, le calque n est jamais cree : le site
+     reste exactement comme avant. */
+  .filtre-ir {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    /* FAUSSE INFRAROUGE : tres contrastee, blanc brulant, teinte
+       chaude. Pour une vraie photo infrarouge, voir le JavaScript :
+       l essentiel du reglage vit la-bas. */
+    filter: grayscale(1) contrast(1.6) brightness(1.3) sepia(1) hue-rotate(-30deg) saturate(3);
+    /* Le masque (le trou qui suit le curseur) est pose par le
+       JavaScript au moment de l activation : rayon et bord doux
+       y sont calcules depuis l objet INFRAROUGE. Hors curseur,
+       le trou est rejete hors image : rien n est revele. */
+  }
+
   /* Photo revelee par le grattage, posee derriere le canvas : elle
      remplit exactement le cadre de la photo grattée (recadre au besoin) */
   .photo-dessous {
@@ -329,7 +352,7 @@
     border-right: var(--fleche-taille, 4px) solid transparent;
     border-top: calc(var(--fleche-taille, 4px) * 1.2) solid #111111;
     transform: translateX(-50%);	
-    pointer-events: auto;
+    pointer-events: none;
     /* NOUVEAU : rebord blanc de 1px tout autour du triangle */
     filter:
       drop-shadow( 1px 0 0 #ffffff) drop-shadow(-1px 0 0 #ffffff)
@@ -3166,6 +3189,64 @@
              window.matchMedia("(max-width: 760px)").matches);
   }
 
+  // REGLAGE : INFRAROUGE AU SURVOL -- interrupteur general de
+  // l effet. true  = le curseur revele une version "infrarouge"
+  //               de l image de serie dans un rond autour de lui ;
+  // false = l effet n existe pas : aucun calque cree, aucun
+  //               ecouteur pose, le site reste exactement comme avant.
+  const INFRAROUGE_EFFET = true;
+
+  // REGLAGE : INFRAROUGE -- rayon du cercle revele (px) et douceur
+  // du bord. bord: 0 = cercle net, 0.7 = opaque jusqu a 70 % du
+  // rayon puis fondu (effet "lampe"), 0.9 = presque tout net.
+  const INFRAROUGE = {
+    rayon: 50,
+    bord: 0.7
+  };
+
+  // Pose le calque infrarouge sur une image de serie. Le calque
+  // est une COPIE de l image (meme src), filtree par le CSS
+  // (.filtre-ir) et masquee partout SAUF dans un rond autour du
+  // curseur. La src du calque suit les changements d image (le
+  // calque ecoute "load" de l image d origine) : l effet marche
+  // sur toute la sequence, planche comprise.
+  function activerInfrarouge(image, cadre) {
+    if (!INFRAROUGE_EFFET || !image || !cadre) return;
+    if (cadre.querySelector(".filtre-ir")) return;  // deja pose
+    if (getComputedStyle(cadre).position === "static") {
+      cadre.style.position = "relative";  // ancre du calque
+    }
+    const imgIR = document.createElement("img");
+    imgIR.alt = "";
+    imgIR.className = "filtre-ir";
+    imgIR.src = image.src;   // meme photo, filtree en infrarouge
+    cadre.appendChild(imgIR);
+    // Le masque : rond de rayon regle, centre sur le curseur.
+    // Hors curseur (defaut), le centre est rejete a -100px :
+    // le rond ne touche jamais l image.
+    const masque = "radial-gradient(circle " + INFRAROUGE.rayon + "px at var(--ir-x, -100px) var(--ir-y, -100px)," +
+                   " rgba(0,0,0,1) " + Math.round(INFRAROUGE.bord * 100) + "%, rgba(0,0,0,0) 100%)";
+    imgIR.style.maskImage = masque;
+    imgIR.style.webkitMaskImage = masque;
+    // La src du calque suit les changements d image de la serie
+    // (fonction montrer -> remplacerFondu) : a chaque nouvelle
+    // photo, l infrarouge montre la meme.
+    image.addEventListener("load", function () {
+      if (imgIR.src !== image.src) imgIR.src = image.src;
+    });
+    // Le trou suit le curseur (mouvement sur le cadre, calque compris
+    // -- il ne capte pas les clics, pointer-events: none)
+    cadre.addEventListener("mousemove", function (e) {
+      const r = image.getBoundingClientRect();
+      cadre.style.setProperty("--ir-x", (e.clientX - r.left) + "px");
+      cadre.style.setProperty("--ir-y", (e.clientY - r.top) + "px");
+    }, { passive: true });
+    cadre.addEventListener("mouseleave", function () {
+      cadre.style.setProperty("--ir-x", "-100px");
+      cadre.style.setProperty("--ir-y", "-100px");
+    });
+  }
+
   function dessiner(serie) {
     document.title = serie.titre + " - " + SITE.nom;
     if (serie.texte) {
@@ -3242,6 +3323,10 @@
     img.decoding = "async";
     vitrine.appendChild(img);
     conteneur.appendChild(vitrine);
+    // INFRAROUGE AU SURVOL : pose ici, des la creation de la vitrine
+    // (cadre deja position: relative par le CSS .vitrine). Si
+    // INFRAROUGE_EFFET est false, la fonction rend la main aussitot.
+    activerInfrarouge(img, vitrine);
 
     if (total > 1) {
       const btnGauche = document.createElement("button");
@@ -3673,7 +3758,7 @@
     periode: 800,    // CADENCE du clignotement : duree d un cycle
                      // complet allume + eteint (ms). Plus petit =
                      // plus rapide (400 = nerveux, 1200 = calme).
-    taille: 6,       // demi-largeur du triangle (px) : 6 = 12 px large
+    taille: 8,       // demi-largeur du triangle (px) : 6 = 12 px large
 	  bas: -7           // distance entre la fleche et le bord bas (px)
   };
   // Si une police perso est choisie, on la charge tout de suite :
