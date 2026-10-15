@@ -229,13 +229,13 @@
     height: 100%;
     object-fit: contain;
     pointer-events: none;
-    /* FAUSSE INFRAROUGE : tres contrastee, blanc brulant, teinte
-       chaude. Pour une vraie photo infrarouge, voir le JavaScript :
-       l essentiel du reglage vit la-bas. */
-    filter: grayscale(1) contrast(1.6) brightness(1.3) sepia(1) hue-rotate(-30deg) saturate(3);
+    /* EFFET NEGATIF : inversion pure et simple des couleurs.
+       Un seul filtre = une seule passe GPU, tres peu couteuse.
+       (L ancien filtre "fausse infrarouge" enchainait 6 traitements
+       par frame : c etait lui, la lenteur.) */
+    filter: invert(1);
     /* Le masque (le trou qui suit le curseur) est pose par le
-       JavaScript au moment de l activation : rayon et bord doux
-       y sont calcules depuis l objet INFRAROUGE. Hors curseur,
+       JavaScript au moment de l activation. Hors curseur,
        le trou est rejete hors image : rien n est revele. */
   }
 
@@ -3194,14 +3194,14 @@
   //               de l image de serie dans un rond autour de lui ;
   // false = l effet n existe pas : aucun calque cree, aucun
   //               ecouteur pose, le site reste exactement comme avant.
-  const INFRAROUGE_EFFET = true;
+  const INFRAROUGE_EFFET = false;
 
   // REGLAGE : INFRAROUGE -- rayon du cercle revele (px) et douceur
-  // du bord. bord: 0 = cercle net, 0.7 = opaque jusqu a 70 % du
-  // rayon puis fondu (effet "lampe"), 0.9 = presque tout net.
+  // du bord. bord: 0 = cercle PARFAITEMENT NET (dur, tranchant) ;
+  // plus la valeur monte, plus le bord est fonce (effet "lampe").
   const INFRAROUGE = {
     rayon: 50,
-    bord: 0.7
+    bord: 0    // cercle net : opaque jusqu au bord, pas de fondu
   };
 
   // Pose le calque infrarouge sur une image de serie. Le calque
@@ -3239,8 +3239,15 @@
     // Le masque : rond de rayon regle, centre sur le curseur.
     // Hors curseur (defaut), le centre est rejete a -100px :
     // le rond ne touche jamais l image.
-    const masque = "radial-gradient(circle " + INFRAROUGE.rayon + "px at var(--ir-x, -100px) var(--ir-y, -100px)," +
-                   " rgba(0,0,0,1) " + Math.round(INFRAROUGE.bord * 100) + "%, rgba(0,0,0,0) 100%)";
+    // BORD 100% NET : arrets en PIXELS, deux couleurs qui se
+    // touchent au MEME point (rayon px) : noir PLEIN de 0 au
+    // rayon, puis transparent PILE au rayon. Aucune distance
+    // pour fondre = coupe franche, l interieur est opaque a
+    // 100 % partout. (Un fondu reviendrait en reculant le 1er
+    // arret : black calc(rayon - 15px).)
+    const masque = "radial-gradient(circle var(--ir-x, -100px) var(--ir-y, -100px)," +
+                   " rgba(0,0,0,1) 0, rgba(0,0,0,1) " + INFRAROUGE.rayon + "px," +
+                   " rgba(0,0,0,0) " + INFRAROUGE.rayon + "px)";
     imgIR.style.maskImage = masque;
     imgIR.style.webkitMaskImage = masque;
     // Le trou suit le curseur : ecoute sur la ZONE (boutons de
