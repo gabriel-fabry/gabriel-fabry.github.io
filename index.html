@@ -322,14 +322,14 @@
   .bulle-fleche {
     position: absolute;
     left: 80%;
-    bottom: 0px;
+    bottom: 7px;
     width: 0;
     height: 0;
-    border-left: var(--fleche-taille, 6px) solid transparent;
-    border-right: var(--fleche-taille, 6px) solid transparent;
-    border-top: calc(var(--fleche-taille, 6px) * 1.2) solid #111111;
+    border-left: var(--fleche-taille, 4px) solid transparent;
+    border-right: var(--fleche-taille, 4px) solid transparent;
+    border-top: calc(var(--fleche-taille, 4px) * 1.2) solid #111111;
     transform: translateX(-50%);	
-    pointer-events: none;
+    pointer-events: auto;
     /* NOUVEAU : rebord blanc de 1px tout autour du triangle */
     filter:
       drop-shadow( 1px 0 0 #ffffff) drop-shadow(-1px 0 0 #ffffff)
@@ -337,7 +337,7 @@
     animation: bulle-fleche-clignote var(--fleche-periode, 800ms) linear infinite;
   }
   @keyframes bulle-fleche-clignote {
-    0%, 49%   { opacity: 1; }
+    0%, 49%   { opacity: 5; }
     50%, 100% { opacity: 0; }
   }
   /* Planches du chien : une seule image (sprites/chien.png),
@@ -3673,7 +3673,7 @@
     periode: 800,    // CADENCE du clignotement : duree d un cycle
                      // complet allume + eteint (ms). Plus petit =
                      // plus rapide (400 = nerveux, 1200 = calme).
-    taille: 8,       // demi-largeur du triangle (px) : 6 = 12 px large
+    taille: 6,       // demi-largeur du triangle (px) : 6 = 12 px large
 	  bas: -7           // distance entre la fleche et le bord bas (px)
   };
   // Si une police perso est choisie, on la charge tout de suite :
