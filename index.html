@@ -322,6 +322,12 @@
   .zone-interactive-conteneur.serie-pixels img {
     image-rendering: pixelated;
   }
+  /* MEME CHOSE pour le canvas du MELANGE : etire a la taille d
+     affichage, il doit garder les carres NETS (sinon le navigateur
+     lisse et l image parait floue/agrandie apres le melange). */
+  .zone-interactive-conteneur.serie-pixels canvas {
+    image-rendering: pixelated;
+  }
 
 .photo-dessous {
     position: absolute;
