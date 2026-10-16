@@ -306,6 +306,23 @@
     pointer-events: none;
   }
 
+  /* SERIE PIXELS (test) : curseur MAIN SIMPLE sur toute l image
+     (pas de chevron, pas de grille) : le clic y melange les
+     pixels, la navigation passe par les fleches du compteur. */
+  .zone-interactive-conteneur.serie-pixels .zone-clic {
+    cursor: pointer;
+  }
+  .zone-interactive-conteneur.serie-pixels .zone-clic.gauche::after,
+  .zone-interactive-conteneur.serie-pixels .zone-clic.droite::after {
+    content: none;   /* pas de chevron rouge affiche */
+  }
+  /* L image pixellisee (2x2, 4x4...) doit rester NETTE quand le
+     navigateur l etire a la taille d affichage : rendu au pixel
+     le plus proche, pas de flou. */
+  .zone-interactive-conteneur.serie-pixels img {
+    image-rendering: pixelated;
+  }
+
 .photo-dessous {
     position: absolute;
     top: 0; left: 0;
@@ -3619,10 +3636,47 @@
   const PIXELS_SERIES = ["test"];
   const PIXELS_EFFET = true;
 
+  // REGLAGE : PIXELS PAGES -- la serie pixels n utilise QU UNE
+  // SEULE image du dossier (la premiere) mais l affiche sur
+  // PLUSIEURS PAGES de plus en plus definies : page 1 = 2x2
+  // pixels (4 gros carres), page 2 = 4x4 (16 carres), etc. La
+  // taille AFFICHEE reste celle d une image normale (meme hauteur
+  // dans la vitrine) : seuls les carres grossissent. Chaque page
+  // garde donc le ratio du cadre habituel. Le clic melange les
+  // pixels de la page courante (4 pixels page 1, 16 page 2...).
+  const PIXELS_RESOLUTIONS = [2, 4, 8, 16, 32];
+
+  // Produit la version PIXELISEE d une image : l originale est
+  // redessinee dans un canvas de "taille" x "taille" px (2, 4,
+  // 8...), puis rendue en dataURL. Affichee a la taille normale
+  // avec image-rendering: pixelated, cela donne les gros carres.
+  function srcPixelisee(url, taille, alors) {
+    const im = new Image();
+    im.onload = function () {
+      const c = document.createElement("canvas");
+      c.width = taille;
+      c.height = taille;
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(im, 0, 0, taille, taille);
+      alors(c.toDataURL("image/png"));
+    };
+    im.src = url;
+  }
+
   // MELANGE les pixels de l image : la frame est copiee dans un
   // canvas, chaque pixel est deplace a une position ALEATOIRE
   // (sans doublon : une vraie permutation), puis le canvas rendu
   // est pose sur l image en fondu (opacity 0 -> 1).
+  // ATTENTION serveur : la lecture des pixels (getImageData) est
+  // REFUSEE par le navigateur si le site est ouvert en file://
+  // (images "etrangeres", securite). Dans ce cas la fonction
+  // retombe toute seule sur le MELANGE PAR TUILES (blocs de
+  // PIXELS_TUILE px, re dessinees via drawImage, qui ne lit
+  // JAMAIS les pixels et marche partout). Pour le vrai melange
+  // pixel par pixel, servir le site par localhost ou HTTPS.
+  const PIXELS_TUILE = 8;   // taille des tuiles du mode repli (px)
   function melangerPixels(img, cadre, duree) {
     if (!img.getAttribute("src") || !img.naturalWidth) return null;
     // Le canvas de melange : meme taille que l image source
@@ -3631,20 +3685,50 @@
     c.height = img.naturalHeight;
     const ctx = c.getContext("2d", { willReadFrequently: true });
     ctx.drawImage(img, 0, 0);
-    // Lecture de tous les pixels, melange en PLACE (durstenfeld),
-    // reecriture : chaque pixel garde une position unique, mais
-    // ALEATOIRE -- c est une vraie permutation, pas un tirage.
-    const L = ctx.getImageData(0, 0, c.width, c.height);
+    // Lecture de tous les pixels : peut etre REFUSEE en file://
+    // (canvas "tisse"). On retombe alors sur le melange par tuiles.
+    let L = null;
+    try {
+      L = ctx.getImageData(0, 0, c.width, c.height);
+    } catch (e) {
+      L = null;
+    }
+    if (L === null) {
+      // MODE TUILES (file://) : chaque bloc de PIXELS_TUILE px est
+      // redessine a une position ALEATOIRE (vraie permutation des
+      // tuiles via drawImage -- aucune lecture de pixels).
+      const t = PIXELS_TUILE;
+      const cols = Math.ceil(c.width / t);
+      const rgs = Math.ceil(c.height / t);
+      const nb = cols * rgs;
+      const idx = new Uint32Array(nb);
+      for (let p = 0; p < nb; p++) idx[p] = p;
+      for (let p = nb - 1; p > 0; p--) {
+        const j = Math.floor(Math.random() * (p + 1));
+        const temp = idx[p]; idx[p] = idx[j]; idx[j] = temp;
+      }
+      ctx.fillStyle = "#111111";
+      ctx.fillRect(0, 0, c.width, c.height);
+      for (let dst = 0; dst < nb; dst++) {
+        const src = idx[dst];
+        const sx = (src % cols) * t;
+        const sy = Math.floor(src / cols) * t;
+        const dx = (dst % cols) * t;
+        const dy = Math.floor(dst / cols) * t;
+        ctx.drawImage(img, sx, sy, t, t, dx, dy, t, t);
+      }
+      return poserMelange(c, img, cadre, duree);
+    }
+    // MELANGE PIXEL PAR PIXEL : chaque position garde une place
+    // unique mais ALEATOIRE -- vraie permutation (Fisher-Yates).
     const d = L.data;
     const nb = c.width * c.height;
-    // Indices de pixels, melanges par Fisher-Yates
     const idx = new Uint32Array(nb);
     for (let p = 0; p < nb; p++) idx[p] = p;
     for (let p = nb - 1; p > 0; p--) {
       const j = Math.floor(Math.random() * (p + 1));
       const t = idx[p]; idx[p] = idx[j]; idx[j] = t;
     }
-    // Nouvelle image : chaque position reçoit le pixel aleatoire
     const L2 = ctx.createImageData(c.width, c.height);
     const d2 = L2.data;
     for (let p = 0; p < nb; p++) {
@@ -3656,8 +3740,12 @@
       d2[dst + 3] = d[src + 3];
     }
     ctx.putImageData(L2, 0, 0);
-    // Pose du canvas melange : MEME TAILLE affichee que l image,
-    // par-dessus, en FONDU LEGER
+    return poserMelange(c, img, cadre, duree);
+  }
+
+  // Pose le canvas melange sur l image : MEME TAILLE affichee,
+  // par-dessus, en FONDU LEGER (opacity 0 -> 1).
+  function poserMelange(c, img, cadre, duree) {
     if (getComputedStyle(cadre).position === "static") {
       cadre.style.position = "relative";
     }
@@ -3694,7 +3782,10 @@
       p.textContent = serie.texte;
       contenu.appendChild(p);
     }
-    const total = serie.images ? serie.images.length : 0;
+    // SERIE PIXELS : les pages sont les RESOLUTIONS, pas les
+    // fichiers -- une seule image du dossier suffit.
+    const pixelsMode = PIXELS_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PIXELS_EFFET;
+    const total = pixelsMode ? PIXELS_RESOLUTIONS.length : (serie.images ? serie.images.length : 0);
     if (total === 0) {
       const p = document.createElement("p");
       p.className = "vide";
@@ -3704,6 +3795,7 @@
     }
 
     const chemin = function (n) {
+      if (pixelsMode) n = 0;   // toujours LA MEME image (la 1re)
       return "images/" + serie.dossier + "/" + encodeURIComponent(serie.images[n]).replace(/%23/g, '#');
     };
 
@@ -3755,6 +3847,7 @@
 
     const conteneur = document.createElement("div");
     conteneur.className = "zone-interactive-conteneur";
+    if (pixelsMode) conteneur.classList.add("serie-pixels");   // curseur main
 
     const vitrine = document.createElement("div");
     vitrine.className = "vitrine";
@@ -3774,7 +3867,7 @@
     // reste aux FLECHES DU COMPTEUR ; changer d image remet a neuf.
     const tramageActif = TRAMAGE_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && TRAMAGE_EFFET;
     const pliActif = PLI_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PLI_EFFET;
-    const pixelsActif = PIXELS_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PIXELS_EFFET;
+    const pixelsActif = pixelsMode;   // calcule plus haut
     let niveauTramage = 0;   // 0 = photo intacte ; chaque clic +1
     let photoCapturee = false;   // CAMERA : true des que le 1er clic a fige le flux
 
@@ -3904,6 +3997,15 @@
           return;   // pas de chargement d image du dossier
         }
         reinitialiserTramage(img, vitrine);
+      }
+      // SERIE PIXELS : la page i montre L IMAGE PIXELISEE a la
+      // resolution PIXELS_RESOLUTIONS[i] (2x2, 4x4, 8x8...). Le
+      // fondu habituel s applique entre pages.
+      if (pixelsMode) {
+        srcPixelisee(chemin(0), PIXELS_RESOLUTIONS[i], function (d) {
+          remplacerFondu(vitrine, img, d, SITE.nom + ", " + serie.titre + ", image " + (i + 1));
+        });
+        return;
       }
       remplacerFondu(vitrine, img, chemin(i), SITE.nom + ", " + serie.titre + ", image " + (i + 1));
     }

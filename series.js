@@ -190,9 +190,7 @@ const SERIES = [
   {
     titre: "Test",
 	  dossier: "test", images: [
-	  	"test1.jpg",
-		  "test2.jpg",
-		  "test3.jpg"
+	  	"test1.jpg"
 	  ]
   },
   {
