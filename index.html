@@ -239,9 +239,74 @@
        position du cercle sont posees par le JavaScript. */
   }
 
+  /* TRAMAGE AU CLIC (series listees dans TRAMAGE_SERIES, dans le
+     JavaScript) : le canvas qui remplace l image quand on clique --
+     chaque clic retire une ligne de pixels sur deux et COLLE les
+     lignes restantes (aucun espace vide). image-rendering: pixelated
+     garde les lignes nettes quand elles sont etirees a l ecran. */
+  .tramage-canvas {
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  /* PLI AU CLIC (series listees dans PLI_SERIES, dans le
+     JavaScript) : l image se plie comme une vraie feuille -- un
+     clic = UN PLI DE PLUS, en alternant le sens : pli 1
+     horizontal (moitie haute rabattue sur la basse), pli 2
+     vertical (moitie gauche rabattue sur la droite), pli 3
+     horizontal... A chaque pli le panneau visible est deux fois
+     plus petit et ZOOM sur la partie pliee (region de l image),
+     avec un effet MIROIR a chaque pli (comme du papier retourne).
+     L image reste TOUJOURS visible : pas de dos papier beige. */
+  .pli-conteneur {
+    position: absolute;
+    perspective: 1400px;
+    /* Le pli doit rester AU-DESSUS de tout : sans z-index, le
+       volet, une fois retourne vers le spectateur, passe DERRIERE
+       la suite de la page pendant l animation. */
+    z-index: 5;
+  }
+  /* Face visible du panneau plie : la portion (region) de l
+     image, possee en fond. Le transform (effet miroir, pose par
+     le JavaScript) retourne le panneau comme du papier plie. */
+  .pli-face {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-repeat: no-repeat;
+  }
+  /* Le volet qui se rabat a chaque clic : la moitie haute (pli
+     horizontal) ou gauche (pli vertical) du panneau, pivote a
+     180 degres autour de la ligne de pli. Son verso (le dos du
+     div) affiche l image en MIROIR tout seul : pas besoin de
+     dos papier, la photo se voit des deux cotes. */
+  .pli-flap {
+    position: absolute;
+    background-repeat: no-repeat;
+    z-index: 2;   /* le volet reste au-dessus de la face */
+  }
+
+  /* CAMERA DU TRAMAGE : flux video en direct, pose DANS le cadre
+     de la photo, avec la MEME HAUTEUR que les images du site -- le
+     visiteur voit son visage exactement a la place ou la photo
+     capturee apparaitra. Le PREMIER CLIC fige le flux en photo. */
+  .tramage-video {
+    display: block;
+    height: calc(100vh - 2 * var(--marge));
+    width: auto;
+    background: #111111;
+  }
+
   /* Photo revelee par le grattage, posee derriere le canvas : elle
      remplit exactement le cadre de la photo grattée (recadre au besoin) */
-  .photo-dessous {
+    /* PIXELS MELANGES AU CLIC : le canvas pose par-dessus l image
+     quand on la melange (transition en fondu posee en JS). */
+  .melange-canvas {
+    display: block;
+    pointer-events: none;
+  }
+
+.photo-dessous {
     position: absolute;
     top: 0; left: 0;
     width: 100%;
@@ -1390,6 +1455,9 @@
     reinitialiserPhysique();
     arreterJeu();
     arreterMicroVent();
+    // CAMERA DU TRAMAGE : en quittant la page, le flux est coupe
+    // (sinon la petite camera du navigateur resterait allumee).
+    arreterTramageCamera();
 
     const dossier = decodeURIComponent(location.hash.slice(1));
 
@@ -3269,6 +3337,355 @@
     });
   }
 
+  // REGLAGE : TRAMAGE AU CLIC -- les series OU l effet de tramage
+  // s applique : sur ces series, un CLIC SUR L IMAGE retire une
+  // ligne de pixels sur deux et COLLE les lignes restantes (les
+  // lignes 1, 3, 5... se recollent, aucun espace vide). Chaque
+  // clic recommence sur le resultat : clic 1 garde 1 ligne sur 2,
+  // clic 2 garde 1 sur 4, clic 3 garde 1 sur 8, etc. Ajoute le
+  // dossier d une serie (en minuscules) pour y activer l effet.
+  // La navigation reste possible par les FLECHES DU COMPTEUR (sous
+  // le chien) : changer d image remet la photo a neuf.
+  const TRAMAGE_SERIES = ["test"];
+
+  // REGLAGE : TRAMAGE EFFET ET CAMERA -- deux interrupteurs
+  // independants pour la serie tramee :
+  // TRAMAGE_EFFET   : true = le clic retire une ligne sur deux
+  //                   (les survivantes se collent) ; false = EN
+  //                   PAUSE, le code reste en place mais ne
+  //                   tourne pas.
+  // TRAMAGE_CAMERA  : true = la camera du visiteur remplace les
+  //                   images du dossier ; false = EN PAUSE, les
+  //                   images (test1.jpg...) reviennent.
+  const TRAMAGE_EFFET = false;
+  const TRAMAGE_CAMERA = false;
+
+  // REGLAGE : TRAMAGE CAMERA -- voir le bloc REGLAGE ci-dessus
+  // (TRAMAGE_EFFET / TRAMAGE_CAMERA) : la declaration de
+  // TRAMAGE_CAMERA vit deja la-bas.
+
+  // Le flux camera de la serie tramee (coupe en quittant la page)
+  let fluxTramageCamera = null;
+
+  function arreterTramageCamera() {
+    if (fluxTramageCamera) {
+      fluxTramageCamera.getTracks().forEach(function (t) { t.stop(); });
+      fluxTramageCamera = null;
+    }
+  }
+
+  // REGLAGE : PLI AU CLIC -- series OU l image se plie en deux
+  // comme une feuille de papier au clic (re-clic : deplie). La
+  // navigation reste aux FLECHES DU COMPTEUR ; changer d image
+  // deplie et remet la photo a neuf. Interrupteur : PLI_EFFET.
+  const PLI_SERIES = ["test"];
+  const PLI_EFFET = false;
+
+  // PLIE l image UN PLI DE PLUS a chaque clic, en alternant le
+  // sens comme du vrai papier : pli 1 HORIZONTAL (moitie haute
+  // rabattue sur la basse), pli 2 VERTICAL (moitie gauche sur la
+  // droite), pli 3 horizontal, etc. Le panneau visible devient
+  // deux fois plus petit a chaque pli et ZOOME sur la region de
+  // l image pliee, avec un effet MIROIR a chaque pli (le verso
+  // du volet montre l image en miroir, comme du papier retourne).
+  // L image reste TOUJOURS visible. La navigation reste aux
+  // FLECHES DU COMPTEUR ; changer d image deplie tout.
+  // Etat du pli, porte par le conteneur :
+  //   _pliUrl     : src de l image (le fond des faces)
+  //   _pliRegion  : portion de l image montree ({x,y,w,h}, fractions)
+  //   _pliMiroirX / _pliMiroirY : miroirs cumules des plis passés
+  //   _pliNiveau  : nombre de plis donnes
+  //   _pliOccupe  : vrai pendant l animation (un pli a la fois)
+  function poserFondPli(el, cont) {
+    const rg = cont._pliRegion;
+    const W = cont.offsetWidth, H = cont.offsetHeight;
+    el.style.backgroundImage = "url(" + JSON.stringify(cont._pliUrl) + ")";
+    el.style.backgroundSize = (W / rg.w) + "px " + (H / rg.h) + "px";
+    el.style.backgroundPosition = (-rg.x * W / rg.w) + "px " + (-rg.y * H / rg.h) + "px";
+  }
+  function poserMiroirPli(el, cont) {
+    el.style.transform = "scaleX(" + (cont._pliMiroirX ? -1 : 1) + ") " +
+                         "scaleY(" + (cont._pliMiroirY ? -1 : 1) + ")";
+  }
+  function plier(cadre, img) {
+    let cont = cadre.querySelector(".pli-conteneur");
+    if (!cont) {
+      if (!img.getAttribute("src") || !img.offsetWidth) return;
+      cont = document.createElement("div");
+      cont.className = "pli-conteneur";
+      const rc = cadre.getBoundingClientRect();
+      const ri = img.getBoundingClientRect();
+      cont.style.left = (ri.left - rc.left) + "px";
+      cont.style.top = (ri.top - rc.top) + "px";
+      cont.style.width = img.offsetWidth + "px";
+      cont.style.height = img.offsetHeight + "px";
+      cont._pliUrl = img.src;
+      cont._pliRegion = { x: 0, y: 0, w: 1, h: 1 };   // l image entiere
+      cont._pliMiroirX = false;
+      cont._pliMiroirY = false;
+      cont._pliNiveau = 0;
+      cont._pliOccupe = false;
+      const face = document.createElement("div");
+      face.className = "pli-face";
+      cont.appendChild(face);
+      poserFondPli(face, cont);
+      cadre.appendChild(cont);
+      img.style.visibility = "hidden";   // invisible mais GARDE SA PLACE : le conteneur ne s effondre pas et les boutons .zone-clic restent a leur taille (display:none les mettait a zero hauteur : plus aucun clic possible apres le 1er pli)
+    }
+    if (cont._pliOccupe) return;    // un pli a la fois
+    const W = cont.offsetWidth, H = cont.offsetHeight;
+    // Plus assez de matiere : la feuille est trop petite pour
+    // etre pliee encore (on garde le panneau courant tel quel).
+    if (W < 24 || H < 24) return;
+    cont._pliOccupe = true;
+    cont._pliNiveau++;
+    const horizontal = cont._pliNiveau % 2 === 1;   // 1er pli : horizontal
+    const face = cont.querySelector(".pli-face");
+
+    // Le volet : la moitie haute (ou gauche) du panneau, qui va
+    // se rabattre sur l autre moitie. Son fond est le MEME que
+    // la face : il montre sa moitie de la region visible.
+    const volet = document.createElement("div");
+    volet.className = "pli-flap";
+    if (horizontal) {
+      volet.style.left = "0";
+      volet.style.top = "0";
+      volet.style.width = W + "px";
+      volet.style.height = (H / 2) + "px";
+      volet.style.transformOrigin = "center bottom";   // la ligne de pli
+    } else {
+      volet.style.left = "0";
+      volet.style.top = "0";
+      volet.style.width = (W / 2) + "px";
+      volet.style.height = H + "px";
+      volet.style.transformOrigin = "right center";    // la ligne de pli
+    }
+    volet.style.transition = "transform .9s cubic-bezier(.3,.7,.2,1)";
+    cont.appendChild(volet);
+    // Le fond du volet : pose APRES ses dimensions (poserFondPli
+    // mesure le conteneur, pas le volet -- la region est la meme).
+    poserFondPli(volet, cont);
+    poserMiroirPli(volet, cont);   // depart : meme orientation que la face
+    // Lancement du pli : forcer le navigateur a CALCULER le style
+    // initial du volet (transition non encore lancee) avant de
+    // poser la rotation -- sinon la transition ne part pas et
+    // transitionend ne tire jamais, laissant _pliOccupe a true
+    // pour toujours (le pli 2 et les suivants ne se lancaient plus).
+    void volet.offsetWidth;   // reflow force : le volet est pose SANS rotation
+    requestAnimationFrame(function () {
+      if (horizontal) {
+        volet.style.transform = volet.style.transform + " rotateX(-180deg)";
+      } else {
+        volet.style.transform = volet.style.transform + " rotateY(180deg)";
+      }
+    });
+    // Fin du pli : le panneau devient la moitie pliee (position
+    // de la pile), la region zoome sur la partie pliee, le miroir
+    // du pli est cumule. Appelee UNE SEULE FOIS (transitionend OU filet).
+    let fini = false;
+    const finir = function () {
+      if (fini) return;
+      fini = true;
+      volet.remove();
+      if (horizontal) {
+        cont.style.top = (parseFloat(cont.style.top) + H / 2) + "px";
+        cont.style.height = (H / 2) + "px";
+        cont._pliRegion.h = cont._pliRegion.h / 2;   // la moitie haute
+        cont._pliMiroirY = !cont._pliMiroirY;
+      } else {
+        cont.style.left = (parseFloat(cont.style.left) + W / 2) + "px";
+        cont.style.width = (W / 2) + "px";
+        cont._pliRegion.w = cont._pliRegion.w / 2;   // la moitie gauche
+        cont._pliMiroirX = !cont._pliMiroirX;
+      }
+      poserFondPli(face, cont);
+      poserMiroirPli(face, cont);
+      cont._pliOccupe = false;
+    };
+    volet.addEventListener("transitionend", finir, { once: true });
+    // Filet : si la transition n aboutit pas (onglet cache,
+    // mouvement reduit), finir quand meme
+    setTimeout(finir, 1100);
+  }
+
+  // Remet l image a neuf (changement d image, quitter la page) :
+  // le pli part, la photo entiere revient.
+  function reinitialiserPli(cadre, img) {
+    const cont = cadre ? cadre.querySelector(".pli-conteneur") : null;
+    if (cont) cont.remove();
+    if (img) img.style.visibility = "";
+  }
+
+  // Demarre la camera dans le cadre de la photo : le flux video
+  // remplace l image, a la meme hauteur. Le navigateur demande
+  // L AUTORISATION d utiliser la camera (jamais sans accord). En
+  // cas de refus ou d absence de camera : message dans le compteur.
+  function demarrerTramageCamera(cadre, img, num) {
+    arreterTramageCamera();
+    reinitialiserTramage(img, cadre);
+    img.style.display = "none";   // l image (vide) ne doit rien montrer
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (num) num.textContent = "Camera indisponible.";
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1600 } } })
+      .then(function (flux) {
+        fluxTramageCamera = flux;
+        const video = document.createElement("video");
+        video.className = "tramage-video";
+        video.srcObject = flux;
+        video.muted = true;          // obligatoire pour lire un flux local
+        video.playsInline = true;    // iOS : pas de plein ecran force
+        cadre.appendChild(video);
+        video.play();
+      })
+      .catch(function () {
+        if (num) num.textContent = "Camera refusee.";
+      });
+  }
+
+  // FIGE le flux video en photo : la frame courante est copiee
+  // dans un canvas, puis posee dans l image (en dataURL). La
+  // video et le flux s arretent -- la photo capturee devient
+  // l image de la serie, prete a etre tramee par les clics.
+  function capturerTramageCamera(cadre, img) {
+    const video = cadre.querySelector(".tramage-video");
+    if (!video || !video.videoWidth) return false;
+    const c = document.createElement("canvas");
+    c.width = video.videoWidth;
+    c.height = video.videoHeight;
+    c.getContext("2d").drawImage(video, 0, 0);
+    img.src = c.toDataURL("image/jpeg", 0.92);
+    img.style.display = "block";   // la photo capturee remplace la video
+    video.remove();
+    arreterTramageCamera();
+    return true;
+  }
+
+  // Applique un niveau de tramage : dessine dans un canvas les
+  // lignes de l image qui SURVIVENT (1 sur 2 puissance niveau),
+  // les unes COLLEES aux autres depuis le haut -- aucun trou.
+  // Le canvas, une fois compacte, est ETIRE a la taille d origine
+  // de l image : l image garde sa taille et son ratio a l ecran,
+  // chaque ligne survivante combler la place des lignes retirees.
+  // L image d origine est masquee : le canvas la remplace.
+  function tramer(img, cadre, niveau) {
+    if (!img || !img.complete || !img.naturalWidth) return null;
+    const garder = Math.pow(2, niveau);          // 1 ligne sur 2^n
+    if (img.naturalHeight < garder * 2) return null;  // plus assez de lignes
+    const canvas = document.createElement("canvas");
+    canvas.className = "tramage-canvas";
+    canvas.width = img.naturalWidth;
+    canvas.height = Math.ceil(img.naturalHeight / garder);
+    const ctx = canvas.getContext("2d");
+    // Les lignes gardees, collees les unes aux autres : la ligne
+    // 0, puis la ligne "garder", puis "2 x garder"... Chaque
+    // ligne copiee monte d un cran dans le canvas : plus d espace
+    // vide, les lignes se touchent.
+    let sortie = 0;
+    for (let y = 0; y < img.naturalHeight; y += garder) {
+      ctx.drawImage(img, 0, y, img.naturalWidth, 1,
+                        0, sortie, img.naturalWidth, 1);
+      sortie++;
+    }
+    // Affichage : L IMAGE GARDE SA TAILLE (et donc son ratio) --
+    // le canvas compacte est ETIRE a la hauteur d origine : les
+    // lignes survivantes sont agrandies pour combler les lignes
+    // retirees. A l ecran, l image ne bouge pas d un pixel ; seul
+    // son contenu se deforme (une ligne sur deux est remplacee par
+    // sa voisine). image-rendering: pixelated garde les lignes nettes.
+    canvas.style.width = img.offsetWidth + "px";
+    canvas.style.height = img.offsetHeight + "px";
+    cadre.appendChild(canvas);
+    img.style.display = "none";   // le canvas remplace l image
+    return canvas;
+  }
+
+  // Remet la photo a neuf (changement d image, retour au debut) :
+  // les canvas de tramage partent, l image reapparaît.
+  function reinitialiserTramage(img, cadre) {
+    if (!cadre) return;
+    cadre.querySelectorAll(".tramage-canvas").forEach(function (c) { c.remove(); });
+    if (img) img.style.display = "";
+  }
+
+  // REGLAGE : PIXELS MELANGES AU CLIC -- les series OU un clic
+  // MELANGE TOUS LES PIXELS de l image au hasard (la photo devient
+  // une bouillie de couleurs, comme du bruit). La transition de
+  // la photo intacte a la photo melee se fait en FONDU LEGER
+  // (~0.6 s). Chaque clic remele le resultat, toujours en fondu.
+  // La navigation reste aux FLECHES DU COMPTEUR ; changer d image
+  // remet la photo a neuf.
+  const PIXELS_SERIES = ["test"];
+  const PIXELS_EFFET = true;
+
+  // MELANGE les pixels de l image : la frame est copiee dans un
+  // canvas, chaque pixel est deplace a une position ALEATOIRE
+  // (sans doublon : une vraie permutation), puis le canvas rendu
+  // est pose sur l image en fondu (opacity 0 -> 1).
+  function melangerPixels(img, cadre, duree) {
+    if (!img.getAttribute("src") || !img.naturalWidth) return null;
+    // Le canvas de melange : meme taille que l image source
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    // Lecture de tous les pixels, melange en PLACE (durstenfeld),
+    // reecriture : chaque pixel garde une position unique, mais
+    // ALEATOIRE -- c est une vraie permutation, pas un tirage.
+    const L = ctx.getImageData(0, 0, c.width, c.height);
+    const d = L.data;
+    const nb = c.width * c.height;
+    // Indices de pixels, melanges par Fisher-Yates
+    const idx = new Uint32Array(nb);
+    for (let p = 0; p < nb; p++) idx[p] = p;
+    for (let p = nb - 1; p > 0; p--) {
+      const j = Math.floor(Math.random() * (p + 1));
+      const t = idx[p]; idx[p] = idx[j]; idx[j] = t;
+    }
+    // Nouvelle image : chaque position reçoit le pixel aleatoire
+    const L2 = ctx.createImageData(c.width, c.height);
+    const d2 = L2.data;
+    for (let p = 0; p < nb; p++) {
+      const src = idx[p] * 4;
+      const dst = p * 4;
+      d2[dst] = d[src];
+      d2[dst + 1] = d[src + 1];
+      d2[dst + 2] = d[src + 2];
+      d2[dst + 3] = d[src + 3];
+    }
+    ctx.putImageData(L2, 0, 0);
+    // Pose du canvas melange : MEME TAILLE affichee que l image,
+    // par-dessus, en FONDU LEGER
+    if (getComputedStyle(cadre).position === "static") {
+      cadre.style.position = "relative";
+    }
+    c.className = "melange-canvas";
+    c.style.position = "absolute";
+    c.style.left = img.offsetLeft + "px";
+    c.style.top = img.offsetTop + "px";
+    c.style.width = img.offsetWidth + "px";
+    c.style.height = img.offsetHeight + "px";
+    c.style.opacity = "0";
+    c.style.transition = "opacity " + (duree || 600) + "ms ease";
+    c.style.pointerEvents = "none";
+    cadre.appendChild(c);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        c.style.opacity = "1";
+      });
+    });
+    return c;
+  }
+
+  // Remet la photo a neuf (changement d image, quitter la page) :
+  // les canvas de melange partent, la photo entiere revient.
+  function reinitialiserMelange(cadre) {
+    if (!cadre) return;
+    cadre.querySelectorAll(".melange-canvas").forEach(function (c) { c.remove(); });
+  }
+
   function dessiner(serie) {
     document.title = serie.titre + " - " + SITE.nom;
     if (serie.texte) {
@@ -3351,6 +3768,16 @@
     // l image. Si INFRAROUGE_EFFET est false, rien ne se passe.
     activerInfrarouge(img, vitrine, conteneur);
 
+    // TRAMAGE AU CLIC : si la serie est listee dans TRAMAGE_SERIES,
+    // les CLICS sur l image trament (une ligne sur deux retiree,
+    // lignes restantes collees) au lieu de naviguer. La navigation
+    // reste aux FLECHES DU COMPTEUR ; changer d image remet a neuf.
+    const tramageActif = TRAMAGE_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && TRAMAGE_EFFET;
+    const pliActif = PLI_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PLI_EFFET;
+    const pixelsActif = PIXELS_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PIXELS_EFFET;
+    let niveauTramage = 0;   // 0 = photo intacte ; chaque clic +1
+    let photoCapturee = false;   // CAMERA : true des que le 1er clic a fige le flux
+
     if (total > 1) {
       const btnGauche = document.createElement("button");
       btnGauche.type = "button";
@@ -3371,11 +3798,53 @@
       // Sur mobile (pas de planche) et pour la serie en ordre
       // aleatoire : toujours "image precedente".
       btnGauche.addEventListener("click", function () {
+        if (pixelsActif) { melangerPixels(img, vitrine, 600); return; }
+        if (pliActif) { plier(vitrine, img); return; }
+        if (tramageActif) {
+          // CAMERA EN ATTENTE : le PREMIER clic FIGE le flux video
+          // en photo (les clics suivants trament cette photo)
+          if (TRAMAGE_CAMERA && !photoCapturee) {
+            if (capturerTramageCamera(vitrine, img)) photoCapturee = true;
+            return;
+          }
+          // SERIE TRAMEE : le clic ne navigue PAS, il retire une
+          // ligne sur deux (les survivantes se collent).
+          niveauTramage++;
+          reinitialiserTramage(img, vitrine);
+          if (!tramer(img, vitrine, niveauTramage)) {
+            // plus assez de lignes : on reste au niveau courant
+            reinitialiserTramage(img, vitrine);
+            if (niveauTramage > 1) tramer(img, vitrine, niveauTramage - 1);
+            else niveauTramage = 0;
+            niveauTramage = Math.max(0, niveauTramage - 1);
+          }
+          return;
+        }
         if (surIndex) { basculerIndex(false); return; }
         if (i === 0 && planchePermise() && !aleatoire) { basculerIndex(true); return; }
         avancer(-1);
       });
-      btnDroite.addEventListener("click", function () { avancer(1); });
+      btnDroite.addEventListener("click", function () {
+        if (pixelsActif) { melangerPixels(img, vitrine, 600); return; }
+        if (pliActif) { plier(vitrine, img); return; }
+        if (tramageActif) {
+          if (TRAMAGE_CAMERA && !photoCapturee) {
+            if (capturerTramageCamera(vitrine, img)) photoCapturee = true;
+            return;
+          }
+          // Meme effet a droite : le clic trame, il n avance pas
+          niveauTramage++;
+          reinitialiserTramage(img, vitrine);
+          if (!tramer(img, vitrine, niveauTramage)) {
+            reinitialiserTramage(img, vitrine);
+            if (niveauTramage > 1) tramer(img, vitrine, niveauTramage - 1);
+            else niveauTramage = 0;
+            niveauTramage = Math.max(0, niveauTramage - 1);
+          }
+          return;
+        }
+        avancer(1);
+      });
     }
 
     fig.appendChild(conteneur);
@@ -3418,6 +3887,24 @@
       // Prechargement de l'image suivante (inutile en ordre aleatoire :
       // on ne sait pas laquelle viendra)
       if (total > 1 && !aleatoire) { const suivante = new Image(); suivante.src = chemin((i + 1) % total); }
+      // PLI : changer d image deplie (la photo revient entiere)
+      if (pliActif) reinitialiserPli(vitrine, img);
+      // PIXELS : changer d image remet la photo a neuf (les canvas
+      // de melange partent)
+      if (pixelsActif) reinitialiserMelange(vitrine);
+      // TRAMAGE : changer d image remet la photo a neuf (les canvas
+      // de tramage partent, la photo entiere revient) ; en mode
+      // CAMERA, chaque "image" de la serie = UNE NOUVELLE PHOTO :
+      // le flux repart, le prochain clic la figera.
+      if (tramageActif) {
+        niveauTramage = 0;
+        photoCapturee = false;
+        if (TRAMAGE_CAMERA) {
+          demarrerTramageCamera(vitrine, img, num);
+          return;   // pas de chargement d image du dossier
+        }
+        reinitialiserTramage(img, vitrine);
+      }
       remplacerFondu(vitrine, img, chemin(i), SITE.nom + ", " + serie.titre + ", image " + (i + 1));
     }
 
