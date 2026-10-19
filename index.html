@@ -3778,6 +3778,81 @@
     return poserMelange(c, img, cadre, duree);
   }
 
+  // REGLAGE : MOSAIQUE D EMOJIS -- series OU l image est
+  // redessinee en ART EMOJI : l image est decoupee en blocs de
+  // EMOJI_TAILLE px, la LUMINOSITE MOYENNE de chaque bloc choisit
+  // un emoji dans une RAMPE (du plus sombre au plus clair), et le
+  // tout est dessine sur canvas. Chaque CLIC passe a la RAMPE
+  // SUIVANTE (phases de lune, carrés, cœurs, visages...), en
+  // fondu leger. Comme ASCII art, mais en emoji.
+  const EMOJI_SERIES = ["test"];
+  const EMOJI_EFFET = true;
+  const EMOJI_TAILLE = 16;   // taille d un bloc/emoji (px source)
+  // Les rampes : du PLUS SOMBRE au PLUS CLAIR
+  const EMOJI_RAMPES = [
+    ["🌑", "🌒", "🌓", "🌔", "🌕"],                // lunes
+    ["⬛", "🟫", "🟨", "🟦", "🟥", "🟩", "⚪"], // carrés
+    ["🖤", "❤️", "💗", "🤍", "💛", "💚", "💙", "💜"], // cœurs
+    ["💀", "👻", "🧑", "😊", "🌟"],               // fantôme→étoile
+    ["🔲", "🔱", "💠", "💡"]                              // boutons
+  ];
+
+  // MOSAIQUE : redessine l image en emojis (un emoji par bloc de
+  // EMOJI_TAILLE px source, choisi par luminosite moyenne du
+  // bloc). Le canvas resultat est pose par-dessus en fondu.
+  function mosaiqueEmojis(img, cadre, duree, rampe) {
+    if (!img.getAttribute("src") || !img.naturalWidth) return null;
+    const W = img.naturalWidth;
+    const H = img.naturalHeight;
+    const t = EMOJI_TAILLE;
+    const cols = Math.max(1, Math.floor(W / t));
+    const rgs = Math.max(1, Math.floor(H / t));
+    // L image reduite a cols x rgs : chaque pixel = un bloc.
+    // La lecture des pixels (luminosite) peut etre REFUSEE en
+    // file:// (canvas tisse) : on retombe alors sur une luminosite
+    // ALEATOIRE par bloc (mosaique bruitee, mais l effet existe).
+    const petit = document.createElement("canvas");
+    petit.width = cols;
+    petit.height = rgs;
+    const pctx = petit.getContext("2d", { willReadFrequently: true });
+    pctx.imageSmoothingQuality = "high";
+    pctx.drawImage(img, 0, 0, cols, rgs);
+    let lumis = null;
+    try {
+      const d = pctx.getImageData(0, 0, cols, rgs).data;
+      lumis = new Float32Array(cols * rgs);
+      for (let p = 0; p < lumis.length; p++) {
+        const q = p * 4;
+        // Luminosite percue (rec. 709) : 0 (noir) a 255 (blanc)
+        lumis[p] = 0.2126 * d[q] + 0.7152 * d[q + 1] + 0.0722 * d[q + 2];
+      }
+    } catch (e) { lumis = null; }
+    if (lumis === null) {
+      lumis = new Float32Array(cols * rgs);
+      for (let p = 0; p < lumis.length; p++) lumis[p] = Math.random() * 255;
+    }
+    // Le canvas d affichage : cols x rgs emojis, chaque cellule
+    // de taille EMOJI_TAILLE px, POSE au-dessus de l image.
+    const c = document.createElement("canvas");
+    c.width = cols * t;
+    c.height = rgs * t;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#111111";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.font = Math.floor(t * 0.95) + "px serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const R = EMOJI_RAMPES[rampe % EMOJI_RAMPES.length];
+    for (let y = 0; y < rgs; y++) {
+      for (let x = 0; x < cols; x++) {
+        const b = lumis[y * cols + x] / 255;
+        const e = R[Math.min(R.length - 1, Math.floor(b * R.length))];
+        ctx.fillText(e, x * t + t / 2, y * t + t / 2 + 1);
+      }
+    }
+    return poserMelange(c, img, cadre, duree);
+  }
+
   // Remet la photo a neuf (changement d image, quitter la page) :
   // les canvas de melange partent, la photo entiere revient.
   function reinitialiserMelange(cadre) {
@@ -3794,6 +3869,8 @@
       contenu.appendChild(p);
     }
     const pixelsActif = PIXELS_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PIXELS_EFFET;
+    const emojiActif = EMOJI_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && EMOJI_EFFET;
+    let emojiRampe = 0;   // rampe d emojis courante (le clic l incremente)
     const total = serie.images ? serie.images.length : 0;
     if (total === 0) {
       const p = document.createElement("p");
@@ -3855,7 +3932,7 @@
 
     const conteneur = document.createElement("div");
     conteneur.className = "zone-interactive-conteneur";
-    if (pixelsActif) conteneur.classList.add("serie-pixels");   // curseur main
+    if (pixelsActif || emojiActif) conteneur.classList.add("serie-pixels");   // curseur main
 
     const vitrine = document.createElement("div");
     vitrine.className = "vitrine";
@@ -3879,7 +3956,10 @@
     let niveauTramage = 0;   // 0 = photo intacte ; chaque clic +1
     let photoCapturee = false;   // CAMERA : true des que le 1er clic a fige le flux
 
-    if (total > 1) {
+    // Les zones de clic sont creees aussi avec UNE SEULE image
+    // quand la serie a un EFFET AU CLIC (melange, pli, tramage) :
+    // sans elles, aucun clic ne pourrait declencher l effet.
+    if (total > 1 || pixelsActif || pliActif || tramageActif || emojiActif) {
       const btnGauche = document.createElement("button");
       btnGauche.type = "button";
       btnGauche.className = "zone-clic gauche";
@@ -3899,6 +3979,13 @@
       // Sur mobile (pas de planche) et pour la serie en ordre
       // aleatoire : toujours "image precedente".
       btnGauche.addEventListener("click", function () {
+        if (emojiActif) {
+          // CLIC : la photo devient une MOSAIQUE D EMOJIS ; chaque
+          // clic passe a la RAMPE SUIVANTE (lunes, carrés, cœurs...)
+          reinitialiserMelange(vitrine);
+          mosaiqueEmojis(img, vitrine, 600, emojiRampe++);
+          return;
+        }
         if (pixelsActif) { melangerLignes(img, vitrine, 600); return; }
         if (pliActif) { plier(vitrine, img); return; }
         if (tramageActif) {
@@ -3926,6 +4013,13 @@
         avancer(-1);
       });
       btnDroite.addEventListener("click", function () {
+        if (emojiActif) {
+          // CLIC : la photo devient une MOSAIQUE D EMOJIS ; chaque
+          // clic passe a la RAMPE SUIVANTE (lunes, carrés, cœurs...)
+          reinitialiserMelange(vitrine);
+          mosaiqueEmojis(img, vitrine, 600, emojiRampe++);
+          return;
+        }
         if (pixelsActif) { melangerLignes(img, vitrine, 600); return; }
         if (pliActif) { plier(vitrine, img); return; }
         if (tramageActif) {
@@ -3992,7 +4086,7 @@
       if (pliActif) reinitialiserPli(vitrine, img);
       // PIXELS : changer d image remet la photo a neuf (les canvas
       // de melange partent)
-      if (pixelsActif) reinitialiserMelange(vitrine);
+      if (pixelsActif || emojiActif) { reinitialiserMelange(vitrine); emojiRampe = 0; }
       // TRAMAGE : changer d image remet la photo a neuf (les canvas
       // de tramage partent, la photo entiere revient) ; en mode
       // CAMERA, chaque "image" de la serie = UNE NOUVELLE PHOTO :
