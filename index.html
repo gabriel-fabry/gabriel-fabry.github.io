@@ -3688,6 +3688,35 @@
   // Etire le contraste de la photo (1 % le plus sombre / 1 % le plus
   // clair ignores) pour utiliser TOUTE la palette. false = brut.
   const EMOJI_CONTRASTE = true;
+  // COULEUR : true = chaque case prend l emoji dont la COULEUR
+  // MOYENNE REELLE est la plus proche de celle de la photo
+  // (comparaison en espace Lab, proche de la vision humaine).
+  // false = ancien mode, luminosite seule (palette EMOJI_PALETTE).
+  const EMOJI_COULEUR = true;
+  // Renforce les couleurs de la photo avant comparaison (1 = brut).
+  // Les emojis sont tres satures : 1.2 a 1.5 donne plus de teintes.
+  const EMOJI_SATURATION = 1.25;
+  // Couleur du fond entre les emojis. Une photo claire rendra mieux
+  // avec un fond clair (ex. "#eeeeee").
+  const EMOJI_FOND = "#111111";
+  // Palette du mode COULEUR : large eventail de teintes. Pas besoin
+  // de les trier : la couleur de chacun est mesuree. Ajoute ou
+  // retire des emojis librement (max 255). Eviter ceux avec trop
+  // de details : ils font du bruit.
+  const EMOJI_PALETTE_COULEUR = [
+    "🖤", "⬛", "⚫", "🌑",                   // noirs
+    "🟫", "🤎", "🟤", "🧸",                  // bruns
+    "🍑",                                          // chairs / peau
+    "🔴", "🟥", "❤️",                         // rouges
+    "🟠", "🟧", "🧡",                         // oranges
+    "🟡", "🟨", "💛",                         // jaunes
+    "🟢", "🟩", "💚", "🌿",                 // verts
+    "🔵", "🟦", "💙", "🩵",                 // bleus
+    "🟣", "🟪", "💜",                         // violets
+    "🩷",                                          // rose
+    "🩶", "⬜", "🧊",                         // gris / glace
+    "🤍", "⚪"                                   // blancs
+  ];
   // LA PALETTE : triee du PLUS SOMBRE au PLUS CLAIR. Grille
   // large pour rendre les nuances de la photo.
   const EMOJI_PALETTE = [
@@ -3706,25 +3735,38 @@
     "⚪", "⛵️"                            // blanc pur, voile
   ];
 
-  // ATLAS : chaque emoji de la PALETTE est dessine UNE SEULE FOIS
+  // ATLAS : chaque emoji de la palette est dessine UNE SEULE FOIS
   // dans un petit canvas. La mosaique est ensuite composee avec
-  // drawImage (simple copie de pixels) au lieu de fillText
-  // (rasterisation d une police couleur a chaque case, tres lent).
-  // L atlas est MESURE : la luminance reelle de chaque emoji est
-  // calculee, et une table de 256 entrees (LUT) associe chaque
-  // luminance de photo a l emoji le plus proche. L ordre de la
-  // palette n a donc plus d importance. Construit une fois, mis
-  // en cache.
+  // drawImage (copie de pixels) au lieu de fillText (tres lent).
+  // L atlas est MESURE : pour chaque emoji on calcule sa couleur
+  // moyenne reelle (RGB puis Lab) et sa luminance, tels qu ils
+  // apparaissent sur le fond. Construit une fois, mis en cache.
   let emojiAtlas = null;
+
+  // sRGB (0..255) -> Lab : distance entre couleurs proche de la
+  // perception humaine (contrairement a la distance RGB brute).
+  function rgbVersLab(r, g, b) {
+    function lin(v) {
+      v /= 255;
+      return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+    function f(t) { return t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116; }
+    const R = lin(r), G = lin(g), B = lin(b);
+    const x = f((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047);
+    const y = f(0.2126 * R + 0.7152 * G + 0.0722 * B);
+    const z = f((0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883);
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  }
+
   function construireAtlasEmojis(cellPx) {
     if (emojiAtlas && emojiAtlas.cellPx === cellPx) return emojiAtlas;
-    const P = EMOJI_PALETTE;
+    const P = EMOJI_COULEUR ? EMOJI_PALETTE_COULEUR : EMOJI_PALETTE;
     const n = P.length;
     const a = document.createElement("canvas");
     a.width = n * cellPx;
     a.height = cellPx;
     const actx = a.getContext("2d", { willReadFrequently: true });
-    actx.fillStyle = "#111111";
+    actx.fillStyle = EMOJI_FOND;
     actx.fillRect(0, 0, a.width, a.height);
     actx.font = Math.round(cellPx * EMOJI_ECHELLE) +
       "px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
@@ -3733,22 +3775,30 @@
     for (let k = 0; k < n; k++) {
       actx.fillText(P[k], k * cellPx + cellPx / 2, cellPx / 2 + cellPx * 0.05);
     }
-    // Luminance moyenne reelle de chaque emoji
+    // Couleur moyenne reelle de chaque emoji
     const d = actx.getImageData(0, 0, a.width, a.height).data;
     const lum = new Float32Array(n);
+    const lab = new Float32Array(n * 3);
+    const nb = cellPx * cellPx;
+    let lmin = Infinity, lmax = -Infinity;
     for (let k = 0; k < n; k++) {
-      let somme = 0;
+      let sr = 0, sg = 0, sb = 0;
       for (let y = 0; y < cellPx; y++) {
         for (let x = k * cellPx; x < (k + 1) * cellPx; x++) {
           const q = (y * a.width + x) * 4;
-          somme += 0.2126 * d[q] + 0.7152 * d[q + 1] + 0.0722 * d[q + 2];
+          sr += d[q]; sg += d[q + 1]; sb += d[q + 2];
         }
       }
-      lum[k] = somme / (cellPx * cellPx);
+      const r = sr / nb, g = sg / nb, b = sb / nb;
+      lum[k] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const l3 = rgbVersLab(r, g, b);
+      lab[k * 3] = l3[0]; lab[k * 3 + 1] = l3[1]; lab[k * 3 + 2] = l3[2];
+      if (l3[0] < lmin) lmin = l3[0];
+      if (l3[0] > lmax) lmax = l3[0];
     }
+    // LUT (mode luminosite seule) : luminance photo -> emoji le plus proche
     let lo = Infinity, hi = -Infinity;
     for (let k = 0; k < n; k++) { if (lum[k] < lo) lo = lum[k]; if (lum[k] > hi) hi = lum[k]; }
-    // LUT : luminance photo (0..255) -> index de l emoji le plus proche
     const lut = new Uint8Array(256);
     for (let v = 0; v < 256; v++) {
       const cible = lo + (v / 255) * (hi - lo);
@@ -3759,14 +3809,14 @@
       }
       lut[v] = meilleur;
     }
-    emojiAtlas = { canvas: a, cellPx: cellPx, lut: lut };
+    emojiAtlas = { canvas: a, cellPx: cellPx, n: n, lab: lab, lut: lut, lmin: lmin, lmax: lmax };
     return emojiAtlas;
   }
 
   // MOSAIQUE : redessine l image en emojis. Le nombre de cases est
   // calcule sur la taille AFFICHEE (EMOJI_TAILLE px ecran), et le
   // canvas est a la resolution ecran (x devicePixelRatio, plafonne
-  // a 2) : plus de canvas de 1600 px pour rien.
+  // a 2).
   function mosaiqueEmojis(img, cadre) {
     if (!img.getAttribute("src") || !img.naturalWidth) return null;
     const aw = img.offsetWidth, ah = img.offsetHeight;
@@ -3776,9 +3826,8 @@
     const cols = Math.max(1, Math.round(aw / EMOJI_TAILLE));
     const rgs = Math.max(1, Math.round(ah / EMOJI_TAILLE));
 
-    // Reduction PAR PALIERS (divisions par 2) : une reduction d un
-    // coup 1600 px -> 50 px echantillonne mal et donne un resultat
-    // bruite ; par paliers, chaque case est une vraie moyenne.
+    // Reduction PAR PALIERS (divisions par 2) : chaque case est une
+    // vraie moyenne, sans bruit d echantillonnage.
     let src = img, w = img.naturalWidth, h = img.naturalHeight;
     while (w > cols * 2 || h > rgs * 2) {
       const nw = Math.max(cols, Math.ceil(w / 2));
@@ -3797,34 +3846,80 @@
     pctx.imageSmoothingQuality = "high";
     pctx.drawImage(src, 0, 0, cols, rgs);
 
-    let lumis;
+    const atlas = construireAtlasEmojis(cellPx);
+    const nbCases = cols * rgs;
+    const choix = new Uint8Array(nbCases);   // index d emoji par case
+    let d;
     try {
-      const d = pctx.getImageData(0, 0, cols, rgs).data;
-      lumis = new Uint8Array(cols * rgs);
+      d = pctx.getImageData(0, 0, cols, rgs).data;
+    } catch (e) { return null; }   // file:// : rien (image normale)
+
+    if (EMOJI_COULEUR) {
+      // --- MODE COULEUR : emoji le plus proche en Lab ---
+      const L = new Float32Array(nbCases);
+      const A = new Float32Array(nbCases);
+      const B = new Float32Array(nbCases);
+      for (let p = 0; p < nbCases; p++) {
+        const q = p * 4;
+        const c = rgbVersLab(d[q], d[q + 1], d[q + 2]);
+        L[p] = c[0];
+        A[p] = c[1] * EMOJI_SATURATION;
+        B[p] = c[2] * EMOJI_SATURATION;
+      }
+      if (EMOJI_CONTRASTE) {
+        // Etire la luminosite (percentiles 1 % / 99 %) sur la plage
+        // de luminosite REELLEMENT couverte par la palette ; les
+        // teintes ne sont pas touchees.
+        const tri = Float32Array.from(L).sort();
+        const lo = tri[Math.floor(nbCases * 0.01)];
+        const hi = tri[Math.min(nbCases - 1, Math.floor(nbCases * 0.99))];
+        if (hi - lo > 8) {
+          const etendue = atlas.lmax - atlas.lmin;
+          for (let p = 0; p < nbCases; p++) {
+            const t = Math.max(0, Math.min(1, (L[p] - lo) / (hi - lo)));
+            L[p] = atlas.lmin + t * etendue;
+          }
+        }
+      }
+      const lab = atlas.lab, n = atlas.n;
+      for (let p = 0; p < nbCases; p++) {
+        let meilleur = 0, ecart = Infinity;
+        for (let k = 0; k < n; k++) {
+          const dl = L[p] - lab[k * 3];
+          const da = A[p] - lab[k * 3 + 1];
+          const db = B[p] - lab[k * 3 + 2];
+          const e = dl * dl + da * da + db * db;
+          if (e < ecart) { ecart = e; meilleur = k; }
+        }
+        choix[p] = meilleur;
+      }
+    } else {
+      // --- MODE LUMINOSITE SEULE ---
+      const lumis = new Uint8Array(nbCases);
       const histo = new Uint32Array(256);
-      for (let p = 0; p < lumis.length; p++) {
+      for (let p = 0; p < nbCases; p++) {
         const q = p * 4;
         const v = Math.round(0.2126 * d[q] + 0.7152 * d[q + 1] + 0.0722 * d[q + 2]);
         lumis[p] = v;
         histo[v]++;
       }
       if (EMOJI_CONTRASTE) {
-        // percentiles 1 % / 99 %, puis etirement lineaire
-        const seuil = lumis.length * 0.01;
+        const seuil = nbCases * 0.01;
         let acc = 0, bas = 0, haut = 255;
         for (let v = 0; v < 256; v++) { acc += histo[v]; if (acc >= seuil) { bas = v; break; } }
         acc = 0;
         for (let v = 255; v >= 0; v--) { acc += histo[v]; if (acc >= seuil) { haut = v; break; } }
         if (haut - bas > 8) {
           const k = 255 / (haut - bas);
-          for (let p = 0; p < lumis.length; p++) {
+          for (let p = 0; p < nbCases; p++) {
             lumis[p] = Math.max(0, Math.min(255, Math.round((lumis[p] - bas) * k)));
           }
         }
       }
-    } catch (e) { return null; }   // file:// : rien (image normale)
+      for (let p = 0; p < nbCases; p++) choix[p] = atlas.lut[lumis[p]];
+    }
 
-    const atlas = construireAtlasEmojis(cellPx);
+    // Composition : une copie de pixels par case
     const c = document.createElement("canvas");
     c.width = cols * cellPx;
     c.height = rgs * cellPx;
@@ -3832,9 +3927,8 @@
     ctx.imageSmoothingEnabled = false;
     for (let y = 0; y < rgs; y++) {
       for (let x = 0; x < cols; x++) {
-        const idx = atlas.lut[lumis[y * cols + x]];
         ctx.drawImage(atlas.canvas,
-          idx * cellPx, 0, cellPx, cellPx,
+          choix[y * cols + x] * cellPx, 0, cellPx, cellPx,
           x * cellPx, y * cellPx, cellPx, cellPx);
       }
     }
