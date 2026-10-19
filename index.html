@@ -3676,7 +3676,18 @@
   // normale reste affichee.
   const EMOJI_SERIES = ["test"];
   const EMOJI_EFFET = true;
-  const EMOJI_TAILLE = 6;    // taille d un bloc/emoji (px source) : fin
+  // TAILLE D UN EMOJI, en PIXELS ECRAN (et non plus en px de
+  // l image source : avec des photos de 1600 px de haut affichees
+  // a ~900 px, l ancien reglage de 6 donnait des emojis de 3 px !).
+  // 16 = bien lisible. Essaie 10 (fin) ... 24 (gros). Plus c est
+  // grand, moins il y a d emojis a dessiner, donc plus c est rapide.
+  const EMOJI_TAILLE = 16;
+  // Echelle de la police dans sa case (0.85 = leger jour entre
+  // emojis ; 1.0 = ils se touchent ; >1 = ils se chevauchent).
+  const EMOJI_ECHELLE = 0.9;
+  // Etire le contraste de la photo (1 % le plus sombre / 1 % le plus
+  // clair ignores) pour utiliser TOUTE la palette. false = brut.
+  const EMOJI_CONTRASTE = true;
   // LA PALETTE : triee du PLUS SOMBRE au PLUS CLAIR. Grille
   // large pour rendre les nuances de la photo.
   const EMOJI_PALETTE = [
@@ -3695,48 +3706,136 @@
     "⚪", "⛵️"                            // blanc pur, voile
   ];
 
-  // MOSAIQUE : redessine l image en emojis (un emoji par bloc de
-  // EMOJI_TAILLE px source, choisi par LUMINOSITE PERCUE du
-  // bloc, dans la PALETTE unique). Le canvas remplace l image
-  // affichee (pas de fondu : la page EST la mosaïque).
+  // ATLAS : chaque emoji de la PALETTE est dessine UNE SEULE FOIS
+  // dans un petit canvas. La mosaique est ensuite composee avec
+  // drawImage (simple copie de pixels) au lieu de fillText
+  // (rasterisation d une police couleur a chaque case, tres lent).
+  // L atlas est MESURE : la luminance reelle de chaque emoji est
+  // calculee, et une table de 256 entrees (LUT) associe chaque
+  // luminance de photo a l emoji le plus proche. L ordre de la
+  // palette n a donc plus d importance. Construit une fois, mis
+  // en cache.
+  let emojiAtlas = null;
+  function construireAtlasEmojis(cellPx) {
+    if (emojiAtlas && emojiAtlas.cellPx === cellPx) return emojiAtlas;
+    const P = EMOJI_PALETTE;
+    const n = P.length;
+    const a = document.createElement("canvas");
+    a.width = n * cellPx;
+    a.height = cellPx;
+    const actx = a.getContext("2d", { willReadFrequently: true });
+    actx.fillStyle = "#111111";
+    actx.fillRect(0, 0, a.width, a.height);
+    actx.font = Math.round(cellPx * EMOJI_ECHELLE) +
+      "px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+    actx.textAlign = "center";
+    actx.textBaseline = "middle";
+    for (let k = 0; k < n; k++) {
+      actx.fillText(P[k], k * cellPx + cellPx / 2, cellPx / 2 + cellPx * 0.05);
+    }
+    // Luminance moyenne reelle de chaque emoji
+    const d = actx.getImageData(0, 0, a.width, a.height).data;
+    const lum = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+      let somme = 0;
+      for (let y = 0; y < cellPx; y++) {
+        for (let x = k * cellPx; x < (k + 1) * cellPx; x++) {
+          const q = (y * a.width + x) * 4;
+          somme += 0.2126 * d[q] + 0.7152 * d[q + 1] + 0.0722 * d[q + 2];
+        }
+      }
+      lum[k] = somme / (cellPx * cellPx);
+    }
+    let lo = Infinity, hi = -Infinity;
+    for (let k = 0; k < n; k++) { if (lum[k] < lo) lo = lum[k]; if (lum[k] > hi) hi = lum[k]; }
+    // LUT : luminance photo (0..255) -> index de l emoji le plus proche
+    const lut = new Uint8Array(256);
+    for (let v = 0; v < 256; v++) {
+      const cible = lo + (v / 255) * (hi - lo);
+      let meilleur = 0, ecart = Infinity;
+      for (let k = 0; k < n; k++) {
+        const e = Math.abs(lum[k] - cible);
+        if (e < ecart) { ecart = e; meilleur = k; }
+      }
+      lut[v] = meilleur;
+    }
+    emojiAtlas = { canvas: a, cellPx: cellPx, lut: lut };
+    return emojiAtlas;
+  }
+
+  // MOSAIQUE : redessine l image en emojis. Le nombre de cases est
+  // calcule sur la taille AFFICHEE (EMOJI_TAILLE px ecran), et le
+  // canvas est a la resolution ecran (x devicePixelRatio, plafonne
+  // a 2) : plus de canvas de 1600 px pour rien.
   function mosaiqueEmojis(img, cadre) {
     if (!img.getAttribute("src") || !img.naturalWidth) return null;
-    const W = img.naturalWidth;
-    const H = img.naturalHeight;
-    const t = EMOJI_TAILLE;
-    const cols = Math.max(1, Math.floor(W / t));
-    const rgs = Math.max(1, Math.floor(H / t));
+    const aw = img.offsetWidth, ah = img.offsetHeight;
+    if (!aw || !ah) return null;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cellPx = Math.max(4, Math.round(EMOJI_TAILLE * dpr));
+    const cols = Math.max(1, Math.round(aw / EMOJI_TAILLE));
+    const rgs = Math.max(1, Math.round(ah / EMOJI_TAILLE));
+
+    // Reduction PAR PALIERS (divisions par 2) : une reduction d un
+    // coup 1600 px -> 50 px echantillonne mal et donne un resultat
+    // bruite ; par paliers, chaque case est une vraie moyenne.
+    let src = img, w = img.naturalWidth, h = img.naturalHeight;
+    while (w > cols * 2 || h > rgs * 2) {
+      const nw = Math.max(cols, Math.ceil(w / 2));
+      const nh = Math.max(rgs, Math.ceil(h / 2));
+      const tmp = document.createElement("canvas");
+      tmp.width = nw; tmp.height = nh;
+      const tctx = tmp.getContext("2d");
+      tctx.imageSmoothingQuality = "high";
+      tctx.drawImage(src, 0, 0, nw, nh);
+      src = tmp; w = nw; h = nh;
+    }
     const petit = document.createElement("canvas");
     petit.width = cols;
     petit.height = rgs;
     const pctx = petit.getContext("2d", { willReadFrequently: true });
     pctx.imageSmoothingQuality = "high";
-    pctx.drawImage(img, 0, 0, cols, rgs);
+    pctx.drawImage(src, 0, 0, cols, rgs);
+
     let lumis;
     try {
       const d = pctx.getImageData(0, 0, cols, rgs).data;
-      lumis = new Float32Array(cols * rgs);
+      lumis = new Uint8Array(cols * rgs);
+      const histo = new Uint32Array(256);
       for (let p = 0; p < lumis.length; p++) {
         const q = p * 4;
-        lumis[p] = 0.2126 * d[q] + 0.7152 * d[q + 1] + 0.0722 * d[q + 2];
+        const v = Math.round(0.2126 * d[q] + 0.7152 * d[q + 1] + 0.0722 * d[q + 2]);
+        lumis[p] = v;
+        histo[v]++;
+      }
+      if (EMOJI_CONTRASTE) {
+        // percentiles 1 % / 99 %, puis etirement lineaire
+        const seuil = lumis.length * 0.01;
+        let acc = 0, bas = 0, haut = 255;
+        for (let v = 0; v < 256; v++) { acc += histo[v]; if (acc >= seuil) { bas = v; break; } }
+        acc = 0;
+        for (let v = 255; v >= 0; v--) { acc += histo[v]; if (acc >= seuil) { haut = v; break; } }
+        if (haut - bas > 8) {
+          const k = 255 / (haut - bas);
+          for (let p = 0; p < lumis.length; p++) {
+            lumis[p] = Math.max(0, Math.min(255, Math.round((lumis[p] - bas) * k)));
+          }
+        }
       }
     } catch (e) { return null; }   // file:// : rien (image normale)
-    // Canvas d affichage : un emoji par bloc, taille constante
+
+    const atlas = construireAtlasEmojis(cellPx);
     const c = document.createElement("canvas");
-    c.width = cols * t;
-    c.height = rgs * t;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#111111";
-    ctx.fillRect(0, 0, c.width, c.height);
-    ctx.font = Math.floor(t * 1.05) + "px serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const P = EMOJI_PALETTE;
+    c.width = cols * cellPx;
+    c.height = rgs * cellPx;
+    const ctx = c.getContext("2d", { alpha: false });
+    ctx.imageSmoothingEnabled = false;
     for (let y = 0; y < rgs; y++) {
       for (let x = 0; x < cols; x++) {
-        const b = lumis[y * cols + x] / 255;
-        const e = P[Math.min(P.length - 1, Math.floor(b * P.length))];
-        ctx.fillText(e, x * t + t / 2, y * t + t / 2 + 1);
+        const idx = atlas.lut[lumis[y * cols + x]];
+        ctx.drawImage(atlas.canvas,
+          idx * cellPx, 0, cellPx, cellPx,
+          x * cellPx, y * cellPx, cellPx, cellPx);
       }
     }
     // Le canvas REMPLACE l image affichee (taille affichee identique)
@@ -4000,6 +4099,12 @@
           reinitialiserMelange(vitrine);
           mosaiqueEmojis(img, vitrine);
         };
+        // Un seul ecouteur a la fois : avant, chaque changement
+        // d image en AJOUTAIT un sans jamais retirer les anciens,
+        // donc revenir sur une image deja vue recalculait la
+        // mosaique plusieurs fois.
+        if (img._poserEmoji) img.removeEventListener("load", img._poserEmoji);
+        img._poserEmoji = poser;
         img.addEventListener("load", poser);
         if (img.complete && img.getAttribute("src") === cible) poser();
       }
