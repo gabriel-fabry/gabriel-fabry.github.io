@@ -3666,7 +3666,7 @@
 
   // REGLAGE : MOSAIQUE D EMOJIS -- les series listees affichent
   // chaque image en ART EMOJI : l image est decoupee en blocs de
-  // EMOJI_TAILLE px, la LUMINOSITE PERCUE de chaque bloc choisit
+  // tailleEmoji() px, la LUMINOSITE PERCUE de chaque bloc choisit
   // UN emoji dans la PALETTE (grande, triee du plus sombre au
   // plus clair), et le tout est dessine sur canvas, posé sur l
   // image des son affichage (pas de clic : la page EST la
@@ -3676,12 +3676,19 @@
   // normale reste affichee.
   const EMOJI_SERIES = ["test"];
   const EMOJI_EFFET = true;
-  // TAILLE D UN EMOJI, en PIXELS ECRAN (et non plus en px de
-  // l image source : avec des photos de 1600 px de haut affichees
-  // a ~900 px, l ancien reglage de 6 donnait des emojis de 3 px !).
-  // 16 = bien lisible. Essaie 10 (fin) ... 24 (gros). Plus c est
-  // grand, moins il y a d emojis a dessiner, donc plus c est rapide.
-  const EMOJI_TAILLE = 16;
+  // TAILLE D UN EMOJI, en PIXELS ECRAN (CSS), reglable SEPAREMENT
+  // pour le bureau et pour le mobile (ecran etroit : memes seuils
+  // que le CSS, max-width 760px). Plus c est grand, moins il y a
+  // d emojis a dessiner, donc plus c est rapide.
+  //   bureau : 16 = bien lisible (10 = fin ... 24 = gros)
+  //   mobile : 10 = garde du detail sur un petit ecran
+  const EMOJI_TAILLE_DESKTOP = 16;
+  const EMOJI_TAILLE_MOBILE = 10;
+  const EMOJI_MEDIA_MOBILE = "(max-width: 760px)";
+  function tailleEmoji() {
+    return window.matchMedia(EMOJI_MEDIA_MOBILE).matches
+      ? EMOJI_TAILLE_MOBILE : EMOJI_TAILLE_DESKTOP;
+  }
   // Echelle de la police dans sa case (0.85 = leger jour entre
   // emojis ; 1.0 = ils se touchent ; >1 = ils se chevauchent).
   const EMOJI_ECHELLE = 0.9;
@@ -3814,7 +3821,7 @@
   }
 
   // MOSAIQUE : redessine l image en emojis. Le nombre de cases est
-  // calcule sur la taille AFFICHEE (EMOJI_TAILLE px ecran), et le
+  // calcule sur la taille AFFICHEE (tailleEmoji() px ecran), et le
   // canvas est a la resolution ecran (x devicePixelRatio, plafonne
   // a 2).
   function mosaiqueEmojis(img, cadre) {
@@ -3822,9 +3829,10 @@
     const aw = img.offsetWidth, ah = img.offsetHeight;
     if (!aw || !ah) return null;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const cellPx = Math.max(4, Math.round(EMOJI_TAILLE * dpr));
-    const cols = Math.max(1, Math.round(aw / EMOJI_TAILLE));
-    const rgs = Math.max(1, Math.round(ah / EMOJI_TAILLE));
+    const taille = tailleEmoji();
+    const cellPx = Math.max(4, Math.round(taille * dpr));
+    const cols = Math.max(1, Math.round(aw / taille));
+    const rgs = Math.max(1, Math.round(ah / taille));
 
     // Reduction PAR PALIERS (divisions par 2) : chaque case est une
     // vraie moyenne, sans bruit d echantillonnage.
@@ -3934,6 +3942,7 @@
     }
     // Le canvas REMPLACE l image affichee (taille affichee identique)
     c.className = "melange-canvas";
+    c.dataset.taille = String(taille);
     if (getComputedStyle(cadre).position === "static") cadre.style.position = "relative";
     c.style.position = "absolute";
     c.style.left = img.offsetLeft + "px";
@@ -4148,6 +4157,95 @@
       reevaluerCurseurIndexPlusTard();
     }
 
+    // MOSAIQUE D EMOJIS : changement d image SANS GHOSTING.
+    // Avant : l ancienne mosaique disparaissait d un coup (la photo
+    // brute d avant reapparaissait), un fondu se jouait sur cette
+    // photo brute, puis la nouvelle mosaique surgissait. Maintenant :
+    //  - l ancienne mosaique RESTE affichee pendant le chargement ;
+    //  - la photo brute est cachee en permanence (visibility, la
+    //    mise en page est conservee) : on ne la voit jamais ;
+    //  - la nouvelle mosaique est calculee, puis fondue PAR-DESSUS
+    //    l ancienne, qui s efface ensuite ;
+    //  - un jeton annule les chargements devenus inutiles si on
+    //    clique vite.
+    function afficherEmojis(cible, altTexte) {
+      const jeton = (img._emojiJeton = (img._emojiJeton || 0) + 1);
+      img.style.display = "block";
+      img.style.visibility = "hidden";
+      if (img._poserEmoji) {
+        img.removeEventListener("load", img._poserEmoji);
+        img._poserEmoji = null;
+      }
+      const poser = function () {
+        if (jeton !== img._emojiJeton) return;                  // image perimee
+        if (img.getAttribute("src") !== cible || !img.complete || !img.naturalWidth) return;
+        img.removeEventListener("load", poser);
+        img._poserEmoji = null;
+        const anciens = Array.prototype.slice.call(vitrine.querySelectorAll(".melange-canvas"));
+        const c = mosaiqueEmojis(img, vitrine);                // ajoute le canvas
+        if (!c) {                                               // echec : photo normale
+          anciens.forEach(function (o) { o.remove(); });
+          img.style.visibility = "visible";
+          return;
+        }
+        if (mouvementReduit.matches) {                          // sans animation
+          anciens.forEach(function (o) { o.remove(); });
+          return;
+        }
+        c.style.opacity = "0";
+        void c.offsetWidth;                                     // fige l etat de depart
+        c.style.transition = "opacity 450ms linear";
+        c.style.opacity = "1";
+        // l ancienne ne s efface que quand la nouvelle la couvre deja
+        // a moitie (pas de trou sombre ; si les formats different,
+        // les bords de l ancienne ne disparaissent pas d un coup)
+        anciens.forEach(function (o) {
+          o.style.transition = "opacity 225ms linear 225ms";
+          o.style.opacity = "0";
+        });
+        setTimeout(function () {
+          anciens.forEach(function (o) { o.remove(); });
+        }, 520);
+      };
+      // Prechargement + decodage AVANT de toucher a l image affichee
+      let lance = false;
+      const aller = function () {
+        if (lance || jeton !== img._emojiJeton) return;
+        lance = true;
+        img._poserEmoji = poser;
+        img.addEventListener("load", poser);
+        if (img.getAttribute("src") !== cible) {
+          img.alt = altTexte;
+          img.src = cible;
+        }
+        if (img.complete) poser();
+      };
+      const pre = new Image();
+      pre.onload = function () {
+        if (pre.decode) pre.decode().then(aller, aller); else aller();
+      };
+      pre.onerror = aller;
+      pre.src = cible;
+      if (pre.complete && pre.naturalWidth) pre.onload();
+    }
+
+    // Retourner le telephone / redimensionner la fenetre : la
+    // mosaique est recalculee a la nouvelle taille (sans fondu).
+    // Ignore si la taille affichee n a pas vraiment change (barre
+    // d adresse mobile qui apparait/disparait).
+    function rafraichirEmojis() {
+      if (!img.isConnected || img._poserEmoji) return;          // un changement est en cours
+      if (!img.complete || !img.naturalWidth) return;
+      const ex = vitrine.querySelector(".melange-canvas");
+      if (ex &&
+          Math.abs(parseFloat(ex.style.width) - img.offsetWidth) < 2 &&
+          Math.abs(parseFloat(ex.style.height) - img.offsetHeight) < 2 &&
+          ex.dataset.taille === String(tailleEmoji())) return;
+      const anciens = Array.prototype.slice.call(vitrine.querySelectorAll(".melange-canvas"));
+      const c = mosaiqueEmojis(img, vitrine);
+      if (c) anciens.forEach(function (o) { o.remove(); });
+    }
+
     function montrer(n) {
       i = (n + total) % total;
       num.textContent = numeroCompteur(i + 1, total);
@@ -4162,7 +4260,6 @@
       if (pliActif) reinitialiserPli(vitrine, img);
       // PIXELS : changer d image remet la photo a neuf (les canvas
       // de melange partent)
-      if (emojiActif) reinitialiserMelange(vitrine);
       // TRAMAGE : changer d image remet la photo a neuf (les canvas
       // de tramage partent, la photo entiere revient) ; en mode
       // CAMERA, chaque "image" de la serie = UNE NOUVELLE PHOTO :
@@ -4176,31 +4273,11 @@
         }
         reinitialiserTramage(img, vitrine);
       }
-      remplacerFondu(vitrine, img, chemin(i), SITE.nom + ", " + serie.titre + ", image " + (i + 1));
-      // MOSAIQUE D EMOJIS : posee des que l image affichee est
-      // reellement chargee. remplacerFondu change le src de
-      // l image de maniere ASYNCHRONE (apres decodage) : tester
-      // img.complete ici voyait encore l ANCIENNE image et posait
-      // sa mosaique, puis le load de la nouvelle en posait une
-      // autre -- les canvas s empilaient et se melangeaient. On
-      // verifie donc que le src CHARGE est bien celui vise avant
-      // de poser, et on vide les anciens canvas a chaque fois.
+      const altImg = SITE.nom + ", " + serie.titre + ", image " + (i + 1);
       if (emojiActif) {
-        const cible = chemin(i);
-        reinitialiserMelange(vitrine);   // l ancienne mosaïque part tout de suite
-        const poser = function () {
-          if (img.getAttribute("src") !== cible) return;   // evenement d une autre image
-          reinitialiserMelange(vitrine);
-          mosaiqueEmojis(img, vitrine);
-        };
-        // Un seul ecouteur a la fois : avant, chaque changement
-        // d image en AJOUTAIT un sans jamais retirer les anciens,
-        // donc revenir sur une image deja vue recalculait la
-        // mosaique plusieurs fois.
-        if (img._poserEmoji) img.removeEventListener("load", img._poserEmoji);
-        img._poserEmoji = poser;
-        img.addEventListener("load", poser);
-        if (img.complete && img.getAttribute("src") === cible) poser();
+        afficherEmojis(chemin(i), altImg);
+      } else {
+        remplacerFondu(vitrine, img, chemin(i), altImg);
       }
     }
 
@@ -4278,6 +4355,15 @@
     prec.addEventListener("click", function () { avancer(-1); });
 
     contenu.appendChild(fig);
+    if (emojiActif) {
+      let minuterie = null;
+      if (window._emojiResize) window.removeEventListener("resize", window._emojiResize);
+      window._emojiResize = function () {
+        clearTimeout(minuterie);
+        minuterie = setTimeout(rafraichirEmojis, 250);
+      };
+      window.addEventListener("resize", window._emojiResize);
+    }
     montrer(0);
   }
 
