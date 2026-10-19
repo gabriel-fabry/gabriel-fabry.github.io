@@ -3653,97 +3653,8 @@
   // retombe toute seule sur le MELANGE PAR TUILES (blocs de
   // PIXELS_TUILE px, re dessinees via drawImage, qui ne lit
   // JAMAIS les pixels et marche partout). Pour le vrai melange
-  // pixel par pixel, servir le site par localhost ou HTTPS.
-  const PIXELS_TUILE = 8;   // taille des tuiles du mode repli (px)
-  function melangerPixels(img, cadre, duree) {
-    if (!img.getAttribute("src") || !img.naturalWidth) return null;
-    // Le canvas de melange : meme taille que l image source
-    const c = document.createElement("canvas");
-    c.width = img.naturalWidth;
-    c.height = img.naturalHeight;
-    const ctx = c.getContext("2d", { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0);
-    // Lecture de tous les pixels : peut etre REFUSEE en file://
-    // (canvas "tisse"). On retombe alors sur le melange par tuiles.
-    let L = null;
-    try {
-      L = ctx.getImageData(0, 0, c.width, c.height);
-    } catch (e) {
-      L = null;
-    }
-    if (L === null) {
-      // MODE TUILES (file://) : chaque bloc de PIXELS_TUILE px est
-      // redessine a une position ALEATOIRE (vraie permutation des
-      // tuiles via drawImage -- aucune lecture de pixels).
-      const t = PIXELS_TUILE;
-      const cols = Math.ceil(c.width / t);
-      const rgs = Math.ceil(c.height / t);
-      const nb = cols * rgs;
-      const idx = new Uint32Array(nb);
-      for (let p = 0; p < nb; p++) idx[p] = p;
-      for (let p = nb - 1; p > 0; p--) {
-        const j = Math.floor(Math.random() * (p + 1));
-        const temp = idx[p]; idx[p] = idx[j]; idx[j] = temp;
-      }
-      ctx.fillStyle = "#111111";
-      ctx.fillRect(0, 0, c.width, c.height);
-      for (let dst = 0; dst < nb; dst++) {
-        const src = idx[dst];
-        const sx = (src % cols) * t;
-        const sy = Math.floor(src / cols) * t;
-        const dx = (dst % cols) * t;
-        const dy = Math.floor(dst / cols) * t;
-        ctx.drawImage(img, sx, sy, t, t, dx, dy, t, t);
-      }
-      return poserMelange(c, img, cadre, duree);
-    }
-    // MELANGE PIXEL PAR PIXEL : chaque position garde une place
-    // unique mais ALEATOIRE -- vraie permutation (Fisher-Yates).
-    const d = L.data;
-    const nb = c.width * c.height;
-    const idx = new Uint32Array(nb);
-    for (let p = 0; p < nb; p++) idx[p] = p;
-    for (let p = nb - 1; p > 0; p--) {
-      const j = Math.floor(Math.random() * (p + 1));
-      const t = idx[p]; idx[p] = idx[j]; idx[j] = t;
-    }
-    const L2 = ctx.createImageData(c.width, c.height);
-    const d2 = L2.data;
-    for (let p = 0; p < nb; p++) {
-      const src = idx[p] * 4;
-      const dst = p * 4;
-      d2[dst] = d[src];
-      d2[dst + 1] = d[src + 1];
-      d2[dst + 2] = d[src + 2];
-      d2[dst + 3] = d[src + 3];
-    }
-    ctx.putImageData(L2, 0, 0);
-    return poserMelange(c, img, cadre, duree);
-  }
 
   // Pose le canvas melange sur l image : MEME TAILLE affichee,
-  // par-dessus, en FONDU LEGER (opacity 0 -> 1).
-  function poserMelange(c, img, cadre, duree) {
-    if (getComputedStyle(cadre).position === "static") {
-      cadre.style.position = "relative";
-    }
-    c.className = "melange-canvas";
-    c.style.position = "absolute";
-    c.style.left = img.offsetLeft + "px";
-    c.style.top = img.offsetTop + "px";
-    c.style.width = img.offsetWidth + "px";
-    c.style.height = img.offsetHeight + "px";
-    c.style.opacity = "0";
-    c.style.transition = "opacity " + (duree || 600) + "ms ease";
-    c.style.pointerEvents = "none";
-    cadre.appendChild(c);
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        c.style.opacity = "1";
-      });
-    });
-    return c;
-  }
 
   // MELANGE DES LIGNES : a chaque clic, TOUTES les lignes
   // horizontales de l image sont permutees au hasard (aucun pixel
@@ -3752,31 +3663,6 @@
   // photo sont conservees, seule la structure verticale devient
   // aleatoire. Le rendu est pose en FONDU LEGER par-dessus l
   // image. Implementation par drawImage ligne a ligne : aucune
-  // lecture de pixels (getImageData), fonctionne aussi en file://.
-  function melangerLignes(img, cadre, duree) {
-    if (!img.getAttribute("src") || !img.naturalWidth) return null;
-    const W = img.naturalWidth;
-    const H = img.naturalHeight;
-    const c = document.createElement("canvas");
-    c.width = W;
-    c.height = H;
-    const ctx = c.getContext("2d");
-    if (H < 2) return null;   // une seule ligne : rien a permuter
-    // TOUTES les lignes, permutees aleatoirement (Fisher-Yates) :
-    // chaque ligne garde son contenu, sa position change.
-    const idx = new Uint32Array(H);
-    for (let y = 0; y < H; y++) idx[y] = y;
-    for (let p = H - 1; p > 0; p--) {
-      const j = Math.floor(Math.random() * (p + 1));
-      const t = idx[p]; idx[p] = idx[j]; idx[j] = t;
-    }
-    // Dessin : la ligne idx[y] de l originale devient la ligne y
-    // du canvas -- ordre entierement remanie.
-    for (let y = 0; y < H; y++) {
-      ctx.drawImage(img, 0, idx[y], W, 1, 0, y, W, 1);
-    }
-    return poserMelange(c, img, cadre, duree);
-  }
 
   // REGLAGE : MOSAIQUE D EMOJIS -- les series listees affichent
   // chaque image en ART EMOJI : l image est decoupee en blocs de
@@ -4098,13 +3984,24 @@
         reinitialiserTramage(img, vitrine);
       }
       remplacerFondu(vitrine, img, chemin(i), SITE.nom + ", " + serie.titre + ", image " + (i + 1));
-      // MOSAIQUE D EMOJIS : des que l image affichee est chargee,
-      // sa version emoji la recouvre (meme palette pour toutes).
+      // MOSAIQUE D EMOJIS : posee des que l image affichee est
+      // reellement chargee. remplacerFondu change le src de
+      // l image de maniere ASYNCHRONE (apres decodage) : tester
+      // img.complete ici voyait encore l ANCIENNE image et posait
+      // sa mosaique, puis le load de la nouvelle en posait une
+      // autre -- les canvas s empilaient et se melangeaient. On
+      // verifie donc que le src CHARGE est bien celui vise avant
+      // de poser, et on vide les anciens canvas a chaque fois.
       if (emojiActif) {
-        reinitialiserMelange(vitrine);
-        const poser = function () { reinitialiserMelange(vitrine); mosaiqueEmojis(img, vitrine); };
-        if (img.complete && img.naturalWidth) poser();
-        else img.addEventListener("load", poser, { once: true });
+        const cible = chemin(i);
+        reinitialiserMelange(vitrine);   // l ancienne mosaïque part tout de suite
+        const poser = function () {
+          if (img.getAttribute("src") !== cible) return;   // evenement d une autre image
+          reinitialiserMelange(vitrine);
+          mosaiqueEmojis(img, vitrine);
+        };
+        img.addEventListener("load", poser);
+        if (img.complete && img.getAttribute("src") === cible) poser();
       }
     }
 
