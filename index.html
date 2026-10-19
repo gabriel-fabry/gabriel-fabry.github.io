@@ -3642,34 +3642,6 @@
   const PIXELS_SERIES = ["test"];
   const PIXELS_EFFET = true;
 
-  // REGLAGE : PIXELS PAGES -- la serie pixels n utilise QU UNE
-  // SEULE image du dossier (la premiere) mais l affiche sur
-  // PLUSIEURS PAGES de plus en plus definies : page 1 = 2x2
-  // pixels (4 gros carres), page 2 = 4x4 (16 carres), etc. La
-  // taille AFFICHEE reste celle d une image normale (meme hauteur
-  // dans la vitrine) : seuls les carres grossissent. Chaque page
-  // garde donc le ratio du cadre habituel. Le clic melange les
-  // pixels de la page courante (4 pixels page 1, 16 page 2...).
-  const PIXELS_RESOLUTIONS = [2, 4, 8, 16, 32];
-
-  // Produit la version PIXELISEE d une image : l originale est
-  // redessinee dans un canvas de "taille" x "taille" px (2, 4,
-  // 8...), puis rendue en dataURL. Affichee a la taille normale
-  // avec image-rendering: pixelated, cela donne les gros carres.
-  function srcPixelisee(url, taille, alors) {
-    const im = new Image();
-    im.onload = function () {
-      const c = document.createElement("canvas");
-      c.width = taille;
-      c.height = taille;
-      const ctx = c.getContext("2d");
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(im, 0, 0, taille, taille);
-      alors(c.toDataURL("image/png"));
-    };
-    im.src = url;
-  }
 
   // MELANGE les pixels de l image : la frame est copiee dans un
   // canvas, chaque pixel est deplace a une position ALEATOIRE
@@ -3773,6 +3745,39 @@
     return c;
   }
 
+  // MELANGE DES LIGNES : a chaque clic, TOUTES les lignes
+  // horizontales de l image sont permutees au hasard (aucun pixel
+  // melange A L INTERIEUR des lignes : chaque ligne reste intacte,
+  // c est leur ORDRE qui change). Les couleurs exactes de la
+  // photo sont conservees, seule la structure verticale devient
+  // aleatoire. Le rendu est pose en FONDU LEGER par-dessus l
+  // image. Implementation par drawImage ligne a ligne : aucune
+  // lecture de pixels (getImageData), fonctionne aussi en file://.
+  function melangerLignes(img, cadre, duree) {
+    if (!img.getAttribute("src") || !img.naturalWidth) return null;
+    const W = img.naturalWidth;
+    const H = img.naturalHeight;
+    const c = document.createElement("canvas");
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext("2d");
+    if (H < 2) return null;   // une seule ligne : rien a permuter
+    // TOUTES les lignes, permutees aleatoirement (Fisher-Yates) :
+    // chaque ligne garde son contenu, sa position change.
+    const idx = new Uint32Array(H);
+    for (let y = 0; y < H; y++) idx[y] = y;
+    for (let p = H - 1; p > 0; p--) {
+      const j = Math.floor(Math.random() * (p + 1));
+      const t = idx[p]; idx[p] = idx[j]; idx[j] = t;
+    }
+    // Dessin : la ligne idx[y] de l originale devient la ligne y
+    // du canvas -- ordre entierement remanie.
+    for (let y = 0; y < H; y++) {
+      ctx.drawImage(img, 0, idx[y], W, 1, 0, y, W, 1);
+    }
+    return poserMelange(c, img, cadre, duree);
+  }
+
   // Remet la photo a neuf (changement d image, quitter la page) :
   // les canvas de melange partent, la photo entiere revient.
   function reinitialiserMelange(cadre) {
@@ -3788,10 +3793,8 @@
       p.textContent = serie.texte;
       contenu.appendChild(p);
     }
-    // SERIE PIXELS : les pages sont les RESOLUTIONS, pas les
-    // fichiers -- une seule image du dossier suffit.
-    const pixelsMode = PIXELS_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PIXELS_EFFET;
-    const total = pixelsMode ? PIXELS_RESOLUTIONS.length : (serie.images ? serie.images.length : 0);
+    const pixelsActif = PIXELS_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PIXELS_EFFET;
+    const total = serie.images ? serie.images.length : 0;
     if (total === 0) {
       const p = document.createElement("p");
       p.className = "vide";
@@ -3801,7 +3804,6 @@
     }
 
     const chemin = function (n) {
-      if (pixelsMode) n = 0;   // toujours LA MEME image (la 1re)
       return "images/" + serie.dossier + "/" + encodeURIComponent(serie.images[n]).replace(/%23/g, '#');
     };
 
@@ -3853,7 +3855,7 @@
 
     const conteneur = document.createElement("div");
     conteneur.className = "zone-interactive-conteneur";
-    if (pixelsMode) conteneur.classList.add("serie-pixels");   // curseur main
+    if (pixelsActif) conteneur.classList.add("serie-pixels");   // curseur main
 
     const vitrine = document.createElement("div");
     vitrine.className = "vitrine";
@@ -3873,7 +3875,7 @@
     // reste aux FLECHES DU COMPTEUR ; changer d image remet a neuf.
     const tramageActif = TRAMAGE_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && TRAMAGE_EFFET;
     const pliActif = PLI_SERIES.indexOf(serie.dossier.toLowerCase()) !== -1 && PLI_EFFET;
-    const pixelsActif = pixelsMode;   // calcule plus haut
+
     let niveauTramage = 0;   // 0 = photo intacte ; chaque clic +1
     let photoCapturee = false;   // CAMERA : true des que le 1er clic a fige le flux
 
@@ -3897,7 +3899,7 @@
       // Sur mobile (pas de planche) et pour la serie en ordre
       // aleatoire : toujours "image precedente".
       btnGauche.addEventListener("click", function () {
-        if (pixelsActif) { melangerPixels(img, vitrine, 600); return; }
+        if (pixelsActif) { melangerLignes(img, vitrine, 600); return; }
         if (pliActif) { plier(vitrine, img); return; }
         if (tramageActif) {
           // CAMERA EN ATTENTE : le PREMIER clic FIGE le flux video
@@ -3924,7 +3926,7 @@
         avancer(-1);
       });
       btnDroite.addEventListener("click", function () {
-        if (pixelsActif) { melangerPixels(img, vitrine, 600); return; }
+        if (pixelsActif) { melangerLignes(img, vitrine, 600); return; }
         if (pliActif) { plier(vitrine, img); return; }
         if (tramageActif) {
           if (TRAMAGE_CAMERA && !photoCapturee) {
@@ -4003,15 +4005,6 @@
           return;   // pas de chargement d image du dossier
         }
         reinitialiserTramage(img, vitrine);
-      }
-      // SERIE PIXELS : la page i montre L IMAGE PIXELISEE a la
-      // resolution PIXELS_RESOLUTIONS[i] (2x2, 4x4, 8x8...). Le
-      // fondu habituel s applique entre pages.
-      if (pixelsMode) {
-        srcPixelisee(chemin(0), PIXELS_RESOLUTIONS[i], function (d) {
-          remplacerFondu(vitrine, img, d, SITE.nom + ", " + serie.titre + ", image " + (i + 1));
-        });
-        return;
       }
       remplacerFondu(vitrine, img, chemin(i), SITE.nom + ", " + serie.titre + ", image " + (i + 1));
     }
