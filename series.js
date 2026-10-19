@@ -192,7 +192,8 @@ const SERIES = [
 	  dossier: "test", images: [
 	  	"test1.jpg",
 		  "test2.jpg",
-		  "test3.jpg"
+		  "test3.jpg",
+		  "test4.jpg"
 	  ]
   },
   {
