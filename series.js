@@ -193,7 +193,21 @@ const SERIES = [
 	  	"test1.jpg",
 		  "test2.jpg",
 		  "test3.jpg",
-		  "test4.jpg"
+		  "test4.jpg",
+		  "test5.jpg",
+		  "test6.jpg",
+		  "test7.jpg",
+		  "test8.jpg",
+		  "test9.jpg",
+		  "test10.jpg",
+		  "test11.jpg",
+		  "test12.jpg",
+		  "test13.jpg",
+		  "test14.jpg",
+		  "test15.jpg",
+		  "test16.jpg",
+		  "test17.jpg",
+		  "test18.jpg"
 	  ]
   },
   {
