@@ -1,0 +1,236 @@
+REGLAGES DU SITE - fichier index.html
+Les numeros de ligne sont ceux du index.html nettoye. Chercher le texte indique (Ctrl+F) si tu as deplace des lignes.
+
+========================================================================
+EFFET AU SURVOL (menu + titre du site) - NOUVEAU
+========================================================================
+ligne 20    --survol-rotation:
+             -> Angle du texte au survol. Negatif = sens anti-horaire (-3deg). Essayer -6deg (plus vif), 0deg (aucune rotation).
+ligne 21    --survol-echelle:
+             -> Agrandissement au survol : 1.15 = +15 %. 1.3 = plus gros, 1 = pas d'agrandissement.
+ligne 22    --survol-duree:
+             -> Duree de l'animation (.2s). 0s = instantane, .4s = plus lent.
+ligne 23    --survol-origine:
+             -> Point de pivot : 'left center' (bord gauche) ou 'center' (centre du texte).
+ligne 87    padding: 1px 5px;
+             -> Marge interieure du bloc entoure de couleur (1px haut/bas, 5px gauche/droite).
+ligne 1022  couleurHex === "#00e676"
+             -> Couleur du texte au survol : noir sur le fond vert, blanc sur rouge et bleu.
+ligne 766   const PALETTE_RVB
+             -> Les 3 couleurs rouge / vert / bleu du menu et de la vague du titre (a garder alignees avec --rouge/--vert/--bleu).
+
+========================================================================
+COULEURS, TYPO ET MARGES DU SITE
+========================================================================
+ligne 11    --fond: #ffffff
+             -> Couleur de fond du site.
+ligne 12    --texte: #111111
+             -> Couleur du texte principal.
+ligne 13    --discret: #6b6b6b
+             -> Gris des liens du menu et des textes secondaires.
+ligne 14    --marge: 32px
+             -> Marge generale du site (20px sur mobile, voir @media).
+ligne 15    --largeur-menu: 270px
+             -> Largeur de la colonne de gauche.
+ligne 16    --rouge: #ff1744
+             -> Rouge / vert / bleu utilises par le CSS (barre de vie du boss, etc.).
+ligne 35    font: 14px/1.55
+             -> Police, taille (14px) et interligne (1.55) du site et du menu.
+ligne 68    .nom {
+             -> Titre du site : taille (15px), graisse (500), espace sous le titre (40px).
+ligne 83    nav li { margin: 0 0 3px; }
+             -> Espace entre deux liens du menu.
+ligne 110   nav ul ul { margin: 3px 0 10px 14px; }
+             -> Marges et retrait des sous-menus.
+ligne 112   #menu > ul > li:last-child { margin-top: 16px; }
+             -> Espace avant la section Contact.
+ligne 116   padding: var(--marge) 48px var(--marge) var(--marge);
+             -> Marges de la zone des images (48px a droite).
+ligne 117   max-width: calc(var(--largeur-menu) + 1180px)
+             -> Largeur maximale du contenu.
+ligne 128   main .texte { max-width: 60ch
+             -> Largeur du texte de presentation d'une serie.
+ligne 680   @media (max-width: 760px)
+             -> Seuil de la version mobile (aussi repete dans le JavaScript : '(max-width: 760px)').
+ligne 29    width='24'
+             -> Curseur fleche bleue du site (couleur : %232979ff).
+ligne 374   .zone-clic.gauche {
+             -> Curseur chevron rouge (%23ff1744) ; chevron vert (%2300e676) dans .zone-clic.droite.
+ligne 381   #curseur-index {
+             -> Mot 'index' qui suit la souris : taille (15px).
+
+========================================================================
+TITRE DU SITE : VAGUE DE COULEURS
+========================================================================
+ligne 769   const VAGUE_VITESSE
+             -> Vitesse de la vague en ms (100). Plus petit = plus rapide.
+ligne 786   const BANDE_NOM
+             -> Largeur d'une bande de couleur dans le titre, en lettres (4).
+ligne 823   const BANDE_INDEX
+             -> Largeur d'une bande dans le mot 'index' (2).
+
+========================================================================
+IMAGES ET NAVIGATION
+========================================================================
+ligne 131   main img {
+             -> Hauteur uniforme des photos : 100vh moins 2 marges.
+ligne 413   .pao-duo {
+             -> Ecart entre les deux images de la serie PAO / Carnaval (32px).
+ligne 409   transition: opacity .45s ease;
+             -> Duree du fondu entre deux images (CSS).
+ligne 2332  }, 700);
+             -> Delai (ms) de retrait du calque de fondu apres changement d'image.
+ligne 439   main .compteur {
+             -> Position du compteur 01 / 12 et des fleches (left, bottom).
+ligne 2353  const PLANCHE_SERIES
+             -> Planches contact : hauteur des vignettes et espacement, serie par serie.
+ligne 2375  const PLANCHE_EFFET
+             -> Planches contact : paleur (intensite 0.30), gris (1), duree d'entree et de retour (300 ms).
+
+========================================================================
+ACCUEIL : GRATTAGE, VENT, RELOAD
+========================================================================
+ligne 1123  const TAS_TAILLE
+             -> Taille des pixels du monticule (3px) ; TAS_BIN = largeur des tranches ; TAS_SOL = decalage du sol.
+ligne 1753  const RESOLUTION_MAX
+             -> Resolution du canvas de grattage (1600px).
+ligne 1756  PINCEAU_TAILLE_DESKTOP =
+             -> Taille du pinceau de grattage sur ordinateur (0.04) ; mobile : ligne suivante (0.03).
+ligne 1760  REPARATION_CLIC_DROIT = true
+             -> Clic droit repare le grattage (true / false).
+ligne 1853  const LOT_SONDES
+             -> Nombre d'images testees d'un coup pour compter le dossier accueil (10).
+ligne 1903  r <= 2.5
+             -> Ratio maxi accepte pour les photos d'accueil (2,5 fois la hauteur).
+ligne 1860  604800000
+             -> Duree du cache des dimensions d'images : 7 jours en ms.
+ligne 1984  opacity 0.45s ease
+             -> Duree du fondu quand on change la photo d'accueil (reload).
+ligne 1302  const ICONE_VENT
+             -> Fichiers des icones souffle (blow.png) et reload (reload.png).
+ligne 315   left: calc(-24px - var(--marge))
+             -> Position de l'icone souffle ; reload : left: calc(-68px - var(--marge)).
+ligne 349   width: 28px
+             -> Taille des icones souffle et reload (28px ; 20px sur mobile).
+ligne 1387  if (rms > 0.03)
+             -> Seuil de declenchement du souffle au micro (0.03).
+ligne 1389  Math.max(0.9, (rms - 0.03) / 0.08)
+             -> Plancher (0.9) et vitesse de saturation (0.08) de la puissance du souffle.
+ligne 1474  30 + force * 260
+             -> Quantite de pixels arraches par image (puissance du souffle).
+ligne 1492  vx: 5 + Math.random() * 9
+             -> Vitesse de la poussiere envolee (vx droite, vy haut).
+ligne 1331  const grave = 220
+             -> Frequences du clic d'activation du micro : 220 Hz et 440 Hz.
+
+========================================================================
+EFFETS OPTIONNELS PAR SERIE (interrupteurs)
+========================================================================
+ligne 2394  const INFRAROUGE_EFFET
+             -> Negatif au survol : true / false (desactive). Rayon du cercle dans INFRAROUGE (50).
+ligne 2443  const TRAMAGE_SERIES
+             -> Series concernees par le tramage au clic.
+ligne 2446  const TRAMAGE_EFFET
+             -> Tramage on/off ; TRAMAGE_CAMERA : camera du visiteur on/off.
+ligne 2459  const PLI_SERIES
+             -> Series concernees par le pliage au clic.
+ligne 2460  const PLI_EFFET
+             -> Pliage on/off.
+ligne 2521  transform .9s cubic-bezier
+             -> Duree et courbe de l'animation de pli (0.9s).
+ligne 2630  const EMOJI_SERIES
+             -> Series en mosaique d'emojis.
+ligne 2631  EMOJI_EFFET = true
+             -> Mosaique d'emojis on/off.
+ligne 2633  const EMOJI_TAILLE_DESKTOP
+             -> Taille d'un emoji sur ordinateur (8px) ; mobile EMOJI_TAILLE_MOBILE (6px).
+ligne 2641  const EMOJI_FONDU_MS
+             -> Fondu entre mosaiques en ms (0 = instantane).
+ligne 2642  const EMOJI_ECHELLE
+             -> Jeu entre les emojis (0.9).
+ligne 2643  const EMOJI_CONTRASTE
+             -> Etirement du contraste (true / false).
+ligne 2644  const EMOJI_SATURATION
+             -> Saturation des couleurs avant comparaison (1.25).
+ligne 2641  const EMOJI_FOND
+             -> Couleur du fond entre les emojis.
+ligne 2646  const EMOJI_PALETTE
+             -> Liste des emojis utilises.
+
+========================================================================
+CHIEN ET BULLES DE DIALOGUE
+========================================================================
+ligne 214   .chien-dort {
+             -> Position (left, bottom) et taille (80px) du chien.
+ligne 3196  const ANIMATION_CHIEN
+             -> Tout le comportement du chien : sprites, durees, laser.
+ligne 3200  dodo: {
+             -> Sequences de sprites [numero, duree ms] : dodo, reveil, parle, cyclope.
+ligne 3221  clicsReveil: 1
+             -> Clics pour le reveiller (1).
+ligne 3222  eveilMs: 5000
+             -> Delai avant qu'il se rendorme (5 s).
+ligne 3223  clicsCyclope: 10
+             -> Clics de suite pour declencher l'oeil rouge (10).
+ligne 3225  suiviMs: 10000
+             -> Duree pendant laquelle l'oeil suit le pointeur (10 s).
+ligne 3237  laserRatres: 2
+             -> Nombre de tirs rates avant le tir qui touche.
+ligne 3228  laserFonduMs: 3000
+             -> Duree de la destruction du pointeur (3 s).
+ligne 3245  laserImpactRayon: 120
+             -> Rayon du trou d'impact sur les images (120px).
+ligne 236   .bulle-chien {
+             -> Bulle : fond, contour, arrondi, position au-dessus du chien.
+ligne 3352  const BULLE_CHIEN_STYLE
+             -> Police, taille (16px), gras, italique, souligne du texte de la bulle.
+ligne 3360  const BULLE_CHIEN_FLECHE
+             -> Fleche clignotante : cadence (800 ms), taille, position.
+ligne 3370  const BULLE_CHIEN_MARGES
+             -> Marges interne (14px) et externe (32px) de la bulle.
+ligne 3375  const BULLE_CHIEN_TEMPS
+             -> Vitesse d'ecriture (55 ms par lettre) et delai entre bulles (1400 ms).
+ligne 3379  const BULLE_CHIEN_DEFAUT
+             -> Textes par defaut de l'accueil. Autres pages : fichiers textes/chien-<page>.txt.
+
+========================================================================
+JEU DE LA MOUCHE (page Contact)
+========================================================================
+ligne 4468  const NIVEAU_MAX
+             -> Nombre de mouches a tuer avant le boss (50).
+ligne 4471  const MOT_FIN
+             -> Message de victoire.
+ligne 4472  const PV_BOSS
+             -> Points de vie du boss (20).
+ligne 4497  let timerJeu = 99
+             -> Duree de la partie en secondes (99).
+ligne 4501  const DUREE_CHARGE
+             -> Duree de charge du coup puissant (2000 ms).
+ligne 4503  const DELAI_BARRE_CHARGE
+             -> Delai avant l'apparition de la barre de charge (300 ms).
+ligne 4514  const TAPETTE = {
+             -> Fichiers, vitesse des animations (msCoup1/msCoup2 : 110 ms) et tailles de la tapette.
+ligne 4521  tailleCurseur: 40
+             -> Tailles : curseur 40px, coup normal 50px (tailleCoup1), coup charge 40px (tailleCoup2).
+ligne 4688  secouerElement(curseurTapetteImg, 250, 3)
+             -> Secousse du coup normal : duree 250 ms, amplitude 3px.
+ligne 5073  const vitesseMax = phase2Boss ? 5.2 : 3.0
+             -> Vitesse du boss : 3.0 puis 5.2 en phase 2.
+ligne 5489  const vitesseMax = 6.0
+             -> Vitesse maximale des mouches (6.0).
+ligne 513   .mouche {
+             -> Taille d'une mouche (7px) ; .mouche.boss : taille du boss (42px).
+ligne 559   #hud-jeu {
+             -> Position du compteur et du timer ; #hud-compteur : espace entre les deux (6px).
+ligne 583   #barre-vie-piste {
+             -> Barre de vie du boss : largeur (35%) et hauteur (9px).
+ligne 591   #barre-charge {
+             -> Barre de charge (44x8px, bordure noire).
+ligne 647   body.screen-shake {
+             -> Secousse d'ecran : 0.25s (coup normal), body.screen-shake-fort : 0.4s.
+ligne 4876  const TAILLES_TEXTE
+             -> Echelle des textes pixel art : compteur, timer, nom du boss, GAME OVER, CONGRATULATIONS.
+ligne 4889  const FONT_TYPO_CARACTERES
+             -> Ordre des caracteres de sprites/typo.png ; FONT_TYPO_LARG / FONT_TYPO_HAUT : taille d'une case (7x8).
+ligne 5018  const margeMot = 32
+             -> Air autour des mots de fin sur petit ecran.

@@ -142,7 +142,6 @@ const SERIES = [
 		"cammaron35.jpg",
 		"cammaron36.jpg",
 		"cammaron37.jpg",
-		"cammaron38.jpg",
     ]
   },
   {
