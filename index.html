@@ -414,7 +414,7 @@
   }
   .zone-clic.gauche {
     left: 0;
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%23ff1744'%20stroke='%23ffffff'%20stroke-width='3'%20stroke-linejoin='round'%20paint-order='stroke'%20text-anchor='middle'%3E%E2%80%B9%3C/text%3E%3C/svg%3E") 24 24, pointer;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='29,12%2014,12%2014,5%203,16%2014,27%2014,20%2029,20'%20fill='%23ff1744'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 24 24, pointer;
   }
   .zone-clic.gauche.vers-index {
     cursor: none;
@@ -434,7 +434,7 @@
   #curseur-index .lettre { display: inline-block; transition: color .25s ease; }
   .zone-clic.droite {
     right: 0;
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%2300e676'%20stroke='%23ffffff'%20stroke-width='3'%20stroke-linejoin='round'%20paint-order='stroke'%20text-anchor='middle'%3E%E2%80%BA%3C/text%3E%3C/svg%3E") 24 24, pointer;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='3,12%2018,12%2018,5%2029,16%2018,27%2018,20%203,20'%20fill='%2300e676'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 24 24, pointer;
   }
 
   .vitrine { position: relative; display: block; max-width: 100%; }
@@ -3994,15 +3994,18 @@
       chaudX = 24;
       chaudY = 24;
       g.scale(1.5, 1.5);
-      g.font = "bold 28px Helvetica, Arial, sans-serif";
-      g.textAlign = "center";
-      g.textBaseline = "alphabetic";
-      g.lineWidth = 3;
+      const pts = rouge
+        ? [[29, 12], [14, 12], [14, 5], [3, 16], [14, 27], [14, 20], [29, 20]]
+        : [[3, 12], [18, 12], [18, 5], [29, 16], [18, 27], [18, 20], [3, 20]];
+      g.beginPath();
+      pts.forEach(function (pt, k) { if (k) g.lineTo(pt[0], pt[1]); else g.moveTo(pt[0], pt[1]); });
+      g.closePath();
+      g.lineWidth = 2.5;
       g.lineJoin = "round";
       g.strokeStyle = "#ffffff";
-      g.strokeText(rouge ? "\u2039" : "\u203A", 16, 24);
+      g.stroke();
       g.fillStyle = rouge ? "#ff1744" : "#00e676";
-      g.fillText(rouge ? "\u2039" : "\u203A", 16, 24);
+      g.fill();
     }
     const d = g.getImageData(0, 0, c.width, c.height).data;
     const pixels = [];
