@@ -18,9 +18,14 @@
     --bleu: #2979ff;
     /* REGLAGE : EFFET AU SURVOL DU MENU ET DU TITRE */
     --survol-rotation: -3deg;
-    --survol-echelle: 1.20;
+    --survol-echelle: 1.15;
     --survol-duree: .2s;
     --survol-origine: left center;
+    /* REGLAGE : ICONE RELOAD -- duree du tour au survol, angle de repos (60deg = 1/6 de tour horaire) */
+    --reload-duree: .6s;
+    --reload-angle: 60deg;
+    /* REGLAGE : HAUTEUR DE LA BOITE COLOREE DU MENU -- 1.2 = fin, 1.55 = haute */
+    --boite-ligne: 1.2;
   }
   * { box-sizing: border-box; }
   html {
@@ -75,6 +80,21 @@
     transform-origin: var(--survol-origine);
     transition: transform var(--survol-duree) ease;
   }
+  /* REGLAGE : POINTS BRAILLE -- taille d'une cellule (width/height), espace entre lettres */
+  nav .menu-texte.braille-actif {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(var(--boite-ligne) * 1em + 2px);
+  }
+  nav .braille-cellule {
+    flex: none;
+    width: .56em;
+    height: .8em;
+    fill: currentColor;
+    overflow: visible;
+  }
+  nav .braille-cellule + .braille-cellule { margin-left: .26em; }
   .nom:hover, .nom:focus-visible, .nom:active {
     transform: rotate(var(--survol-rotation)) scale(var(--survol-echelle));
   }
@@ -83,28 +103,41 @@
   nav li { margin: 0 0 3px; }
   nav a, nav button {
     display: inline-block;
-    line-height: 1.2;
+    vertical-align: top;
     padding: 1px 5px;
-    margin: calc(.175em - 1px) -5px;
-    transform-origin: var(--survol-origine);
+    margin: calc((1.55 - var(--boite-ligne)) * .5em - 1px) -5px;
     border: 0;
-    background: linear-gradient(var(--survol-fond, transparent), var(--survol-fond, transparent)) no-repeat left center / 0% 100%;
+    background: none;
     font: inherit;
+    line-height: var(--boite-ligne);
     font-style: italic;
     color: var(--discret);
     text-align: left;
     text-decoration: none;
-    transition: background-size var(--survol-duree) ease, color var(--survol-duree) ease, transform var(--survol-duree) ease;
+    transition: color var(--survol-duree) ease;
     -webkit-tap-highlight-color: transparent;
     cursor: pointer;
+  }
+  nav .menu-texte {
+    pointer-events: none;
+    display: block;
+    margin: -1px -5px;
+    padding: 1px 5px;
+    transform-origin: var(--survol-origine);
+    background: linear-gradient(var(--survol-fond, transparent), var(--survol-fond, transparent)) no-repeat left center / 0% 100%;
+    transition: background-size var(--survol-duree) ease, transform var(--survol-duree) ease;
   }
   nav a[aria-current="page"] { color: var(--texte); text-decoration: underline; text-underline-offset: 3px; }
   nav button[aria-expanded="true"] { color: var(--texte); }
   nav a:hover, nav button:hover,
   nav a:active, nav button:active,
   nav a:focus-visible, nav button:focus-visible {
-    background-size: 100% 100%;
     color: var(--survol-texte, var(--texte));
+  }
+  nav a:hover .menu-texte, nav button:hover .menu-texte,
+  nav a:active .menu-texte, nav button:active .menu-texte,
+  nav a:focus-visible .menu-texte, nav button:focus-visible .menu-texte {
+    background-size: 100% 100%;
     transform: rotate(var(--survol-rotation)) scale(var(--survol-echelle));
   }
   nav ul ul { margin: 3px 0 10px 14px; }
@@ -350,6 +383,14 @@
     height: 28px;
     image-rendering: pixelated;
   }
+  .bouton-rafraichir img { transform: rotate(var(--reload-angle)) scaleY(-1); }
+  .bouton-rafraichir:hover img, .bouton-rafraichir:focus-visible img {
+    animation: tour-reload var(--reload-duree) ease;
+  }
+  @keyframes tour-reload {
+    from { transform: rotate(var(--reload-angle)) scaleY(-1); }
+    to { transform: rotate(calc(var(--reload-angle) + 360deg)) scaleY(-1); }
+  }
 
   .zone-interactive-conteneur {
     position: relative;
@@ -373,7 +414,7 @@
   }
   .zone-clic.gauche {
     left: 0;
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%23ff1744'%20stroke='%23ffffff'%20stroke-width='2'%20stroke-linejoin='round'%20paint-order='stroke'%20text-anchor='middle'%3E%E2%80%B9%3C/text%3E%3C/svg%3E") 24 24, pointer;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%23ff1744'%20stroke='%23ffffff'%20stroke-width='3'%20stroke-linejoin='round'%20paint-order='stroke'%20text-anchor='middle'%3E%E2%80%B9%3C/text%3E%3C/svg%3E") 24 24, pointer;
   }
   .zone-clic.gauche.vers-index {
     cursor: none;
@@ -393,7 +434,7 @@
   #curseur-index .lettre { display: inline-block; transition: color .25s ease; }
   .zone-clic.droite {
     right: 0;
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%2300e676'%20stroke='%23ffffff'%20stroke-width='2'%20stroke-linejoin='round'%20paint-order='stroke'%20text-anchor='middle'%3E%E2%80%BA%3C/text%3E%3C/svg%3E") 24 24, pointer;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Ctext%20x='16'%20y='24'%20font-size='28'%20font-family='Helvetica,%20Arial,%20sans-serif'%20font-weight='bold'%20fill='%2300e676'%20stroke='%23ffffff'%20stroke-width='3'%20stroke-linejoin='round'%20paint-order='stroke'%20text-anchor='middle'%3E%E2%80%BA%3C/text%3E%3C/svg%3E") 24 24, pointer;
   }
 
   .vitrine { position: relative; display: block; max-width: 100%; }
@@ -726,9 +767,10 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    nav a, nav button, .nom, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; }
-    nav a:hover, nav button:hover, nav a:active, nav button:active,
-    nav a:focus-visible, nav button:focus-visible,
+    .bouton-rafraichir:hover img, .bouton-rafraichir:focus-visible img { animation: none; }
+    nav a, nav button, nav .menu-texte, .nom, .nom .lettre, .vitrine img.superpose, .pao-cadre img.superpose { transition: none; }
+    nav a:hover .menu-texte, nav button:hover .menu-texte, nav a:active .menu-texte, nav button:active .menu-texte,
+    nav a:focus-visible .menu-texte, nav button:focus-visible .menu-texte,
     .nom:hover, .nom:active, .nom:focus-visible { transform: none; }
     .mouche .ailes { animation: none; }
     .mouche.touche { animation: none; }
@@ -1014,20 +1056,112 @@
     bouton.setAttribute("aria-expanded", String(etat));
   }
 
+  // REGLAGE : SECTIONS DU MENU QUI PASSENT EN BRAILLE AU SURVOL
+  const BRAILLE_SECTIONS = ["voy"];
+  const BRAILLE_LETTRES = {
+    a: "⠁", b: "⠃", c: "⠉", d: "⠙", e: "⠑", f: "⠋", g: "⠛", h: "⠓", i: "⠊", j: "⠚", k: "⠅", l: "⠇", m: "⠍",
+    n: "⠝", o: "⠕", p: "⠏", q: "⠟", r: "⠗", s: "⠎", t: "⠞", u: "⠥", v: "⠧", w: "⠺", x: "⠭", y: "⠽", z: "⠵",
+    "é": "⠿", "à": "⠷", "è": "⠮", "ù": "⠾", "â": "⠡", "ê": "⠣", "î": "⠩", "ô": "⠹", "û": "⠱",
+    "ë": "⠫", "ï": "⠻", "ü": "⠳", "ç": "⠯", "œ": "⠪"
+  };
+  function versBraille(texte) {
+    let sortie = "";
+    let enNombre = false;
+    for (const ch of texte) {
+      const bas = ch.toLowerCase();
+      if (ch >= "0" && ch <= "9") {
+        if (!enNombre) sortie += "⠼";
+        enNombre = true;
+        sortie += BRAILLE_LETTRES["jabcdefghi"[Number(ch)]];
+      } else if (BRAILLE_LETTRES[bas]) {
+        enNombre = false;
+        sortie += (ch !== bas ? "⠠" : "") + BRAILLE_LETTRES[bas];
+      } else {
+        enNombre = false;
+        sortie += ch;
+      }
+    }
+    return sortie;
+  }
+
   let indexCouleurMenu = 0;
+  // REGLAGE : SURLIGNAGE DE LA SECTION CONTACT
+  const CONTACT_FOND = "#000000";
+  const CONTACT_TEXTE = "#ffffff";
   function colorerMenu(el) {
+    if (el === btnContact || ulContact.contains(el)) {
+      el.style.setProperty("--survol-fond", CONTACT_FOND);
+      el.style.setProperty("--survol-texte", CONTACT_TEXTE);
+      return;
+    }
     const couleurHex = PALETTE_RVB[indexCouleurMenu];
     indexCouleurMenu = (indexCouleurMenu + 1) % PALETTE_RVB.length;
 
-    const couleurTexte = (couleurHex === "#00e676") ? "#000000" : "#ffffff";
     el.style.setProperty("--survol-fond", couleurHex);
-    el.style.setProperty("--survol-texte", couleurTexte);
+    el.style.setProperty("--survol-texte", "#ffffff");
   }
 
   menu.querySelectorAll("a, button").forEach(function (el) {
     el.addEventListener("mouseenter", function () { colorerMenu(el); });
     el.addEventListener("touchstart", function () { colorerMenu(el); }, { passive: true });
     el.addEventListener("focus", function () { if (el.matches(":focus-visible")) colorerMenu(el); });
+
+    const zone = document.createElement("span");
+    zone.className = "menu-texte";
+    zone.textContent = el.textContent;
+    el.textContent = "";
+    el.appendChild(zone);
+
+    const texteOrigine = zone.textContent;
+    if (BRAILLE_SECTIONS.indexOf(texteOrigine.trim().toLowerCase()) === -1) return;
+    const texteBraille = versBraille(texteOrigine);
+    el.setAttribute("aria-label", texteOrigine);
+    const POINTS_X = [1, 4.6];
+    const POINTS_Y = [1, 4, 7];
+    function afficherBraille() {
+      zone.textContent = "";
+      zone.classList.add("braille-actif");
+      for (const ch of texteBraille) {
+        const code = ch.codePointAt(0) - 0x2800;
+        if (code < 0 || code > 255) { zone.appendChild(document.createTextNode(ch)); continue; }
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "braille-cellule");
+        svg.setAttribute("viewBox", "0 0 5.6 8");
+        svg.setAttribute("aria-hidden", "true");
+        for (let d = 0; d < 6; d++) {
+          if (!(code & (1 << d))) continue;
+          const point = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          point.setAttribute("cx", POINTS_X[d < 3 ? 0 : 1]);
+          point.setAttribute("cy", POINTS_Y[d % 3]);
+          point.setAttribute("r", 1);
+          svg.appendChild(point);
+        }
+        zone.appendChild(svg);
+      }
+    }
+    let largeurBoite = 0;
+    function enBraille() {
+      if (zone.classList.contains("braille-actif")) return;
+      if (!largeurBoite) {
+        const largeurNormale = el.offsetWidth;
+        afficherBraille();
+        largeurBoite = Math.max(largeurNormale, el.offsetWidth);
+        el.style.minWidth = largeurBoite + "px";
+      } else {
+        afficherBraille();
+      }
+    }
+    function enNormal() {
+      zone.textContent = texteOrigine;
+      zone.classList.remove("braille-actif");
+    }
+    el.addEventListener("mouseenter", enBraille);
+    el.addEventListener("mouseleave", enNormal);
+    el.addEventListener("focus", function () { if (el.matches(":focus-visible")) enBraille(); });
+    el.addEventListener("blur", enNormal);
+    el.addEventListener("touchstart", enBraille, { passive: true });
+    el.addEventListener("touchend", function () { setTimeout(enNormal, 800); });
+    el.addEventListener("touchcancel", enNormal);
   });
 
   function trouver(dossier) {
