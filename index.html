@@ -3016,7 +3016,7 @@
         "uniform vec3 uFond;\n" +
         "void main() {\n" +
         "  vec3 col = vVide > 0.5 ? uFond : texture2D(uTex, vUv).rgb;\n" +
-        "  gl_FragColor = vec4(col * vOmbre, 1.0);\n" +
+        "  gl_FragColor = vec4(col * (vVide > 0.5 ? 1.0 : vOmbre), 1.0);\n" +
         "}\n"));
       gl.linkProgram(prog);
       if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
@@ -3075,8 +3075,11 @@
       gl.vertexAttribPointer(aTime, 2, gl.FLOAT, false, 24, 16);
       ext.vertexAttribDivisorANGLE(aTime, 1);
 
-      const fond = /^#([0-9a-f]{6})$/i.exec(EMOJI_FOND);
-      const v = fond ? parseInt(fond[1], 16) : 0;
+      const teinte = vieux
+        ? EMOJI_FOND
+        : getComputedStyle(document.documentElement).getPropertyValue("--fond").trim();
+      const fond = /^#([0-9a-f]{6})$/i.exec(teinte);
+      const v = fond ? parseInt(fond[1], 16) : (vieux ? 0 : 0xffffff);
       gl.clearColor(((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255, 1);
       gl.uniform3f(gl.getUniformLocation(prog, "uFond"), ((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255);
       gl.viewport(0, 0, w.width, w.height);
