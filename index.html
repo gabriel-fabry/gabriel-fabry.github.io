@@ -414,7 +414,7 @@
   }
   .zone-clic.gauche {
     left: 0;
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='29,12%2014,12%2014,5%203,16%2014,27%2014,20%2029,20'%20fill='%23ff1744'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 24 24, pointer;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='29,12%2014,12%2014,5%203,16%2014,27%2014,20%2029,20'%20fill='%23ff1744'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 12 12, pointer;
   }
   .zone-clic.gauche.vers-index {
     cursor: none;
@@ -434,7 +434,7 @@
   #curseur-index .lettre { display: inline-block; transition: color .25s ease; }
   .zone-clic.droite {
     right: 0;
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='3,12%2018,12%2018,5%2029,16%2018,27%2018,20%203,20'%20fill='%2300e676'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 24 24, pointer;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='3,12%2018,12%2018,5%2029,16%2018,27%2018,20%203,20'%20fill='%2300e676'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 12 12, pointer;
   }
 
   .vitrine { position: relative; display: block; max-width: 100%; }
@@ -2934,59 +2934,143 @@
 
   function lancerRetournement(c, vieux) {
     const m = c._mosaique;
-    const ctx = c.getContext("2d");
-    const cols = m.cols, cp = m.cellPx, atlas = m.atlas;
-    const nouveau = m.idx, ancien = vieux.idx;
-    const nbDiag = cols + m.rgs - 1;
-    const compte = new Int32Array(nbDiag + 1);
-    let nb = 0;
-    for (let p = 0; p < nouveau.length; p++) {
-      if (ancien[p] !== nouveau[p]) { compte[(p % cols) + Math.floor(p / cols) + 1]++; nb++; }
-    }
-    if (!nb) return;
-    for (let d = 0; d < nbDiag; d++) compte[d + 1] += compte[d];
-    const ordre = new Int32Array(nb);
-    for (let p = 0; p < nouveau.length; p++) {
-      if (ancien[p] !== nouveau[p]) ordre[compte[(p % cols) + Math.floor(p / cols)]++] = p;
-    }
+    const ancien = vieux.idx, nouveau = m.idx;
+    const cols = m.cols, rgs = m.rgs, cp = m.cellPx;
+    const nbCases = cols * rgs;
     const jeton = Math.min(EMOJI_RETOURNEMENT_JETON_MS, EMOJI_RETOURNEMENT_MS);
-    const pas = (EMOJI_RETOURNEMENT_MS - jeton) / Math.max(1, nbDiag - 1);
-    function retard(p) { return ((p % cols) + Math.floor(p / cols)) * pas; }
-    function poser(p, face) {
-      ctx.drawImage(atlas, face[p] * cp, 0, cp, cp, (p % cols) * cp, Math.floor(p / cols) * cp, cp, cp);
-    }
+    let w = null, gl = null, raf = 0;
 
-    ctx.imageSmoothingEnabled = false;
-    for (let k = 0; k < nb; k++) poser(ordre[k], ancien);
-
-    let debut = 0, fin = 0, raf = 0;
-    const t0 = performance.now();
-    function image(now) {
-      const t = now - t0;
-      while (fin < nb && retard(ordre[fin]) <= t) fin++;
-      ctx.imageSmoothingEnabled = false;
-      while (debut < fin && retard(ordre[debut]) + jeton <= t) poser(ordre[debut++], nouveau);
-      ctx.imageSmoothingEnabled = true;
-      for (let k = debut; k < fin; k++) {
-        const p = ordre[k];
-        const avancement = (t - retard(p)) / jeton;
-        const largeur = Math.abs(Math.cos(avancement * Math.PI)) * cp;
-        const x = (p % cols) * cp, y = Math.floor(p / cols) * cp;
-        ctx.fillStyle = EMOJI_FOND;
-        ctx.fillRect(x, y, cp, cp);
-        if (largeur >= 0.5) {
-          ctx.drawImage(atlas, (avancement < 0.5 ? ancien : nouveau)[p] * cp, 0, cp, cp, x + (cp - largeur) / 2, y, largeur, cp);
-        }
-      }
-      if (debut < nb) raf = requestAnimationFrame(image); else c._finir = null;
-    }
-    c._finir = function () {
+    function nettoyer() {
       cancelAnimationFrame(raf);
-      ctx.imageSmoothingEnabled = false;
-      while (debut < nb) poser(ordre[debut++], nouveau);
+      if (gl) {
+        const perte = gl.getExtension("WEBGL_lose_context");
+        if (perte) perte.loseContext();
+      }
+      if (w) w.remove();
       c._finir = null;
-    };
-    raf = requestAnimationFrame(image);
+    }
+
+    try {
+      w = document.createElement("canvas");
+      w.width = cols * cp;
+      w.height = rgs * cp;
+      w.className = "melange-retournement";
+      w.style.position = "absolute";
+      w.style.left = c.style.left;
+      w.style.top = c.style.top;
+      w.style.width = c.style.width;
+      w.style.height = c.style.height;
+      w.style.pointerEvents = "none";
+      gl = w.getContext("webgl", { alpha: false, antialias: false });
+      const ext = gl && gl.getExtension("ANGLE_instanced_arrays");
+      if (!gl || !ext) throw new Error("WebGL indisponible");
+
+      const compiler = function (type, source) {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, source);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+        return sh;
+      };
+      const prog = gl.createProgram();
+      gl.attachShader(prog, compiler(gl.VERTEX_SHADER,
+        "attribute vec2 aCoin;\n" +
+        "attribute vec4 aCell;\n" +
+        "attribute float aDelay;\n" +
+        "uniform float uT;\n" +
+        "uniform float uJeton;\n" +
+        "uniform vec2 uGrille;\n" +
+        "uniform float uN;\n" +
+        "varying vec2 vUv;\n" +
+        "void main() {\n" +
+        "  float prog = clamp((uT - aDelay) / uJeton, 0.0, 1.0);\n" +
+        "  float larg = abs(cos(prog * 3.14159265));\n" +
+        "  float idx = prog < 0.5 ? aCell.z : aCell.w;\n" +
+        "  float px = aCell.x + 0.5 + (aCoin.x - 0.5) * larg;\n" +
+        "  float py = aCell.y + aCoin.y;\n" +
+        "  gl_Position = vec4(px / uGrille.x * 2.0 - 1.0, 1.0 - py / uGrille.y * 2.0, 0.0, 1.0);\n" +
+        "  vUv = vec2((idx + 0.01 + aCoin.x * 0.98) / uN, 0.01 + aCoin.y * 0.98);\n" +
+        "}\n"));
+      gl.attachShader(prog, compiler(gl.FRAGMENT_SHADER,
+        "#ifdef GL_FRAGMENT_PRECISION_HIGH\n" +
+        "precision highp float;\n" +
+        "#else\n" +
+        "precision mediump float;\n" +
+        "#endif\n" +
+        "varying vec2 vUv;\n" +
+        "uniform sampler2D uTex;\n" +
+        "void main() { gl_FragColor = texture2D(uTex, vUv); }\n"));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+      gl.useProgram(prog);
+
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, m.atlas);
+      gl.uniform1i(gl.getUniformLocation(prog, "uTex"), 0);
+      gl.uniform1f(gl.getUniformLocation(prog, "uJeton"), jeton);
+      gl.uniform2f(gl.getUniformLocation(prog, "uGrille"), cols, rgs);
+      gl.uniform1f(gl.getUniformLocation(prog, "uN"), m.atlas.width / cp);
+      const uT = gl.getUniformLocation(prog, "uT");
+
+      const coin = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, coin);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+      const aCoin = gl.getAttribLocation(prog, "aCoin");
+      gl.enableVertexAttribArray(aCoin);
+      gl.vertexAttribPointer(aCoin, 2, gl.FLOAT, false, 0, 0);
+
+      const pas = (EMOJI_RETOURNEMENT_MS - jeton) / Math.max(1, cols + rgs - 2);
+      const donnees = new Float32Array(nbCases * 5);
+      for (let p = 0; p < nbCases; p++) {
+        const x = p % cols, y = Math.floor(p / cols), o = p * 5;
+        donnees[o] = x;
+        donnees[o + 1] = y;
+        donnees[o + 2] = ancien[p];
+        donnees[o + 3] = nouveau[p];
+        donnees[o + 4] = ancien[p] === nouveau[p] ? 1e9 : (x + y) * pas;
+      }
+      const instances = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, instances);
+      gl.bufferData(gl.ARRAY_BUFFER, donnees, gl.STATIC_DRAW);
+      const aCell = gl.getAttribLocation(prog, "aCell");
+      gl.enableVertexAttribArray(aCell);
+      gl.vertexAttribPointer(aCell, 4, gl.FLOAT, false, 20, 0);
+      ext.vertexAttribDivisorANGLE(aCell, 1);
+      const aDelay = gl.getAttribLocation(prog, "aDelay");
+      gl.enableVertexAttribArray(aDelay);
+      gl.vertexAttribPointer(aDelay, 1, gl.FLOAT, false, 20, 16);
+      ext.vertexAttribDivisorANGLE(aDelay, 1);
+
+      const fond = /^#([0-9a-f]{6})$/i.exec(EMOJI_FOND);
+      const v = fond ? parseInt(fond[1], 16) : 0;
+      gl.clearColor(((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255, 1);
+      gl.viewport(0, 0, w.width, w.height);
+
+      const dessiner = function (t) {
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.uniform1f(uT, t);
+        ext.drawArraysInstancedANGLE(gl.TRIANGLE_STRIP, 0, 4, nbCases);
+      };
+      c.parentNode.appendChild(w);
+      dessiner(0);
+      const t0 = performance.now();
+      const image = function (now) {
+        const t = now - t0;
+        dessiner(t);
+        if (t < EMOJI_RETOURNEMENT_MS) raf = requestAnimationFrame(image); else nettoyer();
+      };
+      c._finir = nettoyer;
+      raf = requestAnimationFrame(image);
+      return true;
+    } catch (e) {
+      nettoyer();
+      return false;
+    }
   }
 
   function placerCanvasEmojis(c, cadre, gauche, haut, aw, ah) {
@@ -3263,9 +3347,10 @@
         placerCanvasEmojis(c, vitrine, img.offsetLeft, img.offsetTop, e.aw, e.ah);
         const ancienC = anciens[anciens.length - 1];
         const mn = c._mosaique, ma = ancienC && ancienC._mosaique;
-        if (EMOJI_RETOURNEMENT && !mouvementReduit.matches && mn && ma &&
-            ma.cols === mn.cols && ma.rgs === mn.rgs && ma.cellPx === mn.cellPx) {
+        const retourne = EMOJI_RETOURNEMENT && !mouvementReduit.matches && mn && ma &&
+          ma.cols === mn.cols && ma.rgs === mn.rgs && ma.cellPx === mn.cellPx &&
           lancerRetournement(c, ma);
+        if (retourne) {
           retirerCanvasEmojis(anciens);
         } else if (EMOJI_FONDU_MS > 0 && !mouvementReduit.matches && anciens.length) {
           c.style.opacity = "0";
@@ -4010,8 +4095,8 @@
       else if (cur.indexOf("00e676") !== -1) forme = "fleche-verte";
     }
     const c = document.createElement("canvas");
-    c.width = 48;
-    c.height = 48;
+    c.width = 24;
+    c.height = 24;
     const g = c.getContext("2d");
     let chaudX = 0;
     let chaudY = 0;
@@ -4061,9 +4146,9 @@
       g.stroke();
     } else {
       const rouge = forme === "fleche-rouge";
-      chaudX = 24;
-      chaudY = 24;
-      g.scale(1.5, 1.5);
+      chaudX = 12;
+      chaudY = 12;
+      g.scale(0.75, 0.75);
       const pts = rouge
         ? [[29, 12], [14, 12], [14, 5], [3, 16], [14, 27], [14, 20], [29, 20]]
         : [[3, 12], [18, 12], [18, 5], [29, 16], [18, 27], [18, 20], [3, 20]];
