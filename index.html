@@ -414,7 +414,7 @@
   }
   .zone-clic.gauche {
     left: 0;
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='29,12%2014,12%2014,5%203,16%2014,27%2014,20%2029,20'%20fill='%23ff1744'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 24 24, pointer;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='29,12%2014,12%2014,5%203,16%2014,27%2014,20%2029,20'%20fill='%23ff1744'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 24 24, pointer;
   }
   .zone-clic.gauche.vers-index {
     cursor: none;
@@ -434,7 +434,7 @@
   #curseur-index .lettre { display: inline-block; transition: color .25s ease; }
   .zone-clic.droite {
     right: 0;
-    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='3,12%2018,12%2018,5%2029,16%2018,27%2018,20%203,20'%20fill='%2300e676'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 24 24, pointer;
+    cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='48'%20height='48'%20viewBox='0%200%2032%2032'%3E%3Cpolygon%20points='3,12%2018,12%2018,5%2029,16%2018,27%2018,20%203,20'%20fill='%2300e676'%20stroke='%23ffffff'%20stroke-width='2.5'%20stroke-linejoin='round'%20paint-order='stroke'/%3E%3C/svg%3E") 24 24, pointer;
   }
 
   .vitrine { position: relative; display: block; max-width: 100%; }
@@ -2773,6 +2773,10 @@
   }
 
   const EMOJI_FONDU_MS = 0;
+  // REGLAGE : RETOURNEMENT DES EMOJIS ENTRE DEUX PHOTOS
+  const EMOJI_RETOURNEMENT = true;
+  const EMOJI_RETOURNEMENT_MS = 2000;
+  const EMOJI_RETOURNEMENT_JETON_MS = 500;
   const EMOJI_ECHELLE = 0.9;
   const EMOJI_CONTRASTE = true;
   const EMOJI_SATURATION = 1.25;
@@ -2904,6 +2908,7 @@
     const ctx = c.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
     const lab = atlas.lab, n = atlas.n;
+    const idx = new Uint16Array(nbCases);
     for (let y = 0; y < rgs; y++) {
       for (let x = 0; x < cols; x++) {
         const p = y * cols + x;
@@ -2915,6 +2920,7 @@
           const e = dl * dl + da * da + db * db;
           if (e < ecart) { ecart = e; meilleur = k; }
         }
+        idx[p] = meilleur;
         ctx.drawImage(atlas.canvas,
           meilleur * cellPx, 0, cellPx, cellPx,
           x * cellPx, y * cellPx, cellPx, cellPx);
@@ -2922,7 +2928,65 @@
     }
     c.className = "melange-canvas";
     c.dataset.taille = String(taille);
+    c._mosaique = { cols: cols, rgs: rgs, cellPx: cellPx, idx: idx, atlas: atlas.canvas };
     return c;
+  }
+
+  function lancerRetournement(c, vieux) {
+    const m = c._mosaique;
+    const ctx = c.getContext("2d");
+    const cols = m.cols, cp = m.cellPx, atlas = m.atlas;
+    const nouveau = m.idx, ancien = vieux.idx;
+    const nbDiag = cols + m.rgs - 1;
+    const compte = new Int32Array(nbDiag + 1);
+    let nb = 0;
+    for (let p = 0; p < nouveau.length; p++) {
+      if (ancien[p] !== nouveau[p]) { compte[(p % cols) + Math.floor(p / cols) + 1]++; nb++; }
+    }
+    if (!nb) return;
+    for (let d = 0; d < nbDiag; d++) compte[d + 1] += compte[d];
+    const ordre = new Int32Array(nb);
+    for (let p = 0; p < nouveau.length; p++) {
+      if (ancien[p] !== nouveau[p]) ordre[compte[(p % cols) + Math.floor(p / cols)]++] = p;
+    }
+    const jeton = Math.min(EMOJI_RETOURNEMENT_JETON_MS, EMOJI_RETOURNEMENT_MS);
+    const pas = (EMOJI_RETOURNEMENT_MS - jeton) / Math.max(1, nbDiag - 1);
+    function retard(p) { return ((p % cols) + Math.floor(p / cols)) * pas; }
+    function poser(p, face) {
+      ctx.drawImage(atlas, face[p] * cp, 0, cp, cp, (p % cols) * cp, Math.floor(p / cols) * cp, cp, cp);
+    }
+
+    ctx.imageSmoothingEnabled = false;
+    for (let k = 0; k < nb; k++) poser(ordre[k], ancien);
+
+    let debut = 0, fin = 0, raf = 0;
+    const t0 = performance.now();
+    function image(now) {
+      const t = now - t0;
+      while (fin < nb && retard(ordre[fin]) <= t) fin++;
+      ctx.imageSmoothingEnabled = false;
+      while (debut < fin && retard(ordre[debut]) + jeton <= t) poser(ordre[debut++], nouveau);
+      ctx.imageSmoothingEnabled = true;
+      for (let k = debut; k < fin; k++) {
+        const p = ordre[k];
+        const avancement = (t - retard(p)) / jeton;
+        const largeur = Math.abs(Math.cos(avancement * Math.PI)) * cp;
+        const x = (p % cols) * cp, y = Math.floor(p / cols) * cp;
+        ctx.fillStyle = EMOJI_FOND;
+        ctx.fillRect(x, y, cp, cp);
+        if (largeur >= 0.5) {
+          ctx.drawImage(atlas, (avancement < 0.5 ? ancien : nouveau)[p] * cp, 0, cp, cp, x + (cp - largeur) / 2, y, largeur, cp);
+        }
+      }
+      if (debut < nb) raf = requestAnimationFrame(image); else c._finir = null;
+    }
+    c._finir = function () {
+      cancelAnimationFrame(raf);
+      ctx.imageSmoothingEnabled = false;
+      while (debut < nb) poser(ordre[debut++], nouveau);
+      c._finir = null;
+    };
+    raf = requestAnimationFrame(image);
   }
 
   function placerCanvasEmojis(c, cadre, gauche, haut, aw, ah) {
@@ -3165,7 +3229,7 @@
     }
 
     function retirerCanvasEmojis(liste) {
-      liste.forEach(function (o) { o.remove(); });
+      liste.forEach(function (o) { if (o._finir) o._finir(); o.remove(); });
     }
 
     function afficherEmojis(cible, altTexte) {
@@ -3197,7 +3261,13 @@
         c.style.transition = "none";
         c.style.opacity = "1";
         placerCanvasEmojis(c, vitrine, img.offsetLeft, img.offsetTop, e.aw, e.ah);
-        if (EMOJI_FONDU_MS > 0 && !mouvementReduit.matches && anciens.length) {
+        const ancienC = anciens[anciens.length - 1];
+        const mn = c._mosaique, ma = ancienC && ancienC._mosaique;
+        if (EMOJI_RETOURNEMENT && !mouvementReduit.matches && mn && ma &&
+            ma.cols === mn.cols && ma.rgs === mn.rgs && ma.cellPx === mn.cellPx) {
+          lancerRetournement(c, ma);
+          retirerCanvasEmojis(anciens);
+        } else if (EMOJI_FONDU_MS > 0 && !mouvementReduit.matches && anciens.length) {
           c.style.opacity = "0";
           void c.offsetWidth;
           c.style.transition = "opacity " + EMOJI_FONDU_MS + "ms linear";
