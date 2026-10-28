@@ -2775,12 +2775,16 @@
   const EMOJI_FONDU_MS = 0;
   // REGLAGE : RETOURNEMENT DES EMOJIS ENTRE DEUX PHOTOS
   const EMOJI_RETOURNEMENT = true;
-  const EMOJI_RETOURNEMENT_MS = 5000;
-  const EMOJI_RETOURNEMENT_JETON_MS = 1000;
+  const EMOJI_RETOURNEMENT_MS = 4500;
+  const EMOJI_RETOURNEMENT_JETON_MS = 800;
+  const EMOJI_RETOURNEMENT_SENS = "horizontal";
+  const EMOJI_RETOURNEMENT_HASARD_MS = 900;
+  const EMOJI_RETOURNEMENT_SAUT = 0.35;
+  const EMOJI_RETOURNEMENT_OMBRE = 0.5;
   const EMOJI_ECHELLE = 0.9;
   const EMOJI_CONTRASTE = true;
   const EMOJI_SATURATION = 1.25;
-  const EMOJI_FOND = "#ffffff";
+  const EMOJI_FOND = "#111111";
   const EMOJI_PALETTE = [
     "🖤", "⬛", "⚫", "🌑",
     "🟫", "🤎", "🟤", "🧸",
@@ -2976,20 +2980,24 @@
       gl.attachShader(prog, compiler(gl.VERTEX_SHADER,
         "attribute vec2 aCoin;\n" +
         "attribute vec4 aCell;\n" +
-        "attribute float aDelay;\n" +
+        "attribute vec2 aTime;\n" +
         "uniform float uT;\n" +
-        "uniform float uJeton;\n" +
         "uniform vec2 uGrille;\n" +
         "uniform float uN;\n" +
+        "uniform float uSaut;\n" +
+        "uniform float uOmbre;\n" +
         "varying vec2 vUv;\n" +
+        "varying float vOmbre;\n" +
         "void main() {\n" +
-        "  float prog = clamp((uT - aDelay) / uJeton, 0.0, 1.0);\n" +
+        "  float prog = clamp((uT - aTime.x) / aTime.y, 0.0, 1.0);\n" +
         "  float larg = abs(cos(prog * 3.14159265));\n" +
+        "  float haut = 1.0 + uSaut * sin(prog * 3.14159265);\n" +
         "  float idx = prog < 0.5 ? aCell.z : aCell.w;\n" +
         "  float px = aCell.x + 0.5 + (aCoin.x - 0.5) * larg;\n" +
-        "  float py = aCell.y + aCoin.y;\n" +
+        "  float py = aCell.y + 0.5 + (aCoin.y - 0.5) * haut;\n" +
         "  gl_Position = vec4(px / uGrille.x * 2.0 - 1.0, 1.0 - py / uGrille.y * 2.0, 0.0, 1.0);\n" +
         "  vUv = vec2((idx + 0.01 + aCoin.x * 0.98) / uN, 0.01 + aCoin.y * 0.98);\n" +
+        "  vOmbre = 1.0 - uOmbre * (1.0 - larg);\n" +
         "}\n"));
       gl.attachShader(prog, compiler(gl.FRAGMENT_SHADER,
         "#ifdef GL_FRAGMENT_PRECISION_HIGH\n" +
@@ -2998,8 +3006,9 @@
         "precision mediump float;\n" +
         "#endif\n" +
         "varying vec2 vUv;\n" +
+        "varying float vOmbre;\n" +
         "uniform sampler2D uTex;\n" +
-        "void main() { gl_FragColor = texture2D(uTex, vUv); }\n"));
+        "void main() { gl_FragColor = vec4(texture2D(uTex, vUv).rgb * vOmbre, 1.0); }\n"));
       gl.linkProgram(prog);
       if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
       gl.useProgram(prog);
@@ -3012,7 +3021,8 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, m.atlas);
       gl.uniform1i(gl.getUniformLocation(prog, "uTex"), 0);
-      gl.uniform1f(gl.getUniformLocation(prog, "uJeton"), jeton);
+      gl.uniform1f(gl.getUniformLocation(prog, "uSaut"), EMOJI_RETOURNEMENT_SAUT);
+      gl.uniform1f(gl.getUniformLocation(prog, "uOmbre"), EMOJI_RETOURNEMENT_OMBRE);
       gl.uniform2f(gl.getUniformLocation(prog, "uGrille"), cols, rgs);
       gl.uniform1f(gl.getUniformLocation(prog, "uN"), m.atlas.width / cp);
       const uT = gl.getUniformLocation(prog, "uT");
@@ -3024,27 +3034,35 @@
       gl.enableVertexAttribArray(aCoin);
       gl.vertexAttribPointer(aCoin, 2, gl.FLOAT, false, 0, 0);
 
-      const pas = (EMOJI_RETOURNEMENT_MS - jeton) / Math.max(1, cols + rgs - 2);
-      const donnees = new Float32Array(nbCases * 5);
+      const balayage = Math.max(0, EMOJI_RETOURNEMENT_MS - EMOJI_RETOURNEMENT_HASARD_MS - jeton * 1.3);
+      const alea = function (n) {
+        const v = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+        return v - Math.floor(v);
+      };
+      const donnees = new Float32Array(nbCases * 6);
       for (let p = 0; p < nbCases; p++) {
-        const x = p % cols, y = Math.floor(p / cols), o = p * 5;
+        const x = p % cols, y = Math.floor(p / cols), o = p * 6;
+        const avance = EMOJI_RETOURNEMENT_SENS === "diagonale"
+          ? (x + y) / Math.max(1, cols + rgs - 2)
+          : x / Math.max(1, cols - 1);
         donnees[o] = x;
         donnees[o + 1] = y;
         donnees[o + 2] = ancien[p];
         donnees[o + 3] = nouveau[p];
-        donnees[o + 4] = ancien[p] === nouveau[p] ? 1e9 : (x + y) * pas;
+        donnees[o + 4] = ancien[p] === nouveau[p] ? 1e9 : avance * balayage + alea(p) * EMOJI_RETOURNEMENT_HASARD_MS;
+        donnees[o + 5] = jeton * (0.7 + 0.6 * alea(p + 7919));
       }
       const instances = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, instances);
       gl.bufferData(gl.ARRAY_BUFFER, donnees, gl.STATIC_DRAW);
       const aCell = gl.getAttribLocation(prog, "aCell");
       gl.enableVertexAttribArray(aCell);
-      gl.vertexAttribPointer(aCell, 4, gl.FLOAT, false, 20, 0);
+      gl.vertexAttribPointer(aCell, 4, gl.FLOAT, false, 24, 0);
       ext.vertexAttribDivisorANGLE(aCell, 1);
-      const aDelay = gl.getAttribLocation(prog, "aDelay");
-      gl.enableVertexAttribArray(aDelay);
-      gl.vertexAttribPointer(aDelay, 1, gl.FLOAT, false, 20, 16);
-      ext.vertexAttribDivisorANGLE(aDelay, 1);
+      const aTime = gl.getAttribLocation(prog, "aTime");
+      gl.enableVertexAttribArray(aTime);
+      gl.vertexAttribPointer(aTime, 2, gl.FLOAT, false, 24, 16);
+      ext.vertexAttribDivisorANGLE(aTime, 1);
 
       const fond = /^#([0-9a-f]{6})$/i.exec(EMOJI_FOND);
       const v = fond ? parseInt(fond[1], 16) : 0;
