@@ -3076,11 +3076,12 @@
       };
       c.parentNode.appendChild(w);
       dessiner(0);
-      const t0 = performance.now();
+      let temps = 0, dernier = 0;
       const image = function (now) {
-        const t = now - t0;
-        dessiner(t);
-        if (t < EMOJI_RETOURNEMENT_MS) raf = requestAnimationFrame(image); else nettoyer();
+        if (dernier) temps += Math.min(now - dernier, 50);
+        dernier = now;
+        dessiner(temps);
+        if (temps < EMOJI_RETOURNEMENT_MS) raf = requestAnimationFrame(image); else nettoyer();
       };
       c._finir = nettoyer;
       raf = requestAnimationFrame(image);
@@ -3383,7 +3384,8 @@
         } else {
           retirerCanvasEmojis(anciens);
         }
-        setTimeout(precalculerVoisinsEmojis, 150);
+        clearTimeout(img._timerVoisins);
+        img._timerVoisins = setTimeout(precalculerVoisinsEmojis, retourne ? EMOJI_RETOURNEMENT_MS + 300 : 150);
       });
     }
     function precalculerVoisinsEmojis() {
