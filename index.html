@@ -2939,9 +2939,10 @@
 
   function lancerRetournement(c, vieux, sens, apresFin) {
     const m = c._mosaique;
-    const ancien = vieux.idx, nouveau = m.idx;
     const cols = m.cols, rgs = m.rgs, cp = m.cellPx;
     const nbCases = cols * rgs;
+    const nouveau = m.idx;
+    const ancien = vieux ? vieux.idx : new Int16Array(nbCases).fill(-1);
     const jeton = Math.min(EMOJI_RETOURNEMENT_JETON_MS, EMOJI_RETOURNEMENT_MS);
     let w = null, gl = null, raf = 0;
 
@@ -2989,6 +2990,7 @@
         "uniform float uOmbre;\n" +
         "varying vec2 vUv;\n" +
         "varying float vOmbre;\n" +
+        "varying float vVide;\n" +
         "void main() {\n" +
         "  float prog = clamp((uT - aTime.x) / aTime.y, 0.0, 1.0);\n" +
         "  float larg = abs(cos(prog * 3.14159265));\n" +
@@ -2999,6 +3001,7 @@
         "  gl_Position = vec4(px / uGrille.x * 2.0 - 1.0, 1.0 - py / uGrille.y * 2.0, 0.0, 1.0);\n" +
         "  vUv = vec2((idx + 0.01 + aCoin.x * 0.98) / uN, 0.01 + aCoin.y * 0.98);\n" +
         "  vOmbre = 1.0 - uOmbre * (1.0 - larg);\n" +
+        "  vVide = idx < -0.5 ? 1.0 : 0.0;\n" +
         "}\n"));
       gl.attachShader(prog, compiler(gl.FRAGMENT_SHADER,
         "#ifdef GL_FRAGMENT_PRECISION_HIGH\n" +
@@ -3008,8 +3011,13 @@
         "#endif\n" +
         "varying vec2 vUv;\n" +
         "varying float vOmbre;\n" +
+        "varying float vVide;\n" +
         "uniform sampler2D uTex;\n" +
-        "void main() { gl_FragColor = vec4(texture2D(uTex, vUv).rgb * vOmbre, 1.0); }\n"));
+        "uniform vec3 uFond;\n" +
+        "void main() {\n" +
+        "  vec3 col = vVide > 0.5 ? uFond : texture2D(uTex, vUv).rgb;\n" +
+        "  gl_FragColor = vec4(col * vOmbre, 1.0);\n" +
+        "}\n"));
       gl.linkProgram(prog);
       if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
       gl.useProgram(prog);
@@ -3070,6 +3078,7 @@
       const fond = /^#([0-9a-f]{6})$/i.exec(EMOJI_FOND);
       const v = fond ? parseInt(fond[1], 16) : 0;
       gl.clearColor(((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255, 1);
+      gl.uniform3f(gl.getUniformLocation(prog, "uFond"), ((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255);
       gl.viewport(0, 0, w.width, w.height);
 
       const dessiner = function (t) {
@@ -3374,9 +3383,10 @@
         placerCanvasEmojis(c, vitrine, img.offsetLeft, img.offsetTop, e.aw, e.ah);
         const ancienC = anciens[anciens.length - 1];
         const mn = c._mosaique, ma = ancienC && ancienC._mosaique;
-        const retourne = EMOJI_RETOURNEMENT && !mouvementReduit.matches && mn && ma &&
-          ma.cols === mn.cols && ma.rgs === mn.rgs && ma.cellPx === mn.cellPx &&
-          lancerRetournement(c, ma, img._sensRetournement || 1, planifierVoisinsEmojis);
+        const retourne = EMOJI_RETOURNEMENT && !mouvementReduit.matches && mn && (ancienC
+          ? ma && ma.cols === mn.cols && ma.rgs === mn.rgs && ma.cellPx === mn.cellPx &&
+            lancerRetournement(c, ma, img._sensRetournement || 1, planifierVoisinsEmojis)
+          : lancerRetournement(c, null, 1, planifierVoisinsEmojis));
         if (retourne) {
           retirerCanvasEmojis(anciens);
         } else if (EMOJI_FONDU_MS > 0 && !mouvementReduit.matches && anciens.length) {
