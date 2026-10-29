@@ -216,9 +216,7 @@ const SERIES = [
 		  "test25.jpg",
 		  "test26.jpg",
 		  "test27.jpg",
-		  "test28.jpg",
-		  "test29.jpg",
-		  "test30.jpg",
+		  "test28.jpg"
 	  ]
   },
   {
