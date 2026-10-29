@@ -187,7 +187,7 @@ const SERIES = [
     ]
   },
   {
-    titre: "Test",
+    titre: "Homes",
 	  dossier: "test", images: [
 	  	"test1.jpg",
 		  "test2.jpg",
@@ -220,42 +220,6 @@ const SERIES = [
 		  "test29.jpg",
 		  "test30.jpg",
 	  ]
-  },
-  {
-    titre: "Homes",
-    dossier: "homes",
-    images: [
-      "house1.jpg",
-      "house2.jpg",
-      "house3.jpg",
-      "house4.jpg",
-      "house5.jpg",
-      "house6.jpg",
-      "house7.jpg",
-      "house8.jpg",
-      "house9.jpg",
-      "house10.jpg",
-      "house11.jpg",
-      "house12.jpg",
-      "house13.jpg",
-      "house14.jpg",
-      "house15.jpg",
-      "house16.jpg",
-      "house17.jpg",
-      "house18.jpg",
-      "house19.jpg",
-      "house20.jpg",
-      "house21.jpg",
-      "house22.jpg",
-      "house23.jpg",
-      "house24.jpg",
-      "house25.jpg",
-      "house26.jpg",
-      "house27.jpg",
-      "house28.jpg",
-      "house29.jpg",
-      "house30.jpg",
-    ]
   },
   {
     titre: "Journaux",
