@@ -171,7 +171,7 @@ const SERIES = [
     ]
   },
   {
-    titre: "Le maître des pages",
+    titre: "Pagemaster",
     dossier: "milk",
     images: [
       "milk1.jpg",
@@ -218,13 +218,6 @@ const SERIES = [
 		  "test27.jpg",
 		  "test28.jpg"
 	  ]
-  },
-  {
-    titre: "Journaux",
-    sous: [
-      { titre: "Journal #1", dossier: "journal-1", images: [] },
-      { titre: "Journal #2", dossier: "journal-2", images: [] }
-    ]
   },
   {
     titre: "Auto-editions",
