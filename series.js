@@ -220,6 +220,25 @@ const SERIES = [
 	  ]
   },
   {
+    titre: "La maison vide",
+	  dossier: "lamaisonvide", images: [
+	  	"test1.jpg",
+		  "lamaisonvide01.jpg",
+		  "lamaisonvide02.jpg",
+		  "lamaisonvide03.jpg",
+		  "lamaisonvide04.jpg",
+		  "lamaisonvide05.jpg",
+		  "lamaisonvide06.jpg",
+		  "lamaisonvide07.jpg",
+		  "lamaisonvide08.jpg",
+		  "lamaisonvide09.jpg",
+		  "lamaisonvide10.jpg",
+		  "lamaisonvide11.jpg",
+		  "lamaisonvide12.jpg",
+		  "lamaisonvide13.jpg",
+	  ]
+  },
+  {
     titre: "Auto-editions",
     sous: [
       {
