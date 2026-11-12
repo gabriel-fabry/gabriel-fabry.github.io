@@ -222,7 +222,6 @@ const SERIES = [
   {
     titre: "La maison vide",
 	  dossier: "lamaisonvide", images: [
-	  	"test1.jpg",
 		  "lamaisonvide01.jpg",
 		  "lamaisonvide02.jpg",
 		  "lamaisonvide03.jpg",
